@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Marpeap Voice Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 25px;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            gap: 10px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: monospace;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-error {
+            background: #fed7d7;
+            color: #c53030;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.success {
+            display: block;
+            background: #c6f6d5;
+            color: #22543d;
+            border-left: 4px solid #48bb78;
+        }
+
+        .alert.error {
+            display: block;
+            background: #fed7d7;
+            color: #c53030;
+            border-left: 4px solid #f56565;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 15px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #718096;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: #f7fafc;
+            color: #4a5568;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            opacity: 0.8;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎛️ Dashboard Voice Agent</h1>
+            <p>Configuration et monitoring — Marpeap Digitals</p>
+        </header>
+
+        <div id="alert-box" class="alert"></div>
+
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('api')">🔑 API Keys</button>
+                <button class="tab" onclick="showTab('agent')">🎙️ Agent</button>
+                <button class="tab" onclick="showTab('status')">📊 Status</button>
+            </div>
+
+            <!-- Tab 1: API Keys -->
+            <div id="tab-api" class="tab-content active">
+                <h2>Configuration API</h2>
+                
+                <div class="form-group">
+                    <label>Retell API Key</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="retell-key" placeholder="sk-retell-...">
+                        <button class="btn btn-secondary" onclick="toggleVisibility('retell-key')">👁️</button>
+                        <button class="btn btn-secondary" onclick="testRetell()">🔄 Tester</button>
+                    </div>
+                    <small id="retell-status" style="color: #718096;">Non configuré</small>
+                </div>
+
+                <div class="form-group">
+                    <label>ElevenLabs API Key</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="elevenlabs-key" placeholder="sk_...">
+                        <button class="btn btn-secondary" onclick="toggleVisibility('elevenlabs-key')">👁️</button>
+                        <button class="btn btn-secondary" onclick="testElevenLabs()">🔄 Tester</button>
+                    </div>
+                    <small id="elevenlabs-status" style="color: #718096;">Non configuré</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Agent ID (Retell)</label>
+                    <input type="text" id="agent-id" placeholder="agent_...">
+                </div>
+            </div>
+
+            <!-- Tab 2: Agent -->
+            <div id="tab-agent" class="tab-content">
+                <h2>Personnalisation Agent</h2>
+                
+                <div class="form-group">
+                    <label>Nom de l'agent</label>
+                    <input type="text" id="agent-name" value="Sarah">
+                </div>
+
+                <div class="form-group">
+                    <label>Entreprise</label>
+                    <input type="text" id="agent-company" value="Marpeap Digitals">
+                </div>
+
+                <div class="form-group">
+                    <label>Prompt Système</label>
+                    <textarea id="agent-prompt" placeholder="Tu es {name}, assistant pour {company}...">Tu es {name}, assistant téléphonique pour {company}.
+
+MISSION :
+Répondre aux appels de manière professionnelle et chaleureuse.
+
+STYLE :
+- Français naturel, sans accent
+- Concis (1-2 phrases)
+- Empathique et rassurante
+- Jamais de jargon technique</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Voix (Voice ID)</label>
+                    <input type="text" id="voice-id" placeholder="ID de la voix ElevenLabs">
+                    <small style="color: #718096;">Testez ElevenLabs pour voir les voix disponibles</small>
+                </div>
+            </div>
+
+            <!-- Tab 3: Status -->
+            <div id="tab-status" class="tab-content">
+                <h2>Status & Actions</h2>
+                
+                <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">🚀 Actions Serveur</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-success" onclick="restartServer()">
+                            🔄 Redémarrer Serveur
+                        </button>
+                        <button class="btn btn-primary" onclick="loadConfig()">
+                            📝 Charger Config Actuelle
+                        </button>
+                    </div>
+                </div>
+
+                <div style="background: #f7fafc; padding: 20px; border-radius: 10px;">
+                    <h3 style="margin-bottom: 15px;">ℹ️ Informations</h3>
+                    <p><strong>Fichier .env:</strong> <span id="env-path">/var/www/marpeap.com/retell-agent/.env</span></p>
+                    <p><strong>Backups:</strong> <span id="backups-list">Aucun</span></p>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" onclick="saveConfig()">
+                    💾 Sauvegarder & Redémarrer
+                </button>
+                <button class="btn btn-secondary" onclick="resetForm()">
+                    ↩️ Réinitialiser
+                </button>
+            </div>
+        </div>
+
+        <footer>
+            <p>© 2026 Marpeap Digitals — Dashboard v2.0</p>
+        </footer>
+    </div>
+
+    <script>
+        // ========== UTILITAIRES ==========
+        
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        function toggleVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function showAlert(message, type = 'success') {
+            const box = document.getElementById('alert-box');
+            box.textContent = message;
+            box.className = `alert ${type}`;
+            setTimeout(() => box.className = 'alert', 5000);
+        }
+
+        function setLoading(button, loading = true) {
+            if (loading) {
+                button.dataset.originalText = button.innerHTML;
+                button.innerHTML = '<span class="spinner"></span>';
+                button.disabled = true;
+            } else {
+                button.innerHTML = button.dataset.originalText;
+                button.disabled = false;
+            }
+        }
+
+        // ========== API CALLS ==========
+
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+            if (body) options.body = JSON.stringify(body);
+            
+            const response = await fetch(`/api${endpoint}`, options);
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error);
+            }
+            return response.json();
+        }
+
+        // ========== FONCTIONNALITÉS ==========
+
+        async function loadConfig() {
+            try {
+                const data = await apiCall('/config');
+                
+                // Remplir les champs
+                document.getElementById('agent-name').value = data.agent.name;
+                document.getElementById('agent-company').value = data.agent.company;
+                document.getElementById('agent-prompt').value = data.agent.prompt;
+                document.getElementById('agent-id').value = data.retell.agent_id;
+                document.getElementById('voice-id').value = data.elevenlabs.voice_id;
+                
+                // Status
+                document.getElementById('retell-status').textContent = 
+                    data.retell.configured ? `✅ Configuré (${data.retell.key_preview})` : '❌ Non configuré';
+                document.getElementById('elevenlabs-status').textContent = 
+                    data.elevenlabs.configured ? `✅ Configuré (${data.elevenlabs.key_preview})` : '❌ Non configuré';
+                
+                showAlert('Configuration chargée', 'success');
+            } catch (error) {
+                showAlert('Erreur chargement: ' + error.message, 'error');
+            }
+        }
+
+        async function testRetell() {
+            const btn = event.target;
+            setLoading(btn);
+            
+            try {
+                const key = document.getElementById('retell-key').value;
+                const data = await apiCall('/test/retell', 'POST', { api_key: key });
+                
+                document.getElementById('retell-status').textContent = 
+                    `✅ Connecté (${data.latency_ms}ms) — ${data.agents_count} agents`;
+                showAlert('Retell: Connexion OK', 'success');
+            } catch (error) {
+                document.getElementById('retell-status').textContent = '❌ Erreur connexion';
+                showAlert('Retell: ' + error.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function testElevenLabs() {
+            const btn = event.target;
+            setLoading(btn);
+            
+            try {
+                const key = document.getElementById('elevenlabs-key').value;
+                const data = await apiCall('/test/elevenlabs', 'POST', { api_key: key });
+                
+                const voicesText = data.voices.map(v => v.name).join(', ');
+                document.getElementById('elevenlabs-status').textContent = 
+                    `✅ ${data.french_voices} voix FR disponibles`;
+                showAlert('ElevenLabs: ' + voicesText, 'success');
+            } catch (error) {
+                document.getElementById('elevenlabs-status').textContent = '❌ Erreur connexion';
+                showAlert('ElevenLabs: ' + error.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function saveConfig() {
+            const btn = document.querySelector('.btn-primary');
+            setLoading(btn);
+            
+            try {
+                const config = {
+                    retell_api_key: document.getElementById('retell-key').value,
+                    elevenlabs_api_key: document.getElementById('elevenlabs-key').value,
+                    agent_id: document.getElementById('agent-id').value,
+                    agent_name: document.getElementById('agent-name').value,
+                    agent_company: document.getElementById('agent-company').value,
+                    agent_prompt: document.getElementById('agent-prompt').value,
+                    voice_id: document.getElementById('voice-id').value
+                };
+                
+                // Sauvegarder
+                await apiCall('/config', 'POST', config);
+                showAlert('Configuration sauvegardée', 'success');
+                
+                // Redémarrer
+                const restartData = await apiCall('/restart', 'POST');
+                showAlert('Serveur redémarré avec succès', 'success');
+                
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function restartServer() {
+            if (!confirm('Redémarrer le serveur voice ?')) return;
+            
+            try {
+                const data = await apiCall('/restart', 'POST');
+                showAlert('Serveur redémarré', 'success');
+            } catch (error) {
+                showAlert('Erreur redémarrage: ' + error.message, 'error');
+            }
+        }
+
+        function resetForm() {
+            if (confirm('Réinitialiser le formulaire ?')) {
+                document.querySelectorAll('input, textarea').forEach(el => el.value = '');
+            }
+        }
+
+        // Chargement initial
+        document.addEventListener('DOMContentLoaded', loadConfig);
+    </script>
+</body>
+</html>
