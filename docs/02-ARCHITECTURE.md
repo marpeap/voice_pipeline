@@ -9,7 +9,7 @@
 
 **Trois frontières décident de tout le reste :**
 
-1. **L'inférence sort de la machine.** Le VPS porte la téléphonie et l'orchestration (~90 Mo/session mesurés), jamais les modèles (plancher S2S : 16 Go de VRAM). Tout fournisseur STT/LLM/TTS est **derrière une interface**, choisi par configuration de tenant — c'est ce qui rendra le rapatriement progressif possible (LLM → STT → TTS) sans réécriture.
+1. **L'inférence sort de la machine.** Le VPS porte la téléphonie et l'orchestration, jamais les modèles (plancher S2S : 16 Go de VRAM). ⚠️ **Mais la capacité est bien plus faible qu'estimé au départ** : Pipecat Cloud dimensionne **1 Go pour UNE session vocale**, LiveKit ≈ 320 Mo/session — **1 Go = un appel simultané** (correction A4 ; le chiffre de 90 Mo venait d'un test sans STT, LLM ni TTS). Tout fournisseur STT/LLM/TTS est **derrière une interface**, choisi par configuration de tenant — c'est ce qui rendra le rapatriement progressif possible (LLM → STT → TTS) sans réécriture.
 2. **La logique vit dans des paquets, jamais dans un script hébergé.** C'est ce qui rend possibles simultanément le loader web, le custom element, le wrapper React et — plus tard — l'extension MV3, **qui interdit le code distant**.
 3. **Le LLM ne touche jamais la base.** Il n'appelle que des outils typés, au périmètre étroit, validés côté serveur. Il n'existe aucune fonction de listage global : elle n'est pas restreinte, **elle n'existe pas**.
 
