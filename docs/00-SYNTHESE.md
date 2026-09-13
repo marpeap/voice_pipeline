@@ -121,6 +121,18 @@ Détail : `docs/recherche2/A1-llm-et-dialogue.md`.
 5. **Ajouter un outil coûte des tokens** : la seule présence d'outils ajoute 496 à 588 tokens de prompt caché chez Anthropic. À compter dans le préfixe.
 6. **Recommandation** : prompt long et figé (4 200–5 000 tokens, ordre Vapi), outils immuables, **toute variable placée après la rupture de cache** ; deux pistes à départager par mesure — UE stricte (Scaleway Mistral Small, OVHcloud) ou qualité d'outillage (gpt-5-mini via `eu.api.openai.com`). **Groq écarté** pour cette charge (remise de 50 % seulement, cache limité à trois modèles).
 
+### A2 — STT et TTS français en API
+Détail : `docs/recherche2/A2-stt-tts-francais.md`.
+
+1. **Le piège de facturation est confirmé noir sur blanc.** AssemblyAI : « billed on the total duration that your WebSocket connection stays open, **not on the amount of audio you send** ». Idem pour la Voice Agent API de Deepgram. Les silences se paient. Le STT Deepgram seul, lui, reste facturé à la minute d'audio.
+2. **Azure est le seul fournisseur à documenter `say-as` comme valide en français**, avec `number_digit` et surtout `alphanumeric format="spell"` **où le tiret force la pause** (`AB-CD-EF` → « A B ⟨pause⟩ C D ⟨pause⟩ E F »). C'est exactement le groupement par deux exigé pour relire un numéro de téléphone. **Argument décisif en faveur d'Azure côté TTS.**
+3. **Google Chirp 3 HD est disqualifié pour notre usage** : « SSML tags are not currently supported for streaming requests ». On ne peut pas avoir `say-as` **et** le streaming — or nous avons besoin des deux dans la même phrase.
+4. **Deepgram ne détecte aucune entité PII en français** (« English only, even when you request `true` ») ; seule la rédaction de nombres fonctionne. L'anonymisation des noms devra être faite chez nous.
+5. **Le piège des nombres français n'est documenté par personne.** Aucun fournisseur ne dit un mot sur « quatre-vingt-dix-huit », ni sur septante/nonante. **Décision : ne pas déléguer la normalisation au STT** pour les numéros, dates et heures — récupérer le texte en lettres et le parser avec une grammaire française déterministe. Le mode d'échec attendu est un **bug de post-traitement** (`4 20 12`), pas une erreur acoustique.
+6. **Deux éliminations sur les chiffres du fournisseur lui-même** : Speechmatics (plancher `max_delay` à 0,7 s, soit 3,5× notre cible) et Deepgram Aura-2 (616 ms de TTFB en exemple, sans garantie) — malgré ses deux voix françaises nommées.
+7. **Coût des assemblages** (hypothèses écrites : 14 car./s, 35 % de parole agent, socket ouverte pendant tout l'appel) : qualité maximale Azure + Azure HD **0,0233 $/min** · équilibre Deepgram Nova-3 + Rime Mist v3 **0,0148 $/min** · coût minimal AssemblyAI EU + Azure Neural **0,0070 $/min**, ⚠️ **conditionné** à la confirmation du support du français par Universal-Streaming (pages 404) ; repli Deepgram + Azure à 0,0103 $/min.
+8. **Trois cibles du cahier des charges restent non tranchables sur documentation** : aucune latence de finalisation p95 publiée, aucun WER français 8 kHz, et seuls Rime (« bien sous 100 ms ») et ElevenLabs Flash (« ~75 ms ») publient un TTFB.
+
 ---
 
 ## 6. Dette de recherche (à ne pas présenter comme acquis)
