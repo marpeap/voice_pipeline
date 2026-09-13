@@ -75,6 +75,8 @@ Règles de conception du questionnaire, toutes sourcées dans `R5 §5` :
 - **Pas de mot de passe au milieu du parcours** : c'est statistiquement le champ le plus coûteux (Zuko, 1 362 formulaires : **10,50 %** d'abandon moyen, 7,2 s de saisie, contre 6,41 % pour l'e-mail). Lien magique ou code à usage unique.
 - **Score de complétude affiché en permanence**, qui dit *ce que l'agent ne saura pas faire* tant que ce n'est pas rempli — pas un pourcentage abstrait.
 
+> **Mise à jour du 13/09 au soir, après A6** : le pack coiffure est écrit (`docs/recherche2/A6-metier-salon.md`), 5 blocs et ~35 questions, **jamais plus de 5 options par question, toujours un défaut pré-coché**. Trois règles en sont issues : la **grille d'agenda est au pas de 5 minutes** (100 % des durées mesurées sont multiples de 5, 68,6 % seulement de 15) ; les deux parcours à soigner en premier sont **« comme la dernière fois »** et **le report tardif**, pas la prise de rendez-vous nue ; et le questionnaire doit demander **la pause déjeuner avant le temps de pose** — l'absence de pause est le seul défaut que le client *entend*, l'agent promettant un créneau qui n'existe pas.
+
 **Packs sectoriels** (un JSON par métier) : coiffure/beauté, restaurant, artisan-dépannage, santé, auto. Chaque pack porte questions, valeurs par défaut, vocabulaire (keyterms), FAQ type, règles d'escalade recommandées. Dialzara en a fait un actif marketing en les publiant **avant achat** (`R4 §B.1` patron 6) : le prospect voit le travail déjà fait. À copier.
 
 ---
@@ -129,6 +131,7 @@ Une permanente bloque deux heures.
 - **Pas de collecte d'e-mail par la voix.**
 - **Pas de commande / paiement dans l'appel** au premier lot. Le seul retour d'exploitant positif et nommé de toute la collecte utilisait l'agent **pour la réservation uniquement, jamais pour les commandes**.
 - **Pas d'enregistrement audio par défaut** — transcription seule (modèle Fresha : transcription par défaut, enregistrement en option).
+- **L'agent ne déclenche jamais une pénalité d'annulation.** Chez Planity comme chez Fresha, c'est une décision humaine — et le Code de la consommation (L214-1) présume que les sommes versées sont des **arrhes**, dont le non-respect par le professionnel coûte **le double**. Le script dit exactement le mot que le gérant a paramétré, jamais « acompte » par confort de langage.
 
 ---
 
