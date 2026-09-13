@@ -24,7 +24,7 @@
 5. **L'onboarding téléphonique tient en moins de 2 minutes** — renvoi d'appel **sur non-réponse** avec codes MMI pré-remplis par opérateur, à condition de **pré-acheter les numéros 09 par lots** pour sortir le KYC du parcours client. Total d'onboarding chronométré : **8 à 15 minutes**. [R, R3 §7]
 6. **L'agent doit fonctionner sans connaître le numéro de l'appelant.** L'ARCEP recommande explicitement le masquage du CLI quand l'authentification MAN ne suit pas un renvoi. Contrainte de conception, pas cas limite — et elle entre en tension avec le cloisonnement par numéro appelant (§4 ci-dessous). [F, R3 §2]
 7. **Annoncer l'IA est obligatoire et rentable.** AI Act art. 50 §1 **applicable depuis le 02/08/2026** (non repoussé par l'omnibus numérique). Et le verbatim le plus net de toute la collecte d'avis dit la même chose : *« Complaints basically stopped once we made it announce it was automated in the first breath. People forgive a robot for being a robot, they don't forgive it for pretending. »* [F + V-Reddit, R3 §5, R4 §C.2]
-8. **Le démarchage est en opt-in depuis le 11/08/2026**, Bloctel supprimé. Toute fonction d'appel **sortant** doit être bornée au contrat en cours (confirmation, rappel de RDV existant, report après annulation). Vendre « l'IA rappelle vos anciens clients » à un commerçant français, c'est lui vendre un risque juridique. [T→à valider juridiquement, R3 §5, R4 §3.3]
+8. **Le démarchage est en opt-in depuis le 11/08/2026**, Bloctel supprimé. ⚠️ **Référence corrigée par A5** : c'est la **loi n° 2025-594 du 30 juin 2025, art. 13** (et non un décret du 25/07/2026). Toute fonction d'appel **sortant** doit être bornée au contrat en cours. **Et A5 resserre encore** : **relancer un client dormant est de la prospection**, parce qu'un contrat *exécuté* n'est plus « en cours » — opt-in R223-1, consentement ≤ 1 an, preuve 3 ans, créneaux 10h-13h/14h-20h du lundi au vendredi, 4 tentatives max sur 30 jours. [F, A5]
 9. **Planity n'a aucune offre de réception d'appels IA** — ni page produit, ni prix publiés. Fresha (94,95 €/site/mois), Boulevard (125 $/200 min) et Zenoti l'ont industrialisée. **Aucun produit clé en main anglo-saxon ne parle français** ; les startups FR (Tala 29 €, Sylen 49 €, Elio 79 €, Kronos 249 €, Vokai 299 €) parlent français mais **ne sont greffées sur aucun logiciel de réservation**. [F, R4 §1, §2, §3.1]
 10. **2026 est l'année du durcissement des licences.** Piper est passé MIT → **GPL-3.0** ; le turn-detector LiveKit est sous licence propriétaire **utilisable uniquement dans LiveKit Agents** ; TEN VAD/Framework portent une clause de non-concurrence Agora ; **jambonz v11+ exige une clé commerciale** en auto-hébergement ; `mod_audio_stream` bidirectionnel est payant ; XTTS-v2 (CPML) est **juridiquement mort** pour un produit facturé. [F, R1 §4.3, §8.5]
 
@@ -57,7 +57,7 @@
 | Couche | Choix | Licence | Raison |
 |---|---|---|---|
 | Téléphonie | **Asterisk 22 LTS + AudioSocket** | GPL-2.0 | La plus frugale ; AudioSocket = TCP, header 3 octets. FreeSWITCH écarté : voie bidirectionnelle libre morte (`mod_audio_fork` → 404) ou payante |
-| Numéro / trunk | **Telnyx** principal, **OVHcloud** second, **Zadarma** (2 €/mois, entrants gratuits, 3 canaux) pour les essais | — | Seuls avec API d'achat FR + grille publique |
+| Numéro / trunk | **Telnyx** principal. ⚠️ **OVHcloud écarté** : A5 a lu ses conditions — l'offre de téléphonie de détail **interdit contractuellement** les robots d'appels, les automates, le partage SIP, plus d'un utilisateur par compte SIP et la revente. **Zadarma** (2 €/mois, entrants gratuits) reste pour les essais, sous réserve de la même vérification contractuelle | — | Le droit d'usage prime sur la grille tarifaire |
 | Orchestration | **Pipecat** | BSD-2 | Plus permissif qu'Apache-2.0, le mieux outillé pour les modèles locaux, v1.10.0 du 12/09/2026 |
 | VAD | **Silero VAD v6** (1,2 Mo, < 1 ms/chunk) | MIT | Aucun concurrent sérieux |
 | Endpointing | **Smart Turn v3.1** (8 Mo, 12–60 ms CPU, FR couvert) | BSD-2 | Le seul endpointing sémantique réellement libre (poids + données + entraînement) |
@@ -179,9 +179,22 @@ Détail : `docs/recherche2/A4-exploitation-securite.md` (configuration de réfé
 
 ---
 
+### A5 — Conformité opérationnelle
+Détail : `docs/recherche2/A5-conformite-operationnelle.md` — **41 livrables** (13 documents, 7 mentions et scripts, 16 réglages produit, 5 arbitrages) et **8 points à faire trancher par un avocat**, par ordre d'urgence.
+
+1. ⚠️ **Cinq références que je lui avais données étaient fausses**, corrigées preuve à l'appui : la loi démarchage est la **n° 2025-594 du 30 juin 2025, art. 13** · **la déclaration Arcep L33-1 n'existe plus** depuis l'ordonnance n° 2021-650 du 26 mai 2021 · le MAN est au **IV de l'art. L44**, en vigueur **depuis le 25 juillet 2023** · les mentions légales relèvent de l'**art. 1-1 de la LCEN** (loi SREN) · et **le « référentiel CNIL du 2 avril 2026 sur les enregistrements d'appels » n'existe pas**.
+2. **Le Digital Omnibus IA est adopté** — règlement (UE) **2026/1744 du 8 juillet 2026**, en vigueur le 27 juillet. Il **ne reporte pas** l'article 50, applicable **depuis le 2 août 2026**. Seule transitoire : le **marquage lisible par machine (§2) dû au 2 décembre 2026** pour les systèmes déjà sur le marché.
+3. **L'annonce IA pèse sur l'éditeur, pas sur le client.** C'est une obligation **de conception**, non transférable par CGV — donc `annonce_ia: true # non désactivable` est juridiquement juste, et notre refus de le rendre optionnel est fondé. Sanction : 15 M€ / 3 %, **mais plafonnée au plus faible pour une PME** (art. 99 §6) : 3 % du chiffre d'affaires, pas 15 M€.
+4. **Le marquage lisible par machine s'applique à une voix TTS temps réel**, et le considérant 133 **ne prévoit aucune exonération pour « impraticable »** : il exige un **dossier technique** documentant l'état de la technique. À ouvrir dès maintenant, pas au 2 décembre.
+5. **L'enregistrement systématique est interdit** : la CNIL écrit « ni permanent ni systématique » et « ne peut être déclenché par défaut pour tous les appels ». Notre arbitrage « transcription seule » est validé — et la CNIL érige en **bonne pratique la suppression de l'audio après transcription**.
+6. **Deux angles morts plus dangereux que ce que j'avais demandé** : **CPCE L34-5**, dont le champ « système automatisé d'appels » (L32, 32°) est **plus large que L223-1** et touche la prospection B2B **de l'éditeur lui-même** (autorité compétente : la CNIL) ; et **l'offre de téléphonie de détail OVHcloud, contractuellement incompatible** avec le produit — elle interdit robots d'appels, automates, partage SIP, plus d'un utilisateur par compte SIP, et la revente.
+7. **Le mot prononcé par l'agent EST la stipulation contraire de L214-1.** Dire « acompte », ou ne rien dire, crée **deux régimes juridiques différents à chaque appel**. La qualification doit donc être verrouillée en réglage commerçant, et le script la répéter mot pour mot.
+
+---
+
 ## 6. Dette de recherche (à ne pas présenter comme acquis)
 
-- **Tout le volet juridique est en source secondaire** : Légifrance, CNIL et EUR-Lex étaient inaccessibles depuis l'environnement de recherche. AI Act art. 50, décret démarchage du 25/07/2026, référentiel CNIL du 02/04/2026 : **à relire à la source avant tout engagement client**.
+- ~~Tout le volet juridique est en source secondaire~~ → **levé par A5**, qui a atteint Légifrance et EUR-Lex par navigateur réel. ⚠️ Et qui a corrigé cinq références fausses, dont **le « référentiel CNIL du 2 avril 2026 sur les enregistrements d'appels », qui n'existe pas** : c'est le référentiel *durées de conservation RH*, dont une rubrique traite l'écoute et l'enregistrement (audio 6 mois, documents d'analyse 1 an). Restent inaccessibles : DGCCRF, Judilibre, CanLII — 23 points listés comme trous dans A5 §11.
 - **Aucun WER français en bande téléphonique 8 kHz n'est publié** par qui que ce soit. Première mesure à faire nous-mêmes.
 - **Aucun RTF CPU officiel pour NeMo-Speech.cpp ni pour Piper.**
 - G2 et Capterra bloqués (HTTP 403) ; **aucune plainte francophone sourcée** sur la qualité d'un callbot (trou de données, pas absence de problème).
