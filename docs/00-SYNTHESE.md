@@ -103,6 +103,26 @@ Extraites des 43 règles de `R6 §7`, celles qui changent l'architecture :
 
 ---
 
+## 5 bis. Deuxième vague de recherches — ce qui est rentré
+
+> Rapports dans `docs/recherche2/`. Vague lancée le 13/09/2026 au soir ; les axes A3, A4, A5, A8 restaient à relancer au moment de l'écriture.
+
+### A7 — Hôtes de greffe (audit interne, lecture seule)
+Détail : `docs/recherche2/A7-hotes-de-greffe.md`, spécification qui en découle : `docs/04-CONNECTEUR-CRENOLO.md`.
+**Inkra et Kompagnon sont greffables tels quels** (token machine, routes déjà orientées agent, `GET /agent/capabilities` chez Kompagnon). **Crenolo est le seul chantier** : pas de clé d'API par établissement, pas de recherche client par téléphone, `client_email` obligatoire, rate-limit 10/h, **aucune contrainte d'unicité SQL sur `bookings`** — la non-superposition ne tient que par un verrou applicatif. Et **les durées réelles n'existent pas** en base : la promesse « l'agent apprend sur l'historique » se limite aux associations de prestations et aux noms de clients tant que `arrivee_le` / `fin_reelle_le` ne sont pas ajoutées.
+
+### A1 — LLM et dialogue
+Détail : `docs/recherche2/A1-llm-et-dialogue.md`.
+
+1. **Le fait le plus contre-intuitif de tout le chantier : un prompt système plus long peut coûter moins cher.** Le cache de prompt a un **préfixe minimum** — **4 096 tokens** sur Claude Haiku 4.5 et sur Gemini Flash. Un prompt de 3 000 tokens n'est donc **pas cachable** et se paie plein tarif à chaque tour, douze fois par appel ; un prompt de 4 200 tokens passe à **0,1×**. **Conséquence de conception : le prompt système est délibérément calibré au-dessus du seuil**, et la doctrine « prompt court » des acteurs du vocal ne s'applique pas telle quelle.
+2. **Aucun fournisseur ne publie de TTFT p50/p95.** Groq et Cerebras publient du débit (tokens/s), pas de la latence. La cible 250/500 ms **devra être mesurée au banc** — c'est un ajout au lot L0.
+3. **Résidence UE** : OpenAI la documente (`eu.api.openai.com`, ZDR éligible sur chat/responses/realtime, cache retenu 24 h) ; **Anthropic n'en a aucune** (`inference_geo` ne connaît que `us` et `global`). Scaleway confirme la région Paris.
+4. **Coût d'un appel de 3 minutes** (12 tours, système 4 200 tokens caché, hypothèses écrites dans le rapport) : gpt-5-mini **0,57 ¢** · Gemini Flash-Lite **0,69 ¢** · **Scaleway Mistral Small, sans aucun cache, 0,91 ¢€** · gpt-5.4-mini 1,60 ¢ · Haiku 4.5 2,18 ¢. **Le LLM n'est pas le poste dominant** face à la téléphonie, au STT et au TTS — et l'argument « il faut de l'américain pour le prix » ne tient pas.
+5. **Ajouter un outil coûte des tokens** : la seule présence d'outils ajoute 496 à 588 tokens de prompt caché chez Anthropic. À compter dans le préfixe.
+6. **Recommandation** : prompt long et figé (4 200–5 000 tokens, ordre Vapi), outils immuables, **toute variable placée après la rupture de cache** ; deux pistes à départager par mesure — UE stricte (Scaleway Mistral Small, OVHcloud) ou qualité d'outillage (gpt-5-mini via `eu.api.openai.com`). **Groq écarté** pour cette charge (remise de 50 % seulement, cache limité à trois modèles).
+
+---
+
 ## 6. Dette de recherche (à ne pas présenter comme acquis)
 
 - **Tout le volet juridique est en source secondaire** : Légifrance, CNIL et EUR-Lex étaient inaccessibles depuis l'environnement de recherche. AI Act art. 50, décret démarchage du 25/07/2026, référentiel CNIL du 02/04/2026 : **à relire à la source avant tout engagement client**.
