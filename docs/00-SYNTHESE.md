@@ -145,6 +145,17 @@ Détail : `docs/recherche2/A6-metier-salon.md`. Particularité : l'agent a **mes
 7. **Volume d'appels et taux d'appels manqués : aucune source sérieuse.** Le « 40+ appels/jour » qui circule est un cas composite UK/IE, **non citable**. Conséquence assumée : **ce chiffre sera notre donnée propriétaire**, mesurée par l'agent lui-même en V1, et non un préalable.
 8. **Pack sectoriel coiffure livré** : 5 blocs, ~35 questions, **toutes cochables, jamais plus de 5 options, toujours un défaut pré-coché** — un salon qui ne répond rien doit obtenir un agent qui fonctionne. Durées proposées = les médianes mesurées.
 
+### A8 — Console et boucle de correction
+Détail : `docs/recherche2/A8-console-ux.md` · conception qui en découle : `docs/06-CONSOLE-ET-CORRECTION.md`.
+
+1. **Le trou est confirmé, et par l'aveu des éditeurs eux-mêmes.** Intercom écrit : « **No option to fast-track or manually flag individual conversations for recommendations** ». Fin et Zendesk corrigent **par agrégat statistique** (seuils de volume, 90 jours de tickets) — inatteignable pour un salon à 30 appels/jour. Retell est le plus proche (débogage d'un tour, « Regenerate 10 answers ») mais ses correctifs « link to a guide you follow to make the change yourself », et son assistant demande une phrase en anglais : **c'est un prompt déguisé**. Vapi a une section « Turn production issues into regression tests » — une consigne écrite à un développeur, aucun bouton.
+2. **Le geste à copier ne vient pas de l'IA.** Gmail « Filter messages like these » (critères pré-remplis depuis **un** message) et la correction iOS 17 (« tap the underlined word and choose an option »). Une correction n'est pas un texte : **c'est une faute choisie dans une liste courte, appliquée à un empan de transcription**, qui écrit un objet typé.
+3. **Limite structurelle à connaître** : Intercom admet qu'une règle écrite en langue naturelle **peut ne pas être retenue** par le modèle sur un tour donné, et que ce n'est *« not a configuration error »*. **Conséquence : les règles d'agenda et de maison ne sont pas des phrases dans un prompt, ce sont des contraintes évaluées côté serveur**, hors du modèle.
+4. **Ne jamais afficher un score de confiance** : Google avertit de ne pas traiter `confidence` comme fiable. Soulignement discret, pas de chiffre.
+5. **Le temps réel se paie en batterie** : le cas Pandora (0,2 % des octets, **46 % de l'énergie**) disqualifie l'interrogation périodique ; un WebSocket échappe au bridage d'arrière-plan là où un `setTimeout` non. **SSE retenu**, fermé dès que l'écran est masqué.
+6. **Notifications** : Pielot & Rello (30 volontaires, médiane **63,5 notifications/jour**, 73,3 % ont voulu changer leurs réglages) — l'anxiété vient de la peur de rater ce qu'on attend de soi. D'où quatre canaux seulement et **un fil quotidien à 19 h**.
+7. **Gate Barthez passé** (14 points), pic et fin nommés par écrit. Six tentations écartées, dont **le rouge sur les appels ratés** : le mauvais exemple s'affiche en gris, jamais en rouge — un gérant ne doit pas avoir peur d'ouvrir sa console.
+
 ---
 
 ## 6. Dette de recherche (à ne pas présenter comme acquis)
