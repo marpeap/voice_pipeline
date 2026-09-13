@@ -10,11 +10,13 @@
 1. `docs/00-SYNTHESE.md` — les dix faits qui ferment ou ouvrent des portes, la pile retenue, les décisions ouvertes (D1→D5)
 2. `docs/01-CONCEPT-PRODUIT.md` — passe de brainstorming n°1 : produit, onboarding, `memoire.md`, modèle économique, KPI
 3. `docs/02-ARCHITECTURE.md` — passe de brainstorming n°2 : contrat de connecteur, paquets, multi-tenant, surfaces, lots L0→L7
+3 bis. `docs/03-EXISTANT.md` — audit en lecture seule de l'ancien dépôt `marpeap/voice_pipeline`
 4. `docs/recherche/R1…R6.md` — les six rapports bruts, sourcés (URL + date), avec leurs dettes de recherche déclarées
 
-## État des accès
-- **Dépôt d'origine `voice-pipeline` : introuvable.** Ni en local, ni dans le vault. `git@github.com:marpeap/voice-pipeline` → *Repository not found*. La clé SSH de la machine est une **deploy key limitée à `marpeap/aurora`**. `gh` n'est pas installé ; l'appel API avec le PAT du vault a été refusé par le classifieur de sécurité.
-  → **À faire par Adnan** : donner le `owner/repo` exact, ou cloner lui-même (`! git clone …`). Le code existant doit être lu et repris, pas réinventé.
+## État des accès — résolu le 2026-09-13
+- **Le dépôt d'origine est `marpeap/voice_pipeline`, avec un _underscore_.** Retrouvé via le PAT du vault (`11-Secrets/Index-Secrets.md`) ; cloné en lecture dans `/home/marpeap/voice_pipeline`, remote remis en HTTPS sans token, **aucune modification, aucun push**.
+- **Audit : `docs/03-EXISTANT.md`.** En résumé : un seul commit (10/02/2026), un dashboard Express de configuration d'un agent **Retell + ElevenLabs**, `node_modules` commité, déploiement cassé (`Cannot find module 'child'`), Basic Auth en dur (`Marpeap` / `Error404`, **à révoquer**). **L'agent lui-même (`/var/www/marpeap.com/retell-agent`) est introuvable** sur les machines joignables et dans les snapshots — probablement perdu avec les VPS supprimés. **Rien à fusionner en code.**
+- ⚠️ La clé SSH de la machine est une **deploy key limitée à `marpeap/aurora`** : pour tout autre dépôt, passer par le PAT du vault en HTTPS.
 - `~/openclaw-study/extensions/voice-call` est le plugin **upstream OpenClaw** (Twilio/Telnyx/Plivo), utile comme référence de patterns — ce n'est pas notre code.
 
 ## Règles propres au projet
