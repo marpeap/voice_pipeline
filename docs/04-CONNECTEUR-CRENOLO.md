@@ -131,6 +131,16 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS canal VARCHAR(20);   -- 'web' | 'v
 Plus une table `appels` (identifiant d'appel, `business_id`, horodatages, issue, transcription, coût, `booking_id` éventuel) — c'est elle qui porte le **taux de confirmation orpheline** et le **taux d'impasse**.
 **Sans le geste humain** (« le client est arrivé », « c'est terminé ») dans l'interface pro, ces colonnes resteront vides : la meilleure approximation immédiate est l'horodatage d'encaissement (`caisse_tickets.booking_id`, `migrations/025_caisse.sql:50`), déjà présent et inexploité.
 
+### 4.5 bis Le SMS — trois corrections avant de s'en servir comme preuve
+
+L'audit A3 a trouvé trois défauts dans la couche SMS existante, qui empêchent de l'utiliser comme mécanisme de vérification de bout en bout :
+
+1. **L'index unique sur `booking_id`** (`023_sms.sql:28`) **interdit d'envoyer une confirmation *et* un rappel** pour le même rendez-vous. Il faut élargir la clé au couple `(booking_id, type)`.
+2. **La file n'a aucune péremption.** Une confirmation partie trois heures après l'appel ne prouve plus rien : si elle n'est pas remise dans les minutes qui suivent l'écriture, le rendez-vous doit basculer « à vérifier », pas partir quand même.
+3. **L'abandon après cinq tentatives est silencieux.** Il doit marquer le rendez-vous et alerter le commerçant — c'est exactement le signal qui révèle un numéro mal capté.
+
+Et la sortie change : **la passerelle SIM est juridiquement inutilisable** (décision Arcep n° 2018-0881 consolidée au 01/01/2026, interdiction absolue pour un 06/07 d'émettre au nom d'un système automatisé) **et techniquement inadaptée** (aucun accusé de remise). Les routes internes existantes deviennent l'**adaptateur** vers un fournisseur A2P ; tout le reste du code est conservé.
+
 ### 4.6 Rate-limit (E3)
 Exempter les routes `/connecteur/v1/*` du `10/hour`, et poser à la place une limite **par clé d'API** (donc par salon), dimensionnée sur le volume d'appels réel. Une IP unique côté agent ne doit jamais être l'unité de compte.
 
