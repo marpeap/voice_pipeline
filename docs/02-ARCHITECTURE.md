@@ -68,7 +68,7 @@ Un hôte devient « équipable » en implémentant **six choses**, et rien d'aut
 **Deux niveaux de conformité**, pour qu'un hôte pauvre puisse quand même être équipé :
 - **Niveau 1 — lecture seule** : l'agent informe, prend des messages, transfère. Éléments 1, 2, 6.
 - **Niveau 2 — transactionnel** : l'agent réserve, déplace, annule. Éléments 1 à 6.
-Crenolo vise le niveau 2 ; Inkra n'a pas d'agenda et relève d'un profil différent (dictée, message, recherche) — donc **le contrat doit être un jeu de capacités déclarées, pas une interface monolithique** : l'hôte publie un manifeste `capabilities: [faq, message, booking, transfer, dictation…]`, et le noyau n'expose au LLM que les outils réellement déclarés.
+Crenolo vise le niveau 2 ; **Kompagnon** (ex M-Campaign, agent Google Ads) relève du niveau 1 avec une capacité propre — `ad_call_tracking` : numéro de suivi par campagne, qualification, et **renvoi de la conversion d'appel vers Google Ads** ; Inkra n'a pas d'agenda et relève d'un profil différent (dictée, message, recherche) — donc **le contrat doit être un jeu de capacités déclarées, pas une interface monolithique** : l'hôte publie un manifeste `capabilities: [faq, message, booking, transfer, dictation…]`, et le noyau n'expose au LLM que les outils réellement déclarés.
 
 ---
 

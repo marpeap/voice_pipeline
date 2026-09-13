@@ -2,6 +2,8 @@
 
 **Quoi** : standard téléphonique IA en français, conçu comme **greffon** réutilisable (Crenolo, Inkra, Kompagnon, tiers).
 **Où en est-on** : phase **recherche terminée**, conception en cours. **Aucune ligne de code écrite, et c'est voulu.**
+
+**Décisions prises le 2026-09-13** : premier livrable = **greffon Crenolo** (vertical beauté) · bord téléphonique **tranché après les mesures du lot L0** · **Kompagnon = M-Campaign renommé** (agent Google Ads, `marpeap/campaign`), greffe de niveau 1 avec le suivi de conversion d'appel comme valeur propre.
 **Date de la recherche** : 2026-09-13 (toutes les sources portent cette date de consultation).
 
 ## Lire dans cet ordre

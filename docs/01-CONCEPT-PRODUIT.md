@@ -165,7 +165,7 @@ Notre grille de travail (à valider) :
 |---|---|---|
 | **Crenolo** (réservation, concurrent de Planity) | Catalogue, équipe, créneaux, RDV, politiques, historique | Le cas nominal : réception d'appels d'un salon. **Planity n'a rien** [F] |
 | **Inkra** (notes) | Recherche dans les notes, création de note | Dictée téléphonique, prise de message structurée, rappel de contenu par téléphone |
-| **Kompagnon** | ⚠️ **Projet inconnu du vault et du disque** — périmètre à préciser par Adnan avant toute conception | — |
+| **Kompagnon** (nouveau nom de **M-Campaign**, agent Google Ads — FastAPI + Next.js, `marpeap/campaign`) | Campagnes actives, mots-clés, budgets, numéro de suivi par campagne ; import de conversion d'appel vers Google Ads | **Le chaînon manquant de la publicité au téléphone** : l'annonce Google génère un appel, l'agent décroche, **qualifie**, et **renvoie l'appel comme conversion** dans Google Ads — l'enchère apprend enfin sur les appels, pas seulement sur les formulaires. C'est ce que fait uh!ive (ex-Allo-Media) pour les grands comptes, jamais pour une TPE |
 
 **Le connecteur est le contrat.** Un hôte fournit : un *profil d'établissement*, des *outils* (chercher un créneau, réserver, annuler, transférer, laisser un message), un *flux d'import*, et reçoit des *webhooks*. Tout le reste — téléphonie, pipeline audio, questionnaire, mémoire, observabilité — est à nous et ne se duplique pas. Détail dans `docs/02-ARCHITECTURE.md`.
 
@@ -173,7 +173,8 @@ Notre grille de travail (à valider) :
 
 ## 10. Ce que cette passe laisse ouvert
 
-- **D1 positionnement** : greffon Crenolo d'abord (vertical) ou produit autonome (horizontal) ? Le cœur est le même ; l'ordre de construction change.
+- ~~**D1 positionnement**~~ → **tranché le 13/09/2026 : greffon Crenolo d'abord.**
+- ~~**Kompagnon**~~ → **c'est M-Campaign renommé** (agent Google Ads). Greffe de niveau 1 au lot L6, avec la conversion d'appel comme valeur propre.
 - **Nom du produit** et voix de marque — non traités ici volontairement.
-- **Kompagnon** : rien dans le vault, rien sur le disque.
+- Une question ouverte née de la réponse Kompagnon : **le suivi d'appel publicitaire** (un numéro par campagne, attribution, conversion renvoyée à Google Ads) est-il une fonctionnalité du greffon vocal, ou un produit à part qui le consomme ? Il change la façon dont on alloue les numéros — un par établissement, ou un par campagne.
 - La grille tarifaire précise, une fois le coût réel mesuré sur 100 appels et non calculé.

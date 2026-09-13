@@ -93,10 +93,10 @@ Extraites des 43 règles de `R6 §7`, celles qui changent l'architecture :
 
 ## 5. Les décisions qui restent à trancher
 
-| # | Décision | Options | Enjeu |
+| # | Décision | Statut | Enjeu |
 |---|---|---|---|
-| D1 | **Positionnement** | (a) greffon Crenolo d'abord, vertical beauté ; (b) produit autonome horizontal ; (c) les deux via le même cœur | Détermine l'ordre de construction, pas l'architecture (le cœur est le même) |
-| D2 | **Bord téléphonique phase 1** | (a) Asterisk auto-hébergé ; (b) media streams d'un fournisseur (Telnyx/Twilio) | (a) = moins cher, plus d'exploitation ; (b) = démarrage en jours, dépendance et coût/min |
+| D1 | **Positionnement** | ✅ **Tranché le 13/09/2026 : greffon Crenolo d'abord**, vertical beauté | On hérite du catalogue, des durées réelles et de l'historique — le seul avantage qu'un concurrent générique ne peut pas copier |
+| D2 | **Bord téléphonique phase 1** | ⏸ **Tranché après les mesures L0** (Asterisk auto-hébergé vs media streams Telnyx) | Les trois chiffres manquants changent le choix ; les mesurer coûte quelques jours, se tromper coûte une réécriture |
 | D3 | **Budget d'inférence** | hybride ~0,031 $/min | À 1 000 min/mois ≈ 31 $ ; le tout-OSS ne devient rentable qu'au-delà de ~17 100 min/mois |
 | D4 | **Enregistrement audio** | off par défaut (transcription seule) | Recommandé : rétention CNIL 6 mois max, et l'audio est un risque sans usage prouvé |
 | D5 | **Appels sortants** | bornés au contrat en cours | Hors contrat = démarchage, opt-in obligatoire depuis le 11/08/2026 |
