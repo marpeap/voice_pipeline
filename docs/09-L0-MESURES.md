@@ -345,3 +345,50 @@ Corpus **synthétique**, **une seule voix**, **aucun bruit**, et un aller-retour
 python3 bancs/corpus.py --sortie ~/corpus-fr
 GROQ_API_KEY=... python3 bancs/wer.py --corpus ~/corpus-fr
 ```
+
+---
+
+## Mesure 8 — le même corpus sur un petit moteur local, et le WER classe les moteurs à l'envers
+
+### Méthode
+
+Corpus identique à la mesure 7 (79 énoncés, 16 kHz et 8 kHz µ-law), moteur **Vosk `vosk-model-small-fr-0.22`** — 41 Mo, installé **par `pip`, sans compilateur**, exécuté sur le processeur du poste. Même métrique, même normalisation, même code de distance : seules changent la taille du modèle et sa localisation.
+
+### Résultats, côte à côte avec la mesure 7
+
+| | WER 16 kHz | WER 8 kHz | Écart | **Numéro reconstruit** | RTF |
+|---|---|---|---|---|---|
+| `whisper-large-v3-turbo` (distant, gros) | 21,2 % | 21,9 % | **×1,03** | **6 / 10** | — |
+| `vosk-small-fr-0.22` (local, 41 Mo) | **9,0 %** | 11,6 % | **×1,30** | **1 / 10** | 0,37 → 0,41 |
+
+### Trois enseignements, dont un qui change une décision
+
+**1. Le WER classe les deux moteurs à l'envers.** Vosk affiche un WER **deux fois meilleur** (9,0 % contre 21,2 %) et reconstruit **six fois moins de numéros**. La raison est bête et décisive : la référence est écrite en lettres (« zéro six douze »), Vosk aussi, Whisper écrit `06 12`. Le WER récompense donc la forme d'écriture, pas la compréhension. **Un choix de moteur fondé sur le WER publié aurait pris le mauvais.** C'est la démonstration chiffrée de la règle de `docs/07` : le taux d'erreur par entité est la métrique, le WER est un indicateur.
+
+**2. Le format de sortie du moteur décide de la taille du travail de grammaire.** Whisper rend des chiffres : le numéro est presque déjà là. Vosk rend des mots : il faut **toute** la grammaire française des nombres pour en tirer dix chiffres — et le 1/10 de ce tableau mesure d'ailleurs **le convertisseur naïf du banc**, pas Vosk, dont les transcriptions en toutes lettres sont largement correctes. Autrement dit : selon le moteur retenu, `docs/10-GRAMMAIRE-FRANCAISE.md` est **un petit module ou la pièce la plus difficile du produit**. C'est un critère de choix qu'aucun comparatif ne mentionne.
+
+**3. La robustesse au 8 kHz se paie en taille de modèle.** ×1,03 pour le gros modèle, **×1,30** pour le petit — et la dégradation n'est pas répartie au hasard :
+
+| Famille | 16 kHz | 8 kHz | |
+|---|---|---|---|
+| numéros | 4,7 % | **10,2 %** | ×2,2 |
+| prix et horaires | 13,0 % | **26,1 %** | ×2,0 |
+| collisions lexicales du pack | 9,8 % | 15,6 % | ×1,6 |
+| noms propres | 30,9 % | 34,5 % | ×1,1 |
+| dates | 5,3 % | 7,4 % | ×1,4 |
+
+**La bande téléphonique frappe exactement là où ça coûte** : les chiffres et les montants, c'est-à-dire ce qui se confirme par SMS et ce qui engage le commerçant. Sur un petit modèle, le 8 kHz n'est donc pas une gêne générale, c'est une attaque ciblée sur les entités.
+
+### Ce que ça pose comme choix
+
+Un petit modèle local tourne à **RTF 0,37** sur un processeur de poste, sans GPU, sans compilateur, sans dépense — c'est utilisable. Mais il exige la grammaire complète **et** encaisse mal le 8 kHz sur les entités. Un gros modèle distant fait l'inverse : entités mieux tenues, bande téléphonique presque gratuite, mais dépendance, coût par minute et données qui sortent.
+
+**Ce banc ne tranche pas le choix — il rend le compromis lisible pour la première fois avec des chiffres du même corpus.** Le trancher demande la mesure qui manque encore : la tenue en charge, qui dira combien d'appels une machine soutient si le STT est local.
+
+### Rejouer
+
+```bash
+python3 -m venv ~/bancs-stt && ~/bancs-stt/bin/pip install vosk
+# modèle : https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip (41 Mo)
+cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python wer_vosk.py
+```
