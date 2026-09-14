@@ -1,0 +1,26 @@
+[
+  {
+    "fournisseur": "groq",
+    "zone": "US",
+    "modele": "openai/gpt-oss-20b",
+    "prompt": "court (~200 tokens)",
+    "n": 6,
+    "p50_ms": 1715,
+    "p90_ms": 2008,
+    "min_ms": 985,
+    "premier_token_p50_ms": 1688,
+    "erreurs": []
+  },
+  {
+    "fournisseur": "groq",
+    "zone": "US",
+    "modele": "qwen/qwen3.6-27b",
+    "prompt": "court (~200 tokens)",
+    "n": 6,
+    "p50_ms": 1659,
+    "p90_ms": 1680,
+    "min_ms": 1378,
+    "premier_token_p50_ms": 1659,
+    "erreurs": []
+  }
+]

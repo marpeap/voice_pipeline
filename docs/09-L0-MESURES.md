@@ -174,7 +174,43 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DGGML_TENSOR_FLAG_
 3. **Le palier gratuit de Groq rend 429 après six requêtes** : utilisable comme repère, pas comme fournisseur.
 4. Deux pièges de méthode rencontrés, à garder pour les mesures suivantes : l'agent utilisateur par défaut de `urllib` reçoit un **403** là où `curl` passe (filtrage en amont), et `llama-3.3-70b-versatile` n'existe plus au catalogue.
 
-**Ce qui manque** : une clé pour au moins un candidat réel — **`gpt-5-mini` via `eu.api.openai.com`**, **Gemini Flash-Lite**, ou **Mistral Small chez Scaleway (région Paris)**. La même mesure prend cinq minutes une fois la clé disponible : `bench_ttft.py` est écrit et paramétrable par variables d'environnement (`CLE_LLM`, `BASE_LLM`, `MODELE_LLM`).
+### Reprise du 2026-09-15 — la lecture « c'est la distance » était incomplète
+
+La mesure a été refaite depuis le poste, avec le même fournisseur et les mêmes modèles, mais en séparant deux régimes : **une connexion neuve à chaque appel** (ce que fait un client HTTP naïf, et ce que faisait le premier banc) contre **une connexion HTTPS maintenue ouverte** d'un appel à l'autre.
+
+| Régime | TTFT p50 | TTFT min | TTFT max |
+|---|---|---|---|
+| Connexion neuve à chaque appel | **2 040 ms** | 1 704 ms | 8 016 ms |
+| **Connexion gardée ouverte** | **378 ms** | **85 ms** | 1 538 ms |
+
+*(`qwen/qwen3.6-27b`, prompt système court, 8 requêtes par régime, poste en France, fournisseur aux États-Unis.)*
+
+**Facteur 5,4, et un minimum à 85 ms vers un fournisseur américain** : la distance ne peut pas expliquer 400 ms, puisque l'aller-retour lui-même en coûte moins de cent. Ce qui coûte, c'est **l'établissement de la connexion** — résolution DNS, poignée TCP, poignée TLS — payé à chaque tour de parole si le client ne réutilise rien.
+
+Deux faits mesurés en marge, qui expliquent le reste de l'écart :
+
+- **Une résolution DNS froide, sur ce poste, coûte de 1,6 à 4,7 s** (`api.mistral.ai` 4,74 s, `api.openai.com` 2,60 s, `api.scaleway.ai` 1,67 s au premier appel ; 1 à 113 ms une fois le cache chaud). Un banc qui ne chauffe pas son DNS mesure son résolveur, pas son fournisseur.
+- **Poignée de main complète vers le fournisseur, DNS chaud** : TCP 39 ms, TLS 104 ms. C'est trois allers-retours qu'on ne paie qu'une fois si la connexion vit.
+
+**Règles d'architecture qui en découlent, et qui valent pour les quatre bords du pipeline (STT, LLM, TTS, SMS)** :
+
+1. **Une réserve de connexions ouvertes, établie au démarrage du service**, jamais à l'arrivée de l'appel. Un appel qui commence ne doit ouvrir aucune connexion.
+2. **Les noms sont résolus au démarrage et gardés** ; le pipeline ne dépend jamais d'une résolution DNS en cours d'appel.
+3. **Une sonde de maintien** (requête minuscule) empêche le fournisseur de fermer une connexion inactive entre deux appels — sinon le premier appel après un creux repaie les 2 s.
+
+**Ce que ça change pour le choix du fournisseur** : la règle « héberger en UE » reste bonne, mais elle n'est plus l'argument principal. **Le premier levier est le client, pas le fournisseur** — et il est gratuit.
+
+### Ce que le catalogue a fait entre-temps
+
+Deux jours après la première mesure, `llama-3.3-70b-versatile` et `llama-3.1-8b-instant` **ont disparu du catalogue** ; `qwen/qwen3.8-27b` mesuré le 13 est remplacé par `qwen/qwen3.6-27b`. Le banc rendait `HTTP 404`, pas un message lisible.
+
+C'est une contrainte de conception, pas une anecdote : **le modèle est une pièce d'usure**. Le pipeline doit tenir un changement de modèle sans redéploiement (nom en configuration), et le corpus de non-régression doit pouvoir être rejoué contre un nouveau modèle en une commande — sinon chaque retrait de catalogue devient une panne.
+
+### Le palier gratuit ne sert pas à mesurer un prompt réaliste
+
+En-têtes lues sur le fournisseur : **8 000 tokens par minute**. Notre prompt calibré au-dessus du seuil de cache (~5 000 tokens) consomme donc un quota par minute et demie, et le banc rend `429` dès la deuxième requête. **Le régime « prompt long mis en cache » n'est pas mesurable sur un palier gratuit** — il faudra une clé payante pour vérifier le gain de cache, et c'est la seule mesure qui restera bloquée sur un budget.
+
+**Ce qui manque** : une clé pour au moins un candidat réel — **`gpt-5-mini` via `eu.api.openai.com`**, **Gemini Flash-Lite**, ou **Mistral Small chez Scaleway (région Paris)**. La même mesure prend cinq minutes une fois la clé disponible : `bancs/ttft.py` est écrit, versionné, et saute tout seul les fournisseurs dont la clé est absente (`GROQ_API_KEY`, `MISTRAL_API_KEY`, `SCW_SECRET_KEY`, `CEREBRAS_API_KEY`, `OPENAI_API_KEY`). Il mesure le premier token **prononçable** séparément du premier token du flux, parce qu'un modèle de raisonnement livre d'abord sa réflexion et qu'un agent téléphonique ne peut pas la dire.
 
 
 ---
@@ -224,4 +260,32 @@ La *gap analysis* (point 148) doit désormais dire, **mesures à l'appui** :
 ssh marpeap-series
 cd ~/bancs && PYTHONPATH=$HOME/bancs/l0-piper/lib:$HOME/bancs/l0-tatouage/lib \
   ~/miniforge3/bin/python bench_tatouage.py    # résultats dans resultats_tatouage.json
+```
+
+---
+
+## Mesure 6 — ce que coûte vraiment la bande téléphonique (conversion 8 kHz / G.711)
+
+**Pourquoi la mesurer** : tout le pipeline reçoit du 8 kHz et produit du 22 050 Hz. La conversion est donc payée **deux fois par tour de parole**, et elle avait été jusqu'ici estimée « négligeable » sans chiffre.
+
+### Méthode
+
+79 énoncés français synthétisés par Piper (`fr_FR-siwis-medium`, 22 050 Hz), 235,2 s d'audio au total. Chacun est converti en deux versions : 16 kHz PCM pour la référence large bande, et **8 kHz avec aller-retour µ-law** — c'est-à-dire encodé en G.711 puis redécodé, ce que fait réellement le réseau. Un simple rééchantillonnage à 8 kHz sous-estime la dégradation et ne mesure pas la bonne chose.
+
+### Résultat, et le piège qu'il révèle
+
+| | Mesuré |
+|---|---|
+| Conversion complète, telle que le banc l'appelle | 7,96 s pour 235,2 s d'audio, **RTF 0,0338** (100,8 ms par énoncé) |
+| **Démarrage de `ffmpeg` seul**, sans aucun travail (p50 sur 10 lancements) | **44,9 ms** |
+| Travail de conversion réel, une fois les deux démarrages retranchés | **≈ 11 ms par énoncé de 3 s**, soit un **RTF ≈ 0,004** |
+
+**Ce que ça dit** : la conversion ne coûte rien — **c'est le lancement du processus qui coûte tout**. Neuf dixièmes du temps mesuré sont deux `ffmpeg` qui démarrent.
+
+**Conséquence de conception** : le pipeline ne lance **jamais** un processus externe par fragment audio. Le rééchantillonnage se fait dans le processus (bibliothèque liée), une fois pour toutes par flux. Un prototype qui appelle `ffmpeg` par tour de parole ajoute ~90 ms à chaque réplique, soit **plus d'un tiers du budget de 250 ms**, pour un travail qui en vaut onze.
+
+### Rejouer
+
+```bash
+python3 bancs/corpus.py --sortie ~/corpus-fr   # génère et chiffre la conversion
 ```
