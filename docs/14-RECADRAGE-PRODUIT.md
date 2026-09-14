@@ -92,6 +92,21 @@ Si c'est confirmé **[A10 en attente]**, alors :
 
 ---
 
+## 5 bis. Les briques du mode autonome, chiffrées (A13 à A16)
+
+Quatre recherches rentrées malgré les coupures. Détail dans `docs/recherche2/A13` à `A16`.
+
+| Question | Décision | Ce qui la fonde |
+|---|---|---|
+| Isolation | **Pool** : une base, `tenant_id`, RLS en **second** filet | `max_connections` vaut 100 par défaut et dimensionne la mémoire partagée — une base par TPE est intenable. Azure classe l'isolation par table en **antipattern** |
+| Secrets | **Une clé KMS + contexte de chiffrement `{tenant_id, purpose}`**, jamais une clé par tenant | **3,84 $/mois contre 1 500 $/mois** à 500 tenants. Prévoir `kms_key_arn` **nullable** dès le schéma pour le jour où un client exigera la sienne — et la paiera |
+| Authentification | **ZITADEL auto-hébergé**, repli **Logto OSS** | Seuls à offrir des **organisations illimitées gratuites** sans coupler le prix au nombre de tenants. Auth0 demanderait **700 $/mois à 500 tenants** ; Ory plafonne à **3 organisations** sous 9 350 $/an |
+| Facturation | **Notre base est la source de vérité**, `call_id` comme clé d'idempotence, **un appel = un événement en secondes** | Stripe ne garantit l'unicité que sur **24 h glissantes** et le backfill sur **35 jours**. Cette discipline rend le prestataire remplaçable |
+| Encaissement | **Prélèvement SEPA** plutôt que carte | 0,35 € fixe contre 1,5 % + 0,25 € : **~1 075 €/mois d'économie à 500 clients**, davantage que le coût total d'un Lago auto-hébergé |
+| Support | **Crisp** (facturé au *workspace*) ou **Chatwoot sans `enterprise/`** | Chatwoot est MIT **sauf** son répertoire `enterprise/`, sous licence propriétaire — le README ne le dit pas |
+
+⚠️ **Et le risque propre au mode autonome, qui n'existe pas en greffon** : **l'inscription est la porte d'entrée du fraudeur**. Un compte créé en quelques minutes obtient un numéro et une capacité d'émission — soit exactement la primitive recherchée pour la fraude à la terminaison. **10 appels simultanés pendant une nuit coûtent 769 $** au tarif mobile France standard. Or **`UsageTrigger` de Twilio notifie mais ne coupe pas**, et `UsageRecord` ne garantit aucune fraîcheur : **le plafond dur est notre code**, alimenté par les webhooks d'appel, refusant l'appel **avant** émission. Par défaut à l'inscription : France métropolitaine seule, plafond bas, aucune destination internationale.
+
 ## 6. Les frontières à tenir dès maintenant
 
 Pour que le mode autonome ne soit pas une réécriture, cinq règles à ne pas violer :
