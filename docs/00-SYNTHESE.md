@@ -210,6 +210,20 @@ Détail : `docs/recherche2/A9-marquage-ai-act.md`. Source centrale : les **ligne
 
 ---
 
+### A10 — Extension navigateur
+Détail : `docs/recherche2/A10-extension-navigateur.md` · périmètre : `docs/16-EXTENSION-PERIMETRE.md`.
+
+1. ⚠️ **Découverte de méthode** : la page Mozilla qui synthétisait les limitations d'API sur Android **répond 404**. **Il n'existe plus de page listant ce qui marche** — la seule source est `mdn/browser-compat-data`, lue API par API. Mozilla a retiré la synthèse et laissé la donnée brute.
+2. **Firefox Android est ouvert** depuis fin 2023 à **toute extension d'AMO marquée compatible** — mais **aucun sideload** : « It will not be possible to install unsigned .xpi files ».
+3. **`identity` est absent d'Android, API et permission comprises.** Donc `launchWebAuthFlow` est hors jeu : le seul schéma valable sur les trois cibles est un **jeton d'appairage**. **À écrire en premier.**
+4. **Pas d'icône en barre d'outils sur Android** : l'extension est **une entrée du menu ⋮**, à deux appuis. Trois surfaces seulement — popup, options, onglet.
+5. **« Appel en cours » est impossible sur Android** : l'arrière-plan dort et **rien ne tourne si Firefox est fermé**. « Rendez-vous pris » reste possible.
+6. **`offscreen` est confirmé hors sujet** (l'audio ne traverse jamais le navigateur), et les contraintes d'event page Firefox **coïncident avec celles du service worker Chrome** : **un seul arrière-plan sert les trois**.
+7. **Aucun des trois frameworks (WXT, Plasmo, CRXJS) ne déclare Firefox Android** — WXT sort du **MV2 par défaut** pour Firefox. Retenu : **Vite plus un script de manifestes**.
+8. **Effort** : socle 70 %, Chrome +1 j, Firefox desktop +1 j, **Firefox Android +3 à 5 j**, publication +2 à 3 j.
+
+---
+
 ## 6. Dette de recherche (à ne pas présenter comme acquis)
 
 - ~~Tout le volet juridique est en source secondaire~~ → **levé par A5**, qui a atteint Légifrance et EUR-Lex par navigateur réel. ⚠️ Et qui a corrigé cinq références fausses, dont **le « référentiel CNIL du 2 avril 2026 sur les enregistrements d'appels », qui n'existe pas** : c'est le référentiel *durées de conservation RH*, dont une rubrique traite l'écoute et l'enregistrement (audio 6 mois, documents d'analyse 1 an). Restent inaccessibles : DGCCRF, Judilibre, CanLII — 23 points listés comme trous dans A5 §11.

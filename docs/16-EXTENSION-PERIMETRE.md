@@ -9,9 +9,9 @@
 
 L'architecture (`02` §7.2) reportait l'extension en dernier lot et écartait Firefox, faute d'équivalent à `chrome.offscreen` pour l'audio en arrière-plan.
 
-**Ce raisonnement ne s'applique pas ici.** L'appel arrive par le **réseau téléphonique**, l'audio vit **sur le serveur**, et l'extension ne fait que **lire et écrire de la configuration**. Elle n'a besoin ni de micro, ni de WebRTC, ni de traitement audio en arrière-plan — **donc l'obstacle qui écartait Firefox tombe avec lui** [à confirmer, A10].
+**Ce raisonnement ne s'applique pas ici**, et A10 l'a confirmé pour **deux raisons indépendantes** : l'audio ne traverse jamais le navigateur, et même la relecture d'un appel se fait dans une page visible, avec DOM. **`offscreen` est donc hors sujet, et l'obstacle qui écartait Firefox tombe avec lui.**
 
-Ce qui reste à vérifier n'est plus l'audio, mais **quelles API existent réellement sur Firefox Android** et **quelles surfaces d'affichage** y sont disponibles.
+**Fait connexe utile** : `background.service_worker` est `false` **sur Firefox partout**, pas seulement sur Android — c'est une divergence Firefox globale, pas une limitation mobile. Et bonne surprise : **les cinq règles que Mozilla impose à une event page Android sont exactement celles qu'exige le service worker de Chrome** (listeners synchrones au niveau supérieur, état dans `storage`, `alarms` plutôt que minuteurs). **Un seul arrière-plan sert les trois cibles.**
 
 ---
 
@@ -22,7 +22,7 @@ Ce qui reste à vérifier n'est plus l'audio, mais **quelles API existent réell
 | 1 | **Corriger un appel raté en trois appuis** (`06`) | C'est le geste qu'on veut rendre **immédiat**. Sur téléphone, entre deux clients, ouvrir un onglet et se reconnecter suffit à ne jamais le faire |
 | 2 | **Voir le dernier appel** : issue, transcription, ce que l'agent a écrit | Consultation de dix secondes, plusieurs fois par jour |
 | 3 | **Répondre au questionnaire** et modifier une règle | La configuration initiale se fait très bien en onglet ; **c'est la modification ultérieure** qui doit être à portée |
-| 4 | **Alerter** : échec d'écriture, escalade, quota | Quatre canaux, pas plus (`06` §5) |
+| 4 | **Alerter** : rendez-vous pris, échec d'écriture, quota | Quatre canaux, pas plus (`06` §5). ⚠️ **Mais pas « appel en cours » sur Android** — voir §4 |
 | 5 | Déclencher un appel de test (« appelez votre agent ») | Le geste de confiance avant bascule (`01` §3) |
 
 ---
@@ -55,11 +55,28 @@ Ce qui reste à vérifier n'est plus l'audio, mais **quelles API existent réell
 
 ---
 
-## 6. Ce qu'il faut savoir avant d'écrire une ligne
+## 6. Les faits, établis le 2026-09-14 (A10)
 
-1. **Quelles API WebExtensions existent sur Firefox Android en 2026**, et quelles surfaces d'affichage (popup, options, onglet) — **[NV]**.
-2. **Comment une extension s'authentifie** auprès de notre service sur Android — **[NV]**.
-3. **Si les notifications fonctionnent** sur Firefox Android — **[NV]**.
-4. **Quel outil** (WXT, Plasmo, CRXJS) couvre réellement les trois cibles, d'après sa documentation officielle — **[NV]**.
+**Firefox Android est ouvert** — annonce du 10/08/2023 : « users can install **any add-on on AMO** that has been marked as being compatible with Android ». ⚠️ **Mais aucun sideload** : « It will not be possible to install unsigned .xpi files ». Tout passe par AMO signé.
 
-Recherche A10 relancée le 14/09 à 17 h. **Tant qu'elle n'a pas abouti, ce document ne fixe que le périmètre — aucune promesse de faisabilité n'est faite sur Firefox Android.**
+⚠️ **Découverte de méthode** : la page Mozilla qui synthétisait les limitations d'API Android **répond 404**. Il n'existe plus de page listant ce qui marche. La seule source exhaustive est **`mdn/browser-compat-data`, colonne `firefox_android`**, lue API par API. C'est précisément ce qui rend ce sujet opaque : **Mozilla a retiré la synthèse et laissé la donnée brute.**
+
+| Disponible sur Android | **Absent sur Android** |
+|---|---|
+| `storage` (y compris `sync`), `alarms`, `notifications`, `runtime`, `cookies`, `tabs`, `permissions`, `action`, `scripting`, `options_ui` | **`identity` — API *et* permission** · `sidebarAction` · `menus` / `contextMenus` · `commands` · `windows` · `devtools` · `storage.managed` · `downloads` (retiré en 79) |
+
+**Trois surfaces d'interface, et trois seulement** : popup, page d'options, onglet dédié. Avec un fait qui change le dessin : **sur Android il n'y a pas d'icône dans une barre d'outils** — « Browser actions are presented as **menu items** ». L'extension est **une entrée du menu ⋮, à deux appuis**.
+
+### Les trois conséquences qui engagent la conception
+
+1. **L'authentification est le point dur.** `identity.launchWebAuthFlow` fonctionne sur Chrome et Firefox desktop, **pas sur Android** — l'API n'y est pas implémentée. Le seul schéma couvrant les trois cibles est un **jeton d'appairage** (code d'appareil) ouvert par `tabs.create` vers notre site. **À écrire en premier** : concevoir autour de `launchWebAuthFlow` puis découvrir Android, c'est un mois perdu.
+2. **« Rendez-vous pris » oui, « appel en cours » non.** Les notifications existent sur les trois, mais l'arrière-plan dort, le réveil passe par `alarms` (granularité : la minute), et **rien ne tourne si Firefox est fermé**. Promettre une alerte d'appel en cours sur Android serait un mensonge.
+3. **Pas de framework.** Vérifié sur leurs documentations officielles : **aucun de WXT, Plasmo ou CRXJS ne déclare Firefox Android** — WXT produit **MV2 par défaut pour Firefox**, Plasmo marque `firefox-mv3` **expérimental**, CRXJS revendique « cross-browser » sans le documenter. Retenu : **Vite + un script générant deux manifestes**.
+
+**Périmètre retenu** : **une seule page applicative responsive, trois portes d'entrée**. Pas de side panel — c'est la seule surface qui exigerait trois implémentations, et elle **n'existe pas sur Android**.
+
+**Effort estimé** : socle commun **70 %** · Chrome +1 j · Firefox desktop +1 j · **Firefox Android +3 à 5 j** (aucun code neuf, mais passe mobile, authentification par appairage, test sur appareil réel) · publication +2 à 3 j.
+
+**Deux points d'administration à ne pas rater** : l'adresse e-mail développeur du Chrome Web Store est **définitive** (prendre une adresse de rôle, jamais personnelle), et Firefox impose depuis la version 140 une clé **`data_collection_permissions`** dans le manifeste — **à faire cohérer avec le dossier RGPD** (`A5`), puisque nous manipulons des transcriptions d'appelants.
+
+**Le risque n°1 n'est pas technique** : c'est de vendre un **récepteur d'alerte** alors qu'on livre un **poste de pilotage**. Sur Android, l'extension se consulte ; elle ne prévient pas en temps réel.
