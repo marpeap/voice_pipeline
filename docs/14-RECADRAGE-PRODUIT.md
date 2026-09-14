@@ -16,7 +16,24 @@ Trois exigences en découlent, et elles priment sur tout le reste :
 
 ---
 
-## 2. Un cœur, trois modes de distribution
+## 2. Un cœur, quatre surfaces — **mis à jour le 14/09 au soir**
+
+**Précision d'Adnan, transmise par la session Crenolo** : le produit est « **un service à part entière, indépendant** », et Crenolo devient « **un module**, afin que les utilisateurs de Crenolo puissent aussi avoir un agent téléphonique. **Mais ce n'est pas le but premier.** » Le recadrage de ce document allait dans ce sens ; il est désormais **durci** : le mode **autonome est le produit**, le greffon en est une déclinaison.
+
+Et une quatrième surface s'ajoute : **une application mobile et un site de configuration**.
+
+### La question qui commande le coût de l'application mobile
+
+**Touche-t-elle au téléphone, ou seulement aux données ?**
+
+| Réponse | Ce que ça implique | Verdict |
+|---|---|---|
+| **Seulement les données** — configurer, consulter les appels, recevoir des notifications | Le natif **n'apporte rien** qu'une TWA ne fasse. Et Marpeap a déjà tout l'outillage : une TWA existe pour Crenolo (`com.marpeap.rdv.twa`), avec keystore, `assetlinks.json` en production, build documenté, **et ses trois pièges déjà payés** (JDK 17 obligatoire, `preferIPv4Stack` sans quoi le DNS échoue, AGP 8.9.1 minimum). Sortie : un AAB de 3,6 Mo | ✅ **Retenu. Une seconde TWA se compte en heures.** |
+| **Intercepter ou filtrer les appels** sur le mobile du commerçant | `READ_CALL_LOG`, déclaration de permissions, **revue manuelle de Google**, politique qui se durcit au 15/07/2026 [T, à vérifier]. Le refus tomberait **après** le développement | ⛔ **Écarté, et pas seulement pour le risque** |
+
+**La raison de fond du refus** : **le renvoi d'appel est précisément ce qui nous affranchit de tout terminal.** L'audio arrive chez nous par le réseau, jamais sur le mobile du commerçant. Intercepter sur l'appareil ajouterait une dépendance là où l'architecture en supprime une — et l'ARCEP, dont nous citons la recommandation sur le masquage du CLI, **suppose déjà ce modèle**.
+
+## 2 bis. Les surfaces, et le doublon qu'il faut trancher
 
 ```
                     ┌──────────────────────────────┐
@@ -36,12 +53,16 @@ Trois exigences en découlent, et elles priment sur tout le reste :
 
 **Le cœur ne sait pas dans quel mode il tourne.** C'est la frontière à tenir dès maintenant : chaque fois qu'une décision dépend du mode, elle appartient à l'enveloppe, pas au cœur.
 
-| | Greffon | Autonome | Extension |
-|---|---|---|---|
-| Qui porte le compte | l'app hôte | nous | ni l'un ni l'autre (elle s'authentifie auprès de l'un des deux) |
-| Qui porte l'agenda | l'app hôte | un adaptateur (§3) ou notre agenda minimal | — |
-| Qui porte la facturation | l'hôte (marque blanche) ou nous | nous | — |
-| Ce qu'elle apporte | l'intégration native, donc la fiabilité | l'autonomie commerciale | **la vitesse de configuration** |
+| | **Autonome** (le produit) | Greffon (module) | Site + app mobile | Extension |
+|---|---|---|---|---|
+| Qui porte le compte | nous | l'app hôte | nous | s'authentifie auprès de l'un des deux |
+| Qui porte l'agenda | un adaptateur (§3) ou notre agenda interne | l'app hôte | — | — |
+| Qui porte la facturation | nous | l'hôte en marque blanche, ou nous | — | — |
+| Ce qu'elle apporte | **l'autonomie commerciale** | l'intégration native, donc la fiabilité | **la configuration et la consultation, partout** | ~~la vitesse de configuration~~ — **voir ci-dessous** |
+
+⚠️ **Le doublon, et il faut le trancher maintenant plutôt que de le payer deux fois.** J'avais donné à l'extension comme apport propre « la vitesse de configuration ». **Si un site de configuration rapide existe — et Adnan le demande —, cet argument tombe.** Ce qui resterait à l'extension : corriger un appel **sans changer d'onglet**, depuis n'importe quelle page. C'est réel, mais mince.
+
+**Décision : le site responsive (et sa TWA) est la surface principale ; l'extension passe en lot ultérieur, et seulement si l'usage montre que le changement d'onglet freine réellement la correction.** Construire les deux en même temps, c'est deux surfaces à maintenir pour un même geste. Le travail déjà fait (`16-EXTENSION-PERIMETRE.md`, recherche A10) n'est pas perdu : il dit exactement ce que coûterait ce lot le jour où on le décidera — et il a **déjà** servi, en établissant que l'authentification devra passer par un **jeton d'appairage** puisque `identity` n'existe pas sur Firefox Android.
 
 ---
 

@@ -1,5 +1,7 @@
 # Extension navigateur — périmètre
 
+> ⚠️ **Statut révisé le 14/09 au soir : lot reporté.** Adnan demande un **site de configuration** et une **application mobile** ; le site responsive et sa TWA deviennent la surface principale. L'extension n'apporterait plus que « corriger sans changer d'onglet », ce qui ne justifie pas une seconde surface à maintenir dès maintenant. **Ce document reste valable tel quel** : il dit ce que coûtera le lot le jour où on le rouvrira — et il a déjà servi en établissant la contrainte d'authentification par jeton d'appairage.
+
 > Demandée par Adnan le 14/09 : **Chrome, Firefox et Firefox pour Android**, pour « configurer rapidement son agent ».
 > ⚠️ Ce document fixe **ce que l'extension fait**, pas **comment**. Les faits d'API attendent la recherche A10 ; tout ce qui en dépend est marqué **[à confirmer]**.
 
