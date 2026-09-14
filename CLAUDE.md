@@ -1,7 +1,7 @@
 # voice-pipeline (refonte) — reprise de session
 
 **Quoi** : standard téléphonique IA en français, conçu comme **greffon** réutilisable (Crenolo, Inkra, Kompagnon, tiers).
-**Où en est-on** : phase **recherche terminée**, conception en cours. **Aucune ligne de code écrite, et c'est voulu.**
+**Où en est-on** : **les deux vagues de recherche sont bouclées (14 rapports) et la conception est écrite (9 documents).** Prochaine étape : le **lot L0**, quatre mesures. **Aucune ligne de code écrite, et c'est voulu.**
 
 **Décisions prises le 2026-09-13** : premier livrable = **greffon Crenolo** (vertical beauté) · bord téléphonique **tranché après les mesures du lot L0** · **Kompagnon = M-Campaign renommé** (agent Google Ads, `marpeap/campaign`), greffe de niveau 1 avec le suivi de conversion d'appel comme valeur propre.
 **Date de la recherche** : 2026-09-13 (toutes les sources portent cette date de consultation).
@@ -11,6 +11,8 @@
 2. `docs/01-CONCEPT-PRODUIT.md` — passe de brainstorming n°1 : produit, onboarding, `memoire.md`, modèle économique, KPI
 3. `docs/02-ARCHITECTURE.md` — passe de brainstorming n°2 : contrat de connecteur, paquets, multi-tenant, surfaces, lots L0→L7
 3 bis. `docs/03-EXISTANT.md` — audit en lecture seule de l'ancien dépôt `marpeap/voice_pipeline`
+4. `docs/04-CONNECTEUR-CRENOLO.md` · `05-QUESTIONNAIRE-ET-PACKS.md` · `06-CONSOLE-ET-CORRECTION.md` · `07-CORPUS-DE-TEST.md` · `08-DEPLOIEMENT.md` — la conception détaillée
+5. `docs/recherche2/A1…A8` — la seconde vague, **complète** : LLM et cache de prompt, STT/TTS français, SMS, exploitation et sécurité, conformité, métier salon, hôtes de greffe, console
 4. `docs/recherche/R1…R6.md` — les six rapports bruts, sourcés (URL + date), avec leurs dettes de recherche déclarées
 
 ## État des accès — résolu le 2026-09-13
