@@ -6,9 +6,9 @@
 | # | Mesure | État |
 |---|---|---|
 | 1 | **RTF et RAM de Piper** (TTS français) | ✅ **fait le 2026-09-14** |
-| 2 | RTF d'un STT auto-hébergé | ⚠️ **partiel** : sherpa-onnx et Vosk mesurés (ci-dessous). NeMo-Speech.cpp demande des outils de compilation, donc `sudo` sur le banc |
+| 2 | **RTF de NeMo-Speech.cpp** | ✅ **fait le 2026-09-14** — et le logiciel **ne compile pas tel qu'il est publié** (voir ci-dessous) |
 | 3 | **WER français en bande téléphonique 8 kHz** | ✅ **fait le 2026-09-14** sur corpus synthétique (un corpus d'appels réels reste nécessaire) |
-| 4 | **TTFT réel des LLM candidats** (aucun fournisseur ne publie de percentiles) | à faire — demande des clés d'API |
+| 4 | **TTFT réel des LLM** | ⚠️ **partiel le 2026-09-14** : mesuré sur Groq (seule clé disponible). Les candidats retenus demandent des clés |
 
 ---
 
@@ -99,3 +99,63 @@ cd ~/bancs && PYTHONPATH=$HOME/bancs/l0-piper/lib:$HOME/bancs/l0-stt/lib \
 - **Le corpus d'appels réels** (60 à 100, annotés) reste indispensable : il donnera les valeurs absolues, celles-ci ne donnent que l'écart.
 - **NeMo-Speech.cpp** (le candidat n°1 de R1) n'a pas pu être mesuré : il demande `cmake` et `gcc`, donc `sudo` sur le banc. **C'est la seule chose qui bloque, et elle tient à un mot de passe.**
 - Les **API commerciales** (Deepgram, AssemblyAI, Azure) ne sont pas dans la comparaison faute de clés.
+
+
+---
+
+## Mesure 2 — NeMo-Speech.cpp + Nemotron 3.5 ASR streaming 0.6B
+
+### D'abord : le logiciel de référence ne compile pas tel qu'il est publié
+
+Constat vérifié, et il explique pourquoi **aucun chiffre de RTF CPU n'existe nulle part** : le symbole **`GGML_TENSOR_FLAG_Q8_PLANAR` est utilisé trois fois** (`src/runtime/ggml/nn.cpp:32`, `src/asr/encoder/fastconformer.cpp:1069`, `src/asr/encoder/rel_pos_attention.cpp:385`) **et défini nulle part** — ni dans les en-têtes du projet, ni dans le `llama.cpp` qu'il épingle. Vérifié au **commit exact** du sous-module (`560445bf3`, 2026-05-10), pas seulement à la pointe. Échec identique sur `v0.1.0` et sur `HEAD` (`a5b6953`), avec gcc 14 / Debian 13.
+
+**Contournement retenu pour mesurer** : leur propre commentaire (`fastconformer.h:311`) indique que ce drapeau ne sert qu'aux « planar-aware **CUDA** kernels ». Sur CPU il est donc sans effet, et il suffit de le définir sur un bit libre :
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DGGML_TENSOR_FLAG_Q8_PLANAR=16"
+```
+⚠️ **C'est un contournement de banc, pas une base de production.** Un projet dont la version publiée ne compile pas est un risque d'exploitation à part entière, à porter au dossier de décision de la pile.
+
+### Résultats — même corpus, même métrique que la mesure 3
+
+| Condition | WER | Écart |
+|---|---|---|
+| 16 kHz large bande | **7,0 %** | — |
+| **8 kHz G.711** | **7,8 %** | **× 1,11** |
+
+**Vitesse**, dérivée de deux mesures (un fichier de 5,6 s → 5,77 s ; le corpus entier de 111,5 s en mode répertoire, un seul chargement → 61,7 s) :
+- **chargement du modèle ≈ 2,8 s**, une fois par processus — donc **un service résident, jamais un processus par appel** ;
+- **RTF d'inférence ≈ 0,53** sur le i5-4210U de 2014. Temps réel tenu, avec ~47 % de marge.
+- (Le RTF de 2,3–2,5 observé en lançant un processus par fichier ne mesurait que le rechargement du modèle 47 fois.)
+
+### Comparaison des trois moteurs, sur exactement le même audio
+
+| Moteur | WER 16 kHz | WER 8 kHz | Écart | Poids |
+|---|---|---|---|---|
+| **Nemotron 3.5 ASR streaming 0.6B (q8_0)** | **7,0 %** | **7,8 %** | **× 1,11** | 742 Mo |
+| Vosk small-fr 0.22 | 7,6 % | 10,6 % | × 1,40 | 66 Mo |
+| sherpa-onnx zipformer-fr int8 | 23,4 % | 23,4 % | × 1,00 | 249 Mo |
+
+**Et le point qui décide** : le « zéro » initial des numéros, massacré par les deux autres moteurs, **passe chez Nemotron**, y compris en bande téléphonique — trois des cinq numéros dictés sont transcrits **sans aucune erreur**, les deux autres à 5,9 % (« zéro si » pour « zéro six », « quatre-vingt ans » pour « quatre-vingt-onze »). C'est exactement le mode d'échec qui décidait si le SMS de confirmation partait.
+
+**Conclusion provisoire** : la recommandation de R1 (Nemotron comme candidat n°1) est **confirmée par la mesure**, et pour une raison plus forte que le WER global — c'est le seul des trois à tenir sur les entités qui comptent. Réserve inchangée : corpus de synthèse, donc valeurs absolues optimistes.
+
+---
+
+## Mesure 4 — TTFT réel d'un LLM (partielle)
+
+**Aucun fournisseur ne publie de percentiles de TTFT.** Mesure faite depuis la France, en flux, avec un prompt système réaliste d'agent vocal (identité, règles, catalogue, horaires — 6 647 caractères, ~1 660 tokens), 10 requêtes, `max_tokens=60`.
+
+**Seule clé disponible dans le vault : Groq** (celle d'Hermes). La clé Moonshot/Kimi existe aussi mais son solde (~5 $) est le budget d'Hermes — je n'y touche pas.
+
+| Modèle (Groq) | TTFT p50 | TTFT p95 | Réponse complète p50 |
+|---|---|---|---|
+| `openai/gpt-oss-20b` | **430 ms** | 529 ms | 646 ms |
+| `qwen/qwen3.8-27b` | **507 ms** | 634 ms | 824 ms |
+
+**Lecture** :
+1. **La cible de 250 ms p50 n'est pas tenue**, et l'écart ne vient pas du modèle : Groq est aux États-Unis. Le trajet France → États-Unis → France mange l'essentiel du budget. **C'est la démonstration chiffrée de la règle « héberger en UE »** — et elle vaut plus que n'importe quel comparatif de débit.
+2. Le p95 reste sous les 500 ms visés pour `gpt-oss-20b`, ce qui laisse penser que la variance du fournisseur est faible et que **le problème est bien la distance**.
+3. **Le palier gratuit de Groq rend 429 après six requêtes** : utilisable comme repère, pas comme fournisseur.
+4. Deux pièges de méthode rencontrés, à garder pour les mesures suivantes : l'agent utilisateur par défaut de `urllib` reçoit un **403** là où `curl` passe (filtrage en amont), et `llama-3.3-70b-versatile` n'existe plus au catalogue.
+
+**Ce qui manque** : une clé pour au moins un candidat réel — **`gpt-5-mini` via `eu.api.openai.com`**, **Gemini Flash-Lite**, ou **Mistral Small chez Scaleway (région Paris)**. La même mesure prend cinq minutes une fois la clé disponible : `bench_ttft.py` est écrit et paramétrable par variables d'environnement (`CLE_LLM`, `BASE_LLM`, `MODELE_LLM`).
