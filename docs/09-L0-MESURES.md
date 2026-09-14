@@ -9,7 +9,7 @@
 | 2 | **RTF de NeMo-Speech.cpp** | ✅ **fait le 2026-09-14** — et le logiciel **ne compile pas tel qu'il est publié** (voir ci-dessous) |
 | 3 | **WER français en bande téléphonique 8 kHz** | ✅ **fait le 2026-09-14** sur corpus synthétique (un corpus d'appels réels reste nécessaire) |
 | 4 | **TTFT réel des LLM** | ⚠️ **partiel le 2026-09-14** : mesuré sur Groq (seule clé disponible). Les candidats retenus demandent des clés — **différé, budget à zéro** |
-| 5 | **Survie d'un tatouage audio au canal téléphonique** (AudioSeal MIT + ffmpeg, budget zéro) | **à faire** — ajoutée le 14/09. **Aucune publication de 2023 à 2026 ne teste un tatouage neuronal sous codec téléphonique** : cette mesure est la pièce qui transforme notre dossier d'exemption AI Act d'une opinion en une preuve |
+| 5 | **Survie d'un tatouage audio au canal téléphonique** | ✅ **faite le 14/09 — et le résultat est l'inverse de l'attendu** (ci-dessous). **Aucune publication de 2023 à 2026 ne teste un tatouage neuronal sous codec téléphonique** : cette mesure est la pièce qui transforme notre dossier d'exemption AI Act d'une opinion en une preuve |
 
 ---
 
@@ -160,3 +160,53 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DGGML_TENSOR_FLAG_
 4. Deux pièges de méthode rencontrés, à garder pour les mesures suivantes : l'agent utilisateur par défaut de `urllib` reçoit un **403** là où `curl` passe (filtrage en amont), et `llama-3.3-70b-versatile` n'existe plus au catalogue.
 
 **Ce qui manque** : une clé pour au moins un candidat réel — **`gpt-5-mini` via `eu.api.openai.com`**, **Gemini Flash-Lite**, ou **Mistral Small chez Scaleway (région Paris)**. La même mesure prend cinq minutes une fois la clé disponible : `bench_ttft.py` est écrit et paramétrable par variables d'environnement (`CLE_LLM`, `BASE_LLM`, `MODELE_LLM`).
+
+
+---
+
+## Mesure 5 — le tatouage survit au canal téléphonique, et ça nous enlève un argument
+
+**Banc** : `marpeap-series`, i5-4210U de 2014, ⚠️ **machine chargée à ~4 pendant la mesure** (un processus tiers occupait trois cœurs). **AudioSeal 0.2.0** (MIT, code et poids), torch 2.14 CPU, six phrases réelles d'agent, dégradation **8 kHz + encodage μ-law puis retour en 16 kHz**.
+
+### Résultats
+
+| Condition | Score de détection |
+|---|---|
+| Audio tatoué, 16 kHz | **1,000** |
+| **Audio tatoué, après 8 kHz + G.711 μ-law** | **1,000** |
+| **Témoin non tatoué, même canal** | **0,000** |
+
+**Le tatouage survit intégralement au canal téléphonique.** Six phrases sur six, score maximal, et **aucun faux positif** sur le témoin — le détecteur ne voit pas de tatouage là où il n'y en a pas, ce qui rend le premier chiffre crédible.
+
+### Ce que ça change, et ce n'est pas confortable
+
+**J'attendais l'effondrement, et je comptais dessus.** Le raisonnement était : si le tatouage ne survit pas au 8 kHz μ-law, alors le marquage est **techniquement infaisable** sur notre canal — première des deux conditions cumulatives d'exemption du **point (88)** des lignes directrices C(2026) 5054.
+
+**Cette porte est fermée par la mesure.** Le marquage n'est pas infaisable : il fonctionne, et il fonctionne parfaitement. **Nous ne pouvons donc pas invoquer l'infaisabilité de principe.**
+
+**Mais la mesure en ouvre une autre, plus étroite et plus honnête** — le coût :
+
+| | Médiane mesurée |
+|---|---|
+| Tatouage d'un énoncé | **1 481 ms** |
+| Détection | **675 ms** |
+
+⚠️ **Chiffres à prendre avec précaution** : machine de 2014, chargée à ~4 pendant la mesure, et **tatouage de l'énoncé entier** — pas en flux. **À rejouer sur machine au repos.** Mais même divisés par cinq, ces temps restent hors du budget d'un tour de parole (SLO : 700 ms **pour tout le tour**, TTS compris).
+
+**Et le point qui compte vraiment** : **le mode streaming d'AudioSeal est cassé en amont** (issue #105 du 12/09/2026, sans réponse), alors que notre unité de travail est le **chunk de 20 ms**. L'argument d'infaisabilité se déplace donc : il ne porte plus sur le **canal**, il porte sur le **temps réel**.
+
+### Conséquence pour le dossier AI Act
+
+La *gap analysis* (point 148) doit désormais dire, **mesures à l'appui** :
+1. le tatouage **survit** au canal téléphonique — mesuré, 1,000 contre 0,000 sur témoin ;
+2. mais il coûte **~1,5 s par énoncé** en traitement hors ligne sur notre matériel, et **le mode flux de la seule implémentation libre est non fonctionnel** ;
+3. donc l'infaisabilité invoquée est celle du **temps réel**, pas celle du support — et elle devra être **réexaminée** dès qu'AudioSeal réparera son mode flux, ou qu'un fournisseur de synthèse proposera un marquage natif en streaming.
+
+**C'est une position plus faible que celle que j'espérais, mais c'est la vraie.** Et elle est défendable précisément parce qu'elle s'appuie sur une mesure que personne d'autre n'a publiée.
+
+### Rejouer
+```bash
+ssh marpeap-series
+cd ~/bancs && PYTHONPATH=$HOME/bancs/l0-piper/lib:$HOME/bancs/l0-tatouage/lib \
+  ~/miniforge3/bin/python bench_tatouage.py    # résultats dans resultats_tatouage.json
+```

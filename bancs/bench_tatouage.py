@@ -67,8 +67,10 @@ def detecter(signal):
     tenseur = torch.from_numpy(signal).unsqueeze(0).unsqueeze(0)
     t0 = time.perf_counter()
     with torch.no_grad():
-        resultat, message = detecteur.detect_watermark(tenseur, sample_rate=TAUX_AUDIOSEAL), None
-    return float(resultat), time.perf_counter() - t0
+        sortie = detecteur.detect_watermark(tenseur, sample_rate=TAUX_AUDIOSEAL)
+    # selon la version, detect_watermark rend un flottant ou un couple (probabilite, message)
+    score = float(sortie[0]) if isinstance(sortie, (tuple, list)) else float(sortie)
+    return score, time.perf_counter() - t0
 
 resultats = []
 for i, texte in enumerate(PHRASES):
