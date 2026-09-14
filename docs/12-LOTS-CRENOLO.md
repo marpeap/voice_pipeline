@@ -21,6 +21,8 @@
 
 **Bloqué par** : l'accord d'Adnan (§6 de `04-CONNECTEUR-CRENOLO.md`). **Rien ne se déploie sans lui.**
 
+**L'argument le plus fort, découvert le 14/09** : le verrou anti-chevauchement est **déjà dupliqué** dans le code — `routers/public/reservation.py` et `routers/dashboard/agenda.py` l'implémentent chacun, avec leur propre `with_for_update()` et quatre appels distincts à `check_overlap`. Le risque de « deux implémentations divergentes de la même règle » que ce document redoute n'est donc **pas un risque futur, c'est l'état présent**. Bien menée, C0 **n'ajoute pas un troisième exemplaire : elle en supprime un.** C'est ce qui fait passer l'extraction du statut de confort d'architecture à celui de correction.
+
 ---
 
 ## C1 — Clés d'API par établissement

@@ -226,6 +226,12 @@ Exempter les routes `/connecteur/v1/*` du `10/hour`, et poser à la place une li
 
 ---
 
+## 5 bis. Le cadrage posé par Adnan côté hôte (14/09)
+
+Transmis par la session Crenolo, et il nomme ce qu'on construit : **Crenolo passe d'un site de réservation à un écosystème de gestion d'entreprise, et c'est à Crenolo de construire la route d'accueil** — ce n'est pas au greffon de se faufiler. Les exigences qui en découlent sont désormais écrites dans le `CLAUDE.md` de Crenolo : un point d'entrée dédié (`/connecteur/v1`), une clé scopée par établissement, **aucune règle métier dupliquée**, et le principe que **ce qu'on n'expose pas est une décision** et non un oubli.
+
+Cette spécification y était déjà conforme — elle a maintenant son fondement écrit **côté hôte**, ce qui vaut mieux qu'une convention tenue par un seul des deux côtés.
+
 ## 6. Les deux arbitrages qui reviennent à Adnan
 
 Ni l'un ni l'autre n'est technique, et aucun ne se tranche dans ce document.

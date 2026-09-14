@@ -92,5 +92,8 @@ Le prix d'un VPS à 4 Go n'est **pas vérifié** dans cette recherche — les gr
 ## 6. Les trois chiffres qui manquent encore
 
 1. **Le volume d'appels réel d'un salon** — aucune source publiée, hypothèse à 10/jour. Toute la colonne de coût variable en dépend linéairement.
+   ⚠️ **Et la base de Crenolo ne peut pas y répondre** — vérifié le 14/09. Le seul proxy disponible est la saisie manuelle de rendez-vous (`services/rdv_manuel.py`, dont la docstring dit « saisi par le salon lui-même — au comptoir, **au téléphone** ») : **11 saisies au total sur 252 réservations et 69 jours, dont 9 chez un seul salon le même jour**. Ce n'est pas un signal, c'est un artefact, et il ne doit pas servir à étayer quoi que ce soit.
+   **Mais le silence est lui-même instructif** : le salon le plus actif compte **224 réservations en ligne sur 59 jours et zéro saisie manuelle**. Soit il ne reçoit aucun appel — invraisemblable pour un salon —, soit **il en reçoit et ne les écrit nulle part**. Autrement dit : **aujourd'hui, les appels ne laissent aucune trace dans le produit.** C'est exactement le vide que le greffon comble, et c'est aussi pourquoi aucune source interne ne donnera jamais ce volume.
+   **Conséquence pratique** : la mesure sera **externe** — demander à un salon volontaire de compter pendant une semaine, ou obtenir un relevé d'opérateur. À joindre à la recherche du salon pilote pour le corpus (L1).
 2. **La tenue en charge** : combien d'appels simultanés une machine à 4 Go soutient réellement avec les modèles résidents. Le RTF de 0,53 le laisse penser, il ne le prouve pas.
 3. **Le prix des machines**, à relever chez deux ou trois hébergeurs avant de figer la grille.
