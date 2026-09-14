@@ -1,5 +1,7 @@
 # Lots C1 à C7 — le chantier côté Crenolo
 
+> ⚠️ **Rappel de cadrage (14/09)** : ceci est le plan **d'un adaptateur**, pas le plan du produit. Crenolo est **un module** parmi d'autres, et son chantier **ne bloque pas** le service autonome — qui, lui, démarre avec son **agenda interne** et n'a besoin d'aucun de ces lots.
+
 > Tâches exécutables, dans l'ordre des dépendances. Porté par la **session qui tient Crenolo** — c'est son code.
 > Trois contraintes encadrent tout ce document :
 > - **`main` gelé**, promesse écrite à une cliente. Toute évolution **additive**.

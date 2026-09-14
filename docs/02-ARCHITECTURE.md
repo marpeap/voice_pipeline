@@ -1,6 +1,7 @@
 # Passe de brainstorming n°2 — Architecture
 
 > Toujours aucune ligne de code. Ce document fixe **les frontières** : ce qui est un module, ce qui est un contrat, ce qui est jetable.
+> ⚠️ **Recadré le 14/09** : le produit est un **service indépendant** (`docs/14-RECADRAGE-PRODUIT.md`). Les frontières décrites ici restent exactes — elles ont même **gagné en importance**, puisque c'est leur respect qui évite que le mode autonome soit une réécriture. Partout où ce document dit « l'hôte », lire « l'adaptateur, **s'il y en a un** ».
 > Faits et chiffres : `docs/00-SYNTHESE.md` et `docs/recherche/`.
 
 ---

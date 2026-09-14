@@ -7,9 +7,13 @@
 
 ## 1. La phrase
 
-**Un standard téléphonique IA en français, qui ne se configure pas : il lit déjà le logiciel métier, et le commerçant ne fait que répondre à des questions.**
+> ⚠️ **Recadré le 14/09** — ce document a été écrit quand Crenolo était le point de départ. **Le produit est un service à part entière, indépendant** (`docs/14-RECADRAGE-PRODUIT.md`) ; le branchement sur un logiciel hôte est **une possibilité, pas la destination**. Tout ce qui suit reste valable : il suffit de lire « le logiciel métier » comme **« l'adaptateur, quand il y en a un »**.
 
-Et sa contrepartie technique : **un greffon**, pas un produit monolithique — le même cœur se branche sur Crenolo, Inkra, Kompagnon ou un logiciel tiers via un connecteur de quelques centaines de lignes.
+**Un agent téléphonique en français qu'on configure en répondant à des questions, jamais en écrivant un prompt.**
+
+Deux contreparties techniques :
+- **il se vend seul** — à un commerçant qui n'a aucun autre logiciel de la maison, avec son propre agenda interne ;
+- **et il se branche** sur Crenolo, Inkra, Kompagnon ou un tiers via un connecteur, **quand un logiciel métier existe** — auquel cas il hérite gratuitement de ce que ce logiciel sait déjà.
 
 ---
 
