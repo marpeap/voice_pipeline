@@ -289,3 +289,59 @@ cd ~/bancs && PYTHONPATH=$HOME/bancs/l0-piper/lib:$HOME/bancs/l0-tatouage/lib \
 ```bash
 python3 bancs/corpus.py --sortie ~/corpus-fr   # génère et chiffre la conversion
 ```
+
+---
+
+## Mesure 7 — la bande téléphonique ne coûte presque rien à un modèle récent, mais les numéros se perdent quand même
+
+### Méthode
+
+Corpus de `bancs/corpus.py` : **79 énoncés français**, 235 s d'audio, onze familles (numéros dictés, dates, « comme la dernière fois », report/annulation, collisions lexicales du pack coiffure, prix, demande d'humain, cas limites, noms propres, hésitations, prise de rendez-vous nue). Chaque énoncé est transcrit **deux fois** : en 16 kHz, et après **aller-retour µ-law (G.711)** à 8 kHz. Moteur : `whisper-large-v3-turbo` par API, `language=fr`. Même fichier, même moteur, même jour : seul le canal change.
+
+### Résultats
+
+| | WER global | Numéro de téléphone reconstruit exactement |
+|---|---|---|
+| **16 kHz** | 21,2 % (168 erreurs / 791 mots) | **6 / 10** |
+| **8 kHz G.711** | 21,9 % (173 / 791) | **6 / 10** |
+| **Écart** | **×1,03** | aucun |
+
+**Le WER global de 21 % n'est pas le vrai taux d'erreur** : il est dominé par une différence d'écriture, pas d'écoute. La référence écrit « zéro six douze trente-quatre », le moteur écrit « 0 612 34 » — mêmes chiffres, sept mots comptés faux. D'où le détail par famille, qui est le chiffre utile :
+
+| Famille | 16 kHz | 8 kHz |
+|---|---|---|
+| demande d'humain | 0,0 % | 0,0 % |
+| « comme la dernière fois » | 1,9 % | 1,9 % |
+| cas limites (hors sujet, injection) | 1,9 % | 1,9 % |
+| report / annulation | 4,1 % | 4,1 % |
+| prise de rendez-vous | 4,1 % | **8,1 %** |
+| **collisions lexicales du pack** | **6,6 %** | **6,6 %** |
+| hésitations | 9,6 % | 9,6 % |
+| prix / horaires | 15,2 % | 15,2 % |
+| dates et heures | 21,1 % | **24,2 %** |
+| noms propres | 30,9 % | 29,1 % |
+| numéros (artefact d'écriture) | 80,5 % | 80,5 % |
+
+### Ce que ces chiffres disent
+
+1. **La bande téléphonique n'est pas une fatalité — c'est une propriété du modèle.** ×1,03 ici, contre ×1,11 pour Nemotron et ×1,40 pour Vosk sur la mesure 3. Un modèle récent et gros encaisse le 8 kHz presque sans perte. **Conséquence : l'écart 16/8 kHz doit être mesuré pour chaque moteur candidat, il ne se déduit pas.**
+2. **Les collisions lexicales du pack coiffure passent à 6,6 %**, et identiquement dans les deux bandes. `permanente` / `semi-permanent` / `maquillage permanent`, `patine` / `platine`, `mèches` / `mèche` : ce n'est pas là que ça casse.
+3. **Ça casse sur les numéros, et pas à cause de la bande.** Quatre échecs sur dix, **exactement les mêmes en 16 kHz et en 8 kHz** :
+   - « zéro un **quarante-trois** vingt-deux onze zéro neuf » → `01 40 3 22 11 09` — le moteur a coupé *quarante-trois* en deux, onze chiffres au lieu de dix ;
+   - « zéro neuf soixante-dix zéro zéro quatre-vingt-un douze » → `09-7100-92` — chiffres perdus ;
+   - « zéro six **quatre-vingts douze** zéro trois quarante-quatre » → `06 92 03 44` — l'énoncé lui-même est ambigu en français, et le moteur a tranché comme un humain aurait hésité ;
+   - l'auto-correction (« douze, quatorze… non, quinze ») est **correctement transcrite** : `06, 12, 14, non, 15, 40, 60`. L'échec n'est pas à l'écoute, il est **à l'interprétation** — c'est le travail de la grammaire de `docs/10-GRAMMAIRE-FRANCAISE.md`, pas celui du STT.
+
+   **Donc : la perte du numéro vient de la grammaire des nombres français, pas du canal.** Les trois parades déjà décidées sont les bonnes, et elles ne sont pas optionnelles : relecture du numéro par groupes de deux, reconstruction sous contrainte (dix chiffres, commence par 0), bascule DTMF après deux échecs.
+4. **Les noms propres sont le deuxième point faible** (≈ 30 %), et l'épellation ne les sauve pas toujours. À traiter comme les numéros : relecture, et jamais de décision silencieuse sur un nom.
+
+### Ce que cette mesure ne dit pas
+
+Corpus **synthétique**, **une seule voix**, **aucun bruit**, et un aller-retour µ-law **sans perte de paquets ni gigue**. Les taux absolus sont donc un plancher optimiste. Ce qui est transposable, c'est **l'écart entre les deux bandes** et **la répartition des erreurs par famille** — pas le niveau.
+
+### Rejouer
+
+```bash
+python3 bancs/corpus.py --sortie ~/corpus-fr
+GROQ_API_KEY=... python3 bancs/wer.py --corpus ~/corpus-fr
+```
