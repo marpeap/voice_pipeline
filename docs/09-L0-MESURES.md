@@ -54,6 +54,21 @@ PYTHONPATH=~/bancs/l0-piper/lib ~/miniforge3/bin/python bench_piper.py
 
 ---
 
+## Piège d'exploitation du banc — à connaître avant toute mesure longue
+
+**`marpeap-series` se met en veille dès qu'il est inactif**, et une session SSH est le seul chose qui le tienne éveillé. Conséquence constatée deux fois le 14/09 : une mesure lancée en arrière-plan puis détachée **est interrompue par la veille**, sans erreur ni trace — la machine disparaît simplement du tailnet.
+
+Deux autres pièges du même banc, payés le même jour :
+- **`/tmp` est un tmpfs de 2,9 Go** rempli à 93 %. Une installation qui y décompresse échoue avec un `Errno 28` qui ressemble à un manque de mémoire. **Toujours poser `TMPDIR=$HOME/bancs/tmp`.**
+- **torch tire les paquets CUDA par défaut** sur une machine sans GPU (2,5 Go pour rien). **Toujours `--index-url https://download.pytorch.org/whl/cpu`.**
+
+**Règle retenue** : toute mesure de plus d'une minute se lance sous
+```bash
+systemd-inhibit --what=idle:sleep --why="banc L0" bash mon_banc.sh
+```
+
+---
+
 ## Mesure 3 — WER français, large bande contre bande téléphonique
 
 **Le chiffre qu'aucune source publique ne donne.** Tous les WER publiés (FLEURS, MLS, CommonVoice, Open ASR Leaderboard) sont mesurés en **16 kHz propre** ; notre canal est du **8 kHz G.711**.
