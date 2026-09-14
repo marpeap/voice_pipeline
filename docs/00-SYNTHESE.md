@@ -192,6 +192,24 @@ Détail : `docs/recherche2/A5-conformite-operationnelle.md` — **41 livrables**
 
 ---
 
+### A9 — Marquage lisible par machine (AI Act art. 50 §2)
+Détail : `docs/recherche2/A9-marquage-ai-act.md`. Source centrale : les **lignes directrices officielles C(2026) 5054 final du 20.07.2026**, téléchargées et lues intégralement.
+
+1. ⛔ **L'argument « pas de fichier, donc pas de contenu » est mort.** Le §2 vise « les sorties des systèmes d'IA », sans condition de fichier, et les lignes directrices définissent l'audio comme « a **time-varying signal** » (point 60) et visent **nommément les agents IA** produisant de l'audio perceptible (point 63).
+2. **Mais une porte de sortie existe, et elle est conditionnelle** — point (88) : le contenu temps réel éphémère « *without being recorded, stored or disseminated further* » **peut être exempté** si **(a)** le marquage est techniquement infaisable **et (b)** la personne exposée est informée. **Deux conditions cumulatives.** Les exemples cités sont le jeu vidéo et la réalité virtuelle, **pas la téléphonie** : ce n'est pas un blanc-seing, c'est un dossier à constituer.
+3. **Le régime de preuve est nommé** — point (148) : qui ne signe pas le Code de bonnes pratiques « *should carry out a **gap analysis*** » comparant ses mesures à celles du Code. **C'est exactement le livrable attendu en cas de contrôle.**
+4. ⚠️ **Calendrier, et c'est la mauvaise nouvelle** : le sursis de l'omnibus au 2 décembre 2026 ne vaut **que** pour les systèmes **déjà sur le marché avant le 2 août 2026**, et **jamais** pour l'annonce du §1. **Un agent lancé maintenant n'a aucune transition.**
+5. **Aucune publication de 2023 à 2026 ne teste un tatouage neuronal sous codec téléphonique.** Le point le plus proche est Opus à 16 kbit/s en 16 kHz. **AudioSeal** est MIT (code **et** poids), détection en 3,3 ms — mais son **mode streaming est cassé** (issue #105 du 12/09/2026, sans réponse), or notre unité est le chunk de 20 ms.
+6. **L'annonce vocale ne satisfait pas le §2** (point 71 : l'extraction doit se faire « *without human intervention* ») — **mais elle devient la seconde condition du point (88)**. Elle change donc de rôle : de solution, elle devient pièce du dossier d'exemption.
+7. **Aucun standard IETF de divulgation d'appelant IA n'existe** (Datatracker vérifié). RFC 9795 (*Rich Call Data*) authentifie **l'appelant, pas le contenu**. La **méthode par journalisation** est nommée au considérant 133 et au point (73) : **c'est la seule technique réalisable sans conteneur de fichier.**
+8. **Et l'argument « notre fournisseur marque en amont » est factuellement indisponible** : Azure ne tatoue que *personal voice* et *avatar*, pas les voix standard ; SynthID audio est borné à Lyria et NotebookLM, **rien dans Cloud TTS** ; ElevenLabs n'a aucun tatouage et **n'est pas signataire** du Code (Cartesia non plus). **Aucun fournisseur ne documente un marquage sur sortie streaming téléphonique.**
+9. **Risque réel** : 15 M€ ou 3 % du CA mondial, **le plus faible pour une PME**. L'exposition financière brute est dérisoire ; **le vrai risque est l'injonction de mise en conformité et le retrait du marché**, et l'entrée la plus probable est **la plainte d'un appelant** (art. 85). **[NV]** L'autorité française compétente n'est pas confirmée (la DGCCRF est *pressentie*, source secondaire).
+
+**Ce qu'on met en place** : annonce vocale **versionnée et journalisée** · journal de provenance au vocabulaire `c2pa.ai-disclosure` · **non-rétention de l'audio comme décision d'architecture écrite** · voix génériques sans clonage · **gap analysis écrite** · question écrite au fournisseur TTS · et un **banc d'essai « canal téléphonique » mesuré** (AudioSeal MIT + ffmpeg, budget zéro) — **la seule pièce qui transforme une opinion en preuve**.
+**Ce qu'on assume de ne pas faire** : tatouage en production, manifeste C2PA sur le flux, signature du Code, attente d'une norme harmonisée — chaque renoncement justifié par une citation officielle.
+
+---
+
 ## 6. Dette de recherche (à ne pas présenter comme acquis)
 
 - ~~Tout le volet juridique est en source secondaire~~ → **levé par A5**, qui a atteint Légifrance et EUR-Lex par navigateur réel. ⚠️ Et qui a corrigé cinq références fausses, dont **le « référentiel CNIL du 2 avril 2026 sur les enregistrements d'appels », qui n'existe pas** : c'est le référentiel *durées de conservation RH*, dont une rubrique traite l'écoute et l'enregistrement (audio 6 mois, documents d'analyse 1 an). Restent inaccessibles : DGCCRF, Judilibre, CanLII — 23 points listés comme trous dans A5 §11.

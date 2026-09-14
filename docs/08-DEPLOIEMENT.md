@@ -112,7 +112,7 @@ Plus quatre règles de détection d'échec, avant tout LLM : raccroché sous 10 
 Extrait des **41 livrables** d'A5, les bloquants :
 
 1. **Annonce IA** non désactivable dans le script (AI Act art. 50 §1, applicable depuis le 02/08/2026 — obligation **de l'éditeur**, non transférable par CGV).
-2. **Dossier technique du marquage lisible par machine** (§2, dû au 02/12/2026 pour les systèmes déjà sur le marché ; **aucune exonération pour « impraticable »**).
+2. **Dossier d'exemption du marquage** — contenu désormais défini par les lignes directrices C(2026) 5054 : une **gap analysis écrite** (point 148), la démonstration que le marquage est **techniquement infaisable** sur notre canal, et la preuve que **l'appelant est informé** (point 88, conditions **cumulatives**). ⚠️ **Le sursis au 02/12/2026 ne s'applique pas à nous** : il ne vaut que pour les systèmes déjà sur le marché avant le 02/08/2026. **Un agent lancé maintenant doit être conforme dès le premier appel.**
 3. **Contrat de sous-traitance art. 28** avec chaque commerçant, et la liste des **sous-traitants ultérieurs hors UE** (LLM, STT) avec leur base de transfert.
 4. **Mentions d'information de l'appelant**, prononcées au bon moment.
 5. **Registre**, et l'examen de l'**AIPD** (à trancher avec un avocat — c'est l'un des 8 points listés).

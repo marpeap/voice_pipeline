@@ -7,8 +7,6 @@
 
 ---
 
-*(rédaction en cours — sections assemblées ci-dessous)*
-
 ## 0. Réponse en une page
 
 **[F]** L'article 50 §2 est **applicable depuis le 2 août 2026** (art. 113, phrase liminaire — le chapitre IV n'est visé par aucune des dérogations a/b/c). Il vise les **fournisseurs** de systèmes d'IA générant des « contenus de synthèse de type audio », sans exception pour l'éphémère : le texte dit « les **sorties** du système d'IA », pas « les fichiers ».
@@ -17,7 +15,13 @@
 
 **[F]** Le texte lui-même borne l'obligation à ce que « **la technologie le permet** » (FR) / « **as far as this is technically feasible** » (EN), « compte tenu des spécificités et des limites des différents types de contenus, des **coûts de mise en œuvre** et de l'**état de la technique généralement reconnu**, comme cela peut ressortir des normes techniques pertinentes ». Le considérant 133 énumère explicitement, à côté des filigranes, « les **identifications de métadonnées** », « les méthodes cryptographiques », « les **méthodes d'enregistrement** » (*logging methods*), « les empreintes digitales ou d'autres techniques, selon qu'il convient ».
 
-**[R]** Conclusion opérationnelle : le marquage exigible se satisfait ici par une **combinaison métadonnées de signalisation + journal de provenance + annonce vocale**, et non par un tatouage du signal, à condition de **documenter par écrit** l'état de l'art et l'impossibilité mesurée. Détail en §8.
+**[F] La pièce décisive est le point (88) des lignes directrices de la Commission C(2026) 5054 final du 20.7.2026** : le contenu temps réel éphémère « *without being recorded, stored or disseminated further* » **peut être exempté** — mais à **deux conditions cumulatives** : que le marquage soit techniquement infaisable **et** que la personne exposée soit informée. Ce n'est pas une exclusion de champ : c'est une exemption à mériter, et à documenter.
+
+**[F] Le régime de preuve qui nous est applicable a un nom** : point (148) — un non-signataire du Code de bonnes pratiques « *should carry out a **gap analysis** that compares the measures they have implemented with the measures set out by a code of practice that is assessed as adequate* ».
+
+**[F] Calendrier** : art. 50 applicable depuis le **2 août 2026** ; le sursis de l'« AI Omnibus » (jusqu'au **2 décembre 2026**) ne vaut **que** pour les systèmes mis sur le marché **avant** le 2 août 2026, et **jamais** pour l'annonce du §1 sur un système interactif (point 153). Un agent vocal lancé maintenant n'a **aucune** période transitoire.
+
+**[R]** Conclusion opérationnelle : le marquage exigible se satisfait ici par une **combinaison journal de provenance + annonce vocale + non-rétention de l'audio**, complétée par la signalisation d'appel, et non par un tatouage du signal — à condition de **mesurer** l'infaisabilité (banc d'essai canal téléphonique) plutôt que de l'affirmer, et de produire la gap analysis écrite. Détail en §8.
 
 ---
 
@@ -87,75 +91,6 @@ Version anglaise, même paragraphe — c'est elle qui porte la formule « techni
 **[F] §7, verbatim** : « Le Bureau de l'IA encourage et facilite l'élaboration de codes de bonne pratique au niveau de l'Union afin de faciliter la mise en œuvre effective des obligations relatives à la détection et à l'étiquetage des contenus générés ou manipulés par une IA. La Commission peut adopter des actes d'exécution pour approuver ces codes de bonne pratique conformément à la procédure prévue à l'article 56, paragraphe 6. Si elle estime que le code n'est pas approprié, la Commission peut adopter un acte d'exécution précisant des règles communes pour la mise en œuvre de ces obligations conformément à la procédure d'examen prévue à l'article 98, paragraphe 2. »
 
 **[F]** L'article 50 **n'impose aucune documentation technique**. L'obligation de documentation technique (art. 11 + annexe IV) ne vise que « un système d'IA **à haut risque** ». Le « dossier technique » évoqué en §7.3 est donc une **pièce de défense volontaire**, pas une obligation réglementaire — ce qui ne la rend pas moins nécessaire.
-
----
-
-## 3. Les techniques de tatouage audio utilisables
-
-> **Note de méthode [F]** : le budget WebSearch de la session était **épuisé (200/200)** dès le premier appel de recherche. Toute la partie technique a été établie par **WebFetch direct** sur arXiv, GitHub, HuggingFace, deepmind.google et l'API Crossref. Signalé comme demandé.
-
-### 3.1 Tableau comparatif
-
-| Méthode | Licence code / poids | Sample rate | Robustesse publiée (chiffres) | Codec **voix** testé ? | Temps réel |
-|---|---|---|---|---|---|
-| **AudioSeal** (Meta, ICML 2024) | **MIT / MIT** [F] | 16 kHz (24/48 « ok » selon README) | acc. moy. **0,96**, AUC 0,97 ; MP3 32k **1,00** ; AAC 64k **1,00** ; EnCodec **0,98** ; resample 32 kHz **1,00** ; **highpass 1500 Hz → 0,61** ; lowpass 500 Hz **0,99** | **NON** [F] | Oui : détection **3,30 ± 2,03 ms**/segment (Quadro GP100), génération 7,41 ms ; mode streaming ≥ 0.2 **mais bug ouvert** [F] |
-| **WavMark** (2023) | **MIT / MIT** [F] | **16 kHz strict** | BER moy. **0,48 %** sur 10 attaques ; s'effondre sous EnCodec (FNR ≈ 1,0 selon AudioMarkBench) | **NON** [F] | **Non** — détection **≈ 1710 ± 1314 ms** [F] |
-| **Timbre Watermarking** (NDSS 2024) | **[NV]** | 22,05 kHz (amplitude STFT) | resample 16 kHz **100 %**, **resample 8 kHz 99,4 %** ; MP3 64k **99,92 %** / 8k **75,65 %** ; passe-haut / passe-bas **65,5 % / 70,8 %** | **NON** (resample 8 kHz nu ≠ codec) [F] | **[NV]** |
-| **SilentCipher** (Sony, 2024) | **MIT / MIT** [F] | 44,1 kHz **et** 16 kHz | chiffres par attaque **[NV]** | **NON** [F] | **[NV]** |
-| **XAttnMark** (ICML 2025) | **[NV]** | 16 kHz | détection **99,19 %** (TPR 98,56 / FPR 0,19) ; vitesse **99,5 %** ; bandpass 300-8000 Hz, MP3/AAC 128k, EnCodec, HSJA | **NON** — le papier écrit « Telephone/Narrowband Codecs: Not tested » [F] | **[NV]** |
-| **Perth** (Resemble AI) | **MIT** [F] | **non documenté** [NV] | **aucun chiffre publié**, revendication générique seule [F] | **NON** [F] | **[NV]** |
-| **SynthID audio** (Google DeepMind) | **fermé, indisponible hors produits Google** [F] | non publié [NV] | **aucun chiffre publié** ; revendications qualitatives (bruit, MP3, changement de vitesse) [F] | **NON** [F] | non publié [NV] |
-| **Juvela & Wang** (ICASSP 2025, augmentation par codecs) | code public [F] | **22,05 kHz** | EER : Opus 64k **0,45 %**, MP3 64k **0,79 %**, DAC 8k **0,00 %**, Vorbis q3 **5,75 %** | **NON** — codecs de parole explicitement hors périmètre [F] | non discuté [F] |
-
-### 3.2 AudioSeal — le seul candidat sérieux, et ses deux réserves
-
-**[F]** *Proactive Detection of Voice Cloning with Localized Watermarking*, San Roman, Fernandez, Défossez, Furon, Tran, Elsahar — **ICML 2024**, [arXiv:2401.17264](https://arxiv.org/abs/2401.17264) (consulté 2026-09-14).
-
-- **[F] Licence** : **MIT pour le code ET pour les poids** depuis la version 0.1.2 (02/04/2024) — le dépôt annonce explicitement « updated license to full MIT license (including the license for the model weights)! Now you can use AudioSeal in commercial application too! ». Model card HuggingFace `facebook/audioseal` : MIT. **C'est le seul des candidats à offrir cette clarté commerciale.**
-- **[F] Taille** : `generator_base.pth` **58,8 Mo**, `detector_base.pth` **34,7 Mo`. Nombre de paramètres non publié [NV].
-- **[F] Latence** : détection **3,30 ± 2,03 ms** par segment de 1-10 s sur une Quadro GP100 ; génération 7,41 ± 4,52 ms. Soit ×485 plus rapide que WavMark en détection.
-- **[F] Réserve n° 1 — le streaming est cassé à date.** Issue GitHub **#105**, ouverte le **12/09/2026** (soit deux jours avant cette recherche), PR #106 liée, sans réponse de mainteneur : « Streaming watermark generator does not retain history between chunks ». Le mode streaming ne s'active qu'au niveau du conteneur ; 37 modules encodeur/décodeur internes conservent un `_NullState` vide. Vérifié par l'auteur de l'issue sur des chunks de 0,5 s : la sortie est identique avec ou sans historique. **Notre mode d'usage est précisément le chunk de 20 ms.**
-- **[F] Réserve n° 2 — aucun codec téléphonique dans la table de robustesse.** Le texte du papier ne contient ni « telephone », ni « narrowband », ni « 8 kHz ». Le seul rééchantillonnage testé va **vers le haut** (32 kHz).
-
-### 3.3 SynthID — hors de portée
-
-**[F]** SynthID audio « embeds a watermark into any audio generated or published through our AI music generation model **Lyria** or the podcast generation feature of **NotebookLM** » (deepmind.google/science/synthid, consulté 2026-09-14). Méthode publiée le 16/11/2023 : tatouage dans une représentation spectrogramme.
-**[F]** Seul **SynthID-Text** a été ouvert (`google-deepmind/synthid-text`, code Apache-2.0). **Le volet audio n'est ni open source, ni disponible via API hors produits Google.** Le **SynthID Detector** est en accès restreint (« currently collaborating with journalists and media professionals », liste d'attente).
-**[F] Aucun chiffre de robustesse publié** pour SynthID audio, aucune publication évaluée par les pairs.
-→ **[F] Écarté : inaccessible.**
-
----
-
-## 4. Le point décisif — la survie à la bande téléphonique
-
-### 4.1 Le canal, en chiffres officiels
-
-- **[F]** ITU-T **G.711**, *Pulse code modulation (PCM) of voice frequencies* (Genève 1972, texte en vigueur approuvé le **25/11/1988**) : « The nominal value recommended for the sampling rate is **8000 samples per second** » (§2) ; « **Eight binary digits per sample** should be used for international circuits » (§3.1) ; deux lois de compression, **A-law et μ-law** (§3.2). → 64 kbit/s. *Source : PDF officiel ITU, `https://www.itu.int/rec/T-REC-G.711-198811-I/en`, consulté 2026-09-14.*
-- **[F]** ITU-T **G.712** (11/2001), *Transmission performance characteristics of pulse code modulation channels* : le gabarit d'affaiblissement est spécifié « over the frequency range **300 Hz to 3400 Hz** ». *Source : PDF officiel ITU, `https://www.itu.int/rec/T-REC-G.712/en`, consulté 2026-09-14.*
-- **[F] Conséquence arithmétique** : 8 kHz d'échantillonnage ⇒ **Nyquist à 4 kHz**. Toute la bande 4-8 kHz, dans laquelle opèrent AudioSeal, WavMark et XAttnMark (modèles 16 kHz), est **supprimée, pas dégradée**. S'y ajoutent le filtrage sous 300 Hz et la quantification logarithmique 8 bits.
-
-### 4.2 Ce que la littérature teste réellement — et ce qu'elle ne teste pas
-
-**[F] Résultat central de cette recherche : aucune publication de tatouage audio neuronal (2023-2026) n'évalue un codec téléphonique.** Vérifié de deux manières :
-
-1. **Recherches arXiv (titre + résumé), toutes nulles, 2026-09-14** : `audio watermarking telephone codec` → « produced no results » ; `audio watermarking G.711` → aucun résultat ; `speech watermarking AMR codec` → aucun résultat ; `watermarking VoIP speech` → aucun résultat. `watermarking streaming real-time speech generation detection` → un seul résultat, *Seamless* (arXiv:2312.05187), qui **intègre** AudioSeal en traduction streaming sans tester aucun codec téléphonique.
-2. **Lecture des tables de robustesse elles-mêmes** (AudioSeal Table 3 + Annexe D.2 ; Timbre Table III ; XAttnMark ; AudioMarkBench ; Juvela & Wang) : **aucune ne contient G.711, G.722, G.729, AMR, GSM, ni condition 8 kHz bout-en-bout.**
-
-**[F] Le point le plus proche jamais publié** : **AudioMarkBench** (NeurIPS D&B 2024, arXiv:2406.06979) teste **Opus 16-256 kbps** et **MP3 8-40 kbps** — mais à **16 kHz**, jamais à 8 kHz, jamais en μ-law. **Timbre** publie **99,4 % après un rééchantillonnage 8 kHz** — mais c'est un aller-retour **nu**, sans μ-law, sans filtre 300-3400 Hz, sans perte de codec ; ce n'est pas un canal téléphonique. **Juvela & Wang (ICASSP 2025)**, le seul papier dont le sujet *est* la robustesse aux codecs, travaille **à 22,05 kHz** et écrit explicitement que les codecs de parole en bande étroite sont hors périmètre.
-
-**[F] Littérature ancienne, pré-neuronale, qui existe mais n'est reprise par personne** (identifiée via l'API Crossref, DOI vérifiés, contenu non lisible — IEEE Xplore inaccessible, donc **[NV]** sur les chiffres) : *Quality-aware GSM speech watermarking* (ISCAS 2008, 10.1109/iscas.2008.4542080) ; *Audio Watermarking for Covert Communication through Telephone System* (ISSPIT 2006, 10.1109/isspit.2006.270935) ; *Comparison of digital audio watermarking techniques for the security of VOIP communications* (IAS 2011, 10.1109/isias.2011.6122787). Aucune n'est neuronale, aucune ne fournit de poids réutilisables, aucun travail 2024-2026 ne les reprend pour du TTS.
-
-**[F] Nuance honnête** : la recherche arXiv ne porte que sur titre et résumé ; un test de codec enfoui dans une table pourrait échapper à cette requête. C'est pourquoi les tables ont été lues directement — mais l'exhaustivité n'est pas garantie sur l'ensemble de la littérature.
-
-### 4.3 Ce qu'on peut raisonnablement en déduire (et ce qu'on ne peut pas)
-
-- **[H, argument d'espoir]** Le profil fréquentiel d'AudioSeal — détection **intacte en lowpass 500 Hz (0,99)**, **détruite en highpass 1500 Hz (0,61, soit le hasard)**, entraînement en bandpass **300-8000 Hz**, évaluation en bandpass 500-5000 Hz à **1,00** — indique que l'énergie utile du tatouage vit **majoritairement sous 1500 Hz et largement sous 500 Hz**. Le filtrage téléphonique ne coupe que **sous 300 Hz**. La **bande passante seule n'est donc probablement pas le facteur limitant.**
-- **[H, argument de risque]** Le danger se déplace sur ce que personne n'a mesuré : la **décimation 24 → 8 kHz**, la **quantification μ-law** (bruit *multiplicatif*, proportionnel à l'amplitude locale, très différent du bruit blanc additif σ = 0,05 testé), et le fait que la détection exige de **suréchantillonner 8 → 16 kHz**, produisant un signal dont la moitié haute du spectre est identiquement nulle — condition jamais présentée à aucun détecteur publié.
-- **[H]** Ce n'est pas un problème de capacité de Shannon (3,1 kHz de bande utile et ~38 dB de SNR laissent largement de la place) mais un **décalage de domaine** : les décodeurs n'ont jamais vu cette dégradation.
-- **[H]** Le remède techniquement correct existerait : **fine-tuner le détecteur AudioSeal avec une couche de distorsion « canal téléphonique » différentiable** (décimation → bande 300-3400 → μ-law → retour 16 kHz), en reprenant l'estimateur straight-through de Juvela & Wang pour la partie non différentiable. Licences MIT compatibles. **[R]** C'est un projet de R&D de plusieurs semaines, pas une case à cocher — voir §8 sur ce qu'on assume de ne pas faire.
-- **[F] Rappel de sécurité** (AudioMarkBench) : **100 % de faux négatifs sous attaque en boîte blanche** pour les trois méthodes évaluées, à SNR 20. Un tatouage est une **trace de provenance coopérative**, pas un mécanisme anti-adversaire. Aucun tatouage n'empêchera un fraudeur de faire passer sa voix pour humaine.
-
-> **[F] Verdict de la section** : pour un flux 8 kHz / G.711 μ-law en chunks de 20 ms, **il n'existe aujourd'hui aucun chiffre publié sur lequel fonder une obligation de résultat**. Ni « ça marche », ni « ça casse ». Le croisement « watermark neuronal de parole synthétique » × « codec téléphonique bande étroite » est un **angle mort complet de l'état de l'art** — c'est exactement le terrain où joue la réserve de faisabilité technique de l'article 50 §2.
 
 ---
 
@@ -238,3 +173,340 @@ Validation segment par segment via `c2pa.livevideo.segment` ou *Verifiable Segme
 - **[F] Normes harmonisées CEN-CENELEC JTC 21 : aucun item marquage/watermarking/provenance.** La demande de normalisation de la Commission porte sur dix domaines, **tous rattachés au chapitre III (haut risque)** : risk management, datasets, record keeping, **transparency (art. 13, pas art. 50)**, human oversight, accuracy, robustness, cybersecurity, quality management, conformity assessment. Première norme harmonisée entrée en enquête publique : **prEN 18286** (système de management de la qualité, art. 17), le 30 octobre 2025. *Sources : `https://digital-strategy.ec.europa.eu/en/policies/ai-act-standardisation` et `https://www.cencenelec.eu/areas-of-work/cen-cenelec-topics/artificial-intelligence/`.* **[NV]** Le programme de travail complet de `jtc21.eu` renvoie HTTP 406 : l'absence d'item watermarking est une **[H] fondée sur trois sources concordantes**, dont le Code lui-même (« *relevant interoperability standards … are yet to be developed* »), et non sur un listing exhaustif.
 
 → **[F] Conséquence : il n'existe aucune présomption de conformité par norme harmonisée pour l'article 50 §2. Le Code de bonnes pratiques est aujourd'hui le seul instrument reconnu à l'échelle de l'Union.**
+
+---
+
+## 3. Les techniques de tatouage audio utilisables
+
+> **Note de méthode [F]** : le budget WebSearch de la session était **épuisé (200/200)** dès le premier appel de recherche. Toute la partie technique a été établie par **WebFetch direct** sur arXiv, GitHub, HuggingFace, deepmind.google et l'API Crossref. Signalé comme demandé.
+
+### 3.1 Tableau comparatif
+
+| Méthode | Licence code / poids | Sample rate | Robustesse publiée (chiffres) | Codec **voix** testé ? | Temps réel |
+|---|---|---|---|---|---|
+| **AudioSeal** (Meta, ICML 2024) | **MIT / MIT** [F] | 16 kHz (24/48 « ok » selon README) | acc. moy. **0,96**, AUC 0,97 ; MP3 32k **1,00** ; AAC 64k **1,00** ; EnCodec **0,98** ; resample 32 kHz **1,00** ; **highpass 1500 Hz → 0,61** ; lowpass 500 Hz **0,99** | **NON** [F] | Oui : détection **3,30 ± 2,03 ms**/segment (Quadro GP100), génération 7,41 ms ; mode streaming ≥ 0.2 **mais bug ouvert** [F] |
+| **WavMark** (2023) | **MIT / MIT** [F] | **16 kHz strict** | BER moy. **0,48 %** sur 10 attaques ; s'effondre sous EnCodec (FNR ≈ 1,0 selon AudioMarkBench) | **NON** [F] | **Non** — détection **≈ 1710 ± 1314 ms** [F] |
+| **Timbre Watermarking** (NDSS 2024) | **[NV]** | 22,05 kHz (amplitude STFT) | resample 16 kHz **100 %**, **resample 8 kHz 99,4 %** ; MP3 64k **99,92 %** / 8k **75,65 %** ; passe-haut / passe-bas **65,5 % / 70,8 %** | **NON** (resample 8 kHz nu ≠ codec) [F] | **[NV]** |
+| **SilentCipher** (Sony, 2024) | **MIT / MIT** [F] | 44,1 kHz **et** 16 kHz | chiffres par attaque **[NV]** | **NON** [F] | **[NV]** |
+| **XAttnMark** (ICML 2025) | **[NV]** | 16 kHz | détection **99,19 %** (TPR 98,56 / FPR 0,19) ; vitesse **99,5 %** ; bandpass 300-8000 Hz, MP3/AAC 128k, EnCodec, HSJA | **NON** — le papier écrit « Telephone/Narrowband Codecs: Not tested » [F] | **[NV]** |
+| **Perth** (Resemble AI) | **MIT** [F] | **non documenté** [NV] | **aucun chiffre publié**, revendication générique seule [F] | **NON** [F] | **[NV]** |
+| **SynthID audio** (Google DeepMind) | **fermé, indisponible hors produits Google** [F] | non publié [NV] | **aucun chiffre publié** ; revendications qualitatives (bruit, MP3, changement de vitesse) [F] | **NON** [F] | non publié [NV] |
+| **Juvela & Wang** (ICASSP 2025, augmentation par codecs) | code public [F] | **22,05 kHz** | EER : Opus 64k **0,45 %**, MP3 64k **0,79 %**, DAC 8k **0,00 %**, Vorbis q3 **5,75 %** | **NON** — codecs de parole explicitement hors périmètre [F] | non discuté [F] |
+
+### 3.2 AudioSeal — le seul candidat sérieux, et ses deux réserves
+
+**[F]** *Proactive Detection of Voice Cloning with Localized Watermarking*, San Roman, Fernandez, Défossez, Furon, Tran, Elsahar — **ICML 2024**, [arXiv:2401.17264](https://arxiv.org/abs/2401.17264) (consulté 2026-09-14).
+
+- **[F] Licence** : **MIT pour le code ET pour les poids** depuis la version 0.1.2 (02/04/2024) — le dépôt annonce explicitement « updated license to full MIT license (including the license for the model weights)! Now you can use AudioSeal in commercial application too! ». Model card HuggingFace `facebook/audioseal` : MIT. **C'est le seul des candidats à offrir cette clarté commerciale.**
+- **[F] Taille** : `generator_base.pth` **58,8 Mo**, `detector_base.pth` **34,7 Mo**. Nombre de paramètres non publié [NV].
+- **[F] Latence** : détection **3,30 ± 2,03 ms** par segment de 1-10 s sur une Quadro GP100 ; génération 7,41 ± 4,52 ms. Soit ×485 plus rapide que WavMark en détection.
+- **[F] Réserve n° 1 — le streaming est cassé à date.** Issue GitHub **#105**, ouverte le **12/09/2026** (soit deux jours avant cette recherche), PR #106 liée, sans réponse de mainteneur : « Streaming watermark generator does not retain history between chunks ». Le mode streaming ne s'active qu'au niveau du conteneur ; 37 modules encodeur/décodeur internes conservent un `_NullState` vide. Vérifié par l'auteur de l'issue sur des chunks de 0,5 s : la sortie est identique avec ou sans historique. **Notre mode d'usage est précisément le chunk de 20 ms.**
+- **[F] Réserve n° 2 — aucun codec téléphonique dans la table de robustesse.** Le texte du papier ne contient ni « telephone », ni « narrowband », ni « 8 kHz ». Le seul rééchantillonnage testé va **vers le haut** (32 kHz).
+
+### 3.3 SynthID — hors de portée
+
+**[F]** SynthID audio « embeds a watermark into any audio generated or published through our AI music generation model **Lyria** or the podcast generation feature of **NotebookLM** » (deepmind.google/science/synthid, consulté 2026-09-14). Méthode publiée le 16/11/2023 : tatouage dans une représentation spectrogramme.
+**[F]** Seul **SynthID-Text** a été ouvert (`google-deepmind/synthid-text`, code Apache-2.0). **Le volet audio n'est ni open source, ni disponible via API hors produits Google.** Le **SynthID Detector** est en accès restreint (« currently collaborating with journalists and media professionals », liste d'attente).
+**[F] Aucun chiffre de robustesse publié** pour SynthID audio, aucune publication évaluée par les pairs.
+→ **[F] Écarté : inaccessible.**
+
+---
+
+## 4. Le point décisif — la survie à la bande téléphonique
+
+### 4.1 Le canal, en chiffres officiels
+
+- **[F]** ITU-T **G.711**, *Pulse code modulation (PCM) of voice frequencies* (Genève 1972, texte en vigueur approuvé le **25/11/1988**) : « The nominal value recommended for the sampling rate is **8000 samples per second** » (§2) ; « **Eight binary digits per sample** should be used for international circuits » (§3.1) ; deux lois de compression, **A-law et μ-law** (§3.2). → 64 kbit/s. *Source : PDF officiel ITU, `https://www.itu.int/rec/T-REC-G.711-198811-I/en`, consulté 2026-09-14.*
+- **[F]** ITU-T **G.712** (11/2001), *Transmission performance characteristics of pulse code modulation channels* : le gabarit d'affaiblissement est spécifié « over the frequency range **300 Hz to 3400 Hz** ». *Source : PDF officiel ITU, `https://www.itu.int/rec/T-REC-G.712/en`, consulté 2026-09-14.*
+- **[F] Conséquence arithmétique** : 8 kHz d'échantillonnage ⇒ **Nyquist à 4 kHz**. Toute la bande 4-8 kHz, dans laquelle opèrent AudioSeal, WavMark et XAttnMark (modèles 16 kHz), est **supprimée, pas dégradée**. S'y ajoutent le filtrage sous 300 Hz et la quantification logarithmique 8 bits.
+
+### 4.2 Ce que la littérature teste réellement — et ce qu'elle ne teste pas
+
+**[F] Résultat central de cette recherche : aucune publication de tatouage audio neuronal (2023-2026) n'évalue un codec téléphonique.** Vérifié de deux manières :
+
+1. **Recherches arXiv (titre + résumé), toutes nulles, 2026-09-14** : `audio watermarking telephone codec` → « produced no results » ; `audio watermarking G.711` → aucun résultat ; `speech watermarking AMR codec` → aucun résultat ; `watermarking VoIP speech` → aucun résultat. `watermarking streaming real-time speech generation detection` → un seul résultat, *Seamless* (arXiv:2312.05187), qui **intègre** AudioSeal en traduction streaming sans tester aucun codec téléphonique.
+2. **Lecture des tables de robustesse elles-mêmes** (AudioSeal Table 3 + Annexe D.2 ; Timbre Table III ; XAttnMark ; AudioMarkBench ; Juvela & Wang) : **aucune ne contient G.711, G.722, G.729, AMR, GSM, ni condition 8 kHz bout-en-bout.**
+
+**[F] Le point le plus proche jamais publié** : **AudioMarkBench** (NeurIPS D&B 2024, arXiv:2406.06979) teste **Opus 16-256 kbps** et **MP3 8-40 kbps** — mais à **16 kHz**, jamais à 8 kHz, jamais en μ-law. **Timbre** publie **99,4 % après un rééchantillonnage 8 kHz** — mais c'est un aller-retour **nu**, sans μ-law, sans filtre 300-3400 Hz, sans perte de codec ; ce n'est pas un canal téléphonique. **Juvela & Wang (ICASSP 2025)**, le seul papier dont le sujet *est* la robustesse aux codecs, travaille **à 22,05 kHz** et écrit explicitement que les codecs de parole en bande étroite sont hors périmètre.
+
+**[F] Littérature ancienne, pré-neuronale, qui existe mais n'est reprise par personne** (identifiée via l'API Crossref, DOI vérifiés, contenu non lisible — IEEE Xplore inaccessible, donc **[NV]** sur les chiffres) : *Quality-aware GSM speech watermarking* (ISCAS 2008, 10.1109/iscas.2008.4542080) ; *Audio Watermarking for Covert Communication through Telephone System* (ISSPIT 2006, 10.1109/isspit.2006.270935) ; *Comparison of digital audio watermarking techniques for the security of VOIP communications* (IAS 2011, 10.1109/isias.2011.6122787). Aucune n'est neuronale, aucune ne fournit de poids réutilisables, aucun travail 2024-2026 ne les reprend pour du TTS.
+
+**[F] Nuance honnête** : la recherche arXiv ne porte que sur titre et résumé ; un test de codec enfoui dans une table pourrait échapper à cette requête. C'est pourquoi les tables ont été lues directement — mais l'exhaustivité n'est pas garantie sur l'ensemble de la littérature.
+
+### 4.3 Ce qu'on peut raisonnablement en déduire (et ce qu'on ne peut pas)
+
+- **[H, argument d'espoir]** Le profil fréquentiel d'AudioSeal — détection **intacte en lowpass 500 Hz (0,99)**, **détruite en highpass 1500 Hz (0,61, soit le hasard)**, entraînement en bandpass **300-8000 Hz**, évaluation en bandpass 500-5000 Hz à **1,00** — indique que l'énergie utile du tatouage vit **majoritairement sous 1500 Hz et largement sous 500 Hz**. Le filtrage téléphonique ne coupe que **sous 300 Hz**. La **bande passante seule n'est donc probablement pas le facteur limitant.**
+- **[H, argument de risque]** Le danger se déplace sur ce que personne n'a mesuré : la **décimation 24 → 8 kHz**, la **quantification μ-law** (bruit *multiplicatif*, proportionnel à l'amplitude locale, très différent du bruit blanc additif σ = 0,05 testé), et le fait que la détection exige de **suréchantillonner 8 → 16 kHz**, produisant un signal dont la moitié haute du spectre est identiquement nulle — condition jamais présentée à aucun détecteur publié.
+- **[H]** Ce n'est pas un problème de capacité de Shannon (3,1 kHz de bande utile et ~38 dB de SNR laissent largement de la place) mais un **décalage de domaine** : les décodeurs n'ont jamais vu cette dégradation.
+- **[H]** Le remède techniquement correct existerait : **fine-tuner le détecteur AudioSeal avec une couche de distorsion « canal téléphonique » différentiable** (décimation → bande 300-3400 → μ-law → retour 16 kHz), en reprenant l'estimateur straight-through de Juvela & Wang pour la partie non différentiable. Licences MIT compatibles. **[R]** C'est un projet de R&D de plusieurs semaines, pas une case à cocher — voir §8 sur ce qu'on assume de ne pas faire.
+- **[F] Rappel de sécurité** (AudioMarkBench) : **100 % de faux négatifs sous attaque en boîte blanche** pour les trois méthodes évaluées, à SNR 20. Un tatouage est une **trace de provenance coopérative**, pas un mécanisme anti-adversaire. Aucun tatouage n'empêchera un fraudeur de faire passer sa voix pour humaine.
+
+> **[F] Verdict de la section** : pour un flux 8 kHz / G.711 μ-law en chunks de 20 ms, **il n'existe aujourd'hui aucun chiffre publié sur lequel fonder une obligation de résultat**. Ni « ça marche », ni « ça casse ». Le croisement « watermark neuronal de parole synthétique » × « codec téléphonique bande étroite » est un **angle mort complet de l'état de l'art** — c'est exactement le terrain où joue la réserve de faisabilité technique de l'article 50 §2.
+
+---
+
+## 5. Les alternatives au tatouage du signal
+
+> Toutes les citations de cette section proviennent des **lignes directrices C(2026) 5054 final du 20.7.2026** (PDF officiel `https://ec.europa.eu/newsroom/dae/redirection/document/131215`, **téléchargé et extrait intégralement le 2026-09-14**) et du **Code of Practice on Transparency of AI-generated Content** (PDF officiel `https://ec.europa.eu/newsroom/dae/redirection/document/129555`), sauf mention contraire.
+
+### 5.1 Le cadre que les lignes directrices posent avant toute alternative
+
+**[F] Point (70)** : marquage **et** détection sont indissociables — « *Fulfilling only one element (e.g. for machine-readable marking of outputs without the means for their detection being available) will not suffice to comply with that provision.* »
+
+**[F] Point (71) — définition officielle de « lisible par machine »** :
+> « A machine-readable format means that marks are structured in a way that allows **software applications to easily identify, recognise and extract them without human intervention**. Perceptible marks and labels are not excluded as a complementary measure, where appropriate, with a view to facilitating the compliance of deployers with their obligation to label deep fakes pursuant to Article 50(4) AI Act. »
+
+**[F] Point (72)** : « providers may rely on **a single marking technique or a combination of techniques** ».
+**[F] Point (73)** : la liste du considérant 133 est reprise telle quelle — *watermarks, metadata identifications, cryptographic methods, **logging methods**, fingerprints or other techniques* — et le texte précise : « **providers are not required to record or keep a full provenance chain** containing information on content origin and modifications ».
+
+**[F] Point (63) — l'agent vocal est nommément visé** :
+> « Article 50(2) AI Act may also apply to **AI agents** if the AI agent takes an action, the output of which is AI-generated or manipulated content **perceptible by natural persons in the form of audio**, image, video or text. Those outputs must therefore be marked and detectable as described below. »
+
+**[F] Point (60) — définition de l'« audio »** : « a **time-varying signal** encoding sound that is capable of being perceived through hearing by humans. This may cover **speech**, instrumental music or other audio signals. » → **[F] Rien, dans la définition officielle de l'audio, ne suppose un fichier. Un flux RTP est un signal variant dans le temps. L'argument « ce n'est pas un contenu parce qu'il n'y a pas de fichier » est mort.**
+
+### 5.2 L'annonce vocale — ce qu'elle couvre et ce qu'elle ne couvre pas
+
+**[F]** Le §1 est une obligation d'**information de l'humain**, le §2 une obligation de **marquage lisible par machine**. Les lignes directrices les traitent dans deux sections distinctes (3. et 4.) et le point (71) exige explicitement l'extraction « *without human intervention* ». **Une phrase prononcée à l'oreille de l'appelant n'est pas lisible par machine.**
+
+**[F] Point (37) — la forme attendue de l'annonce dans notre contexte, verbatim** :
+> « **Auditory disclosure: In voice-based or telephony contexts, explicit spoken statements at the beginning of the interaction** (e.g. “This is an AI-powered assistant”) combined, as appropriate, **with periodic reminders in longer interactions**, in particular in case of interruptions or a change of the role of the AI system during a user journey. **Distinct audio cues (e.g. tones or earcons) may support recognition, particularly for visually impaired users, but are not considered sufficient by themselves.** »
+
+**[F] Point (36)** cite aussi, parmi les modes d'information admis, « *disclosure of AI identifiers, and credentials (e.g. AI agents that disclose their AI identity **to the extent feasible in a verifiable manner**)* », la note de bas de page 21 renvoyant aux attestations électroniques d'attributs eIDAS / portefeuille d'identité numérique européen. **[H] C'est la seule piste « identité vérifiable d'agent » citée par la Commission ; elle n'a aucune implémentation téléphonique aujourd'hui — [NV].**
+
+**[R] Conclusion** : l'annonce vocale **ne satisfait pas le §2 à elle seule** — **mais** elle est la **seconde condition cumulative** de l'exemption du point (88) (§2.1). Elle passe donc du statut de « simple obligation §1 » à celui de **pièce constitutive de la défense sur le §2**. Elle doit être : prononcée en **premier**, avant toute autre parole ; **répétée** sur les appels longs ou après une interruption ; **journalisée** (texte exact, horodatage, position dans le flux) pour être démontrable.
+
+### 5.3 Métadonnées de signalisation SIP — l'état réel du dossier
+
+**[F] Il n'existe aucun standard IETF de signalisation d'un appelant synthétique ou généré par IA.** Vérifié sur le Datatracker le **2026-09-14** :
+- `https://datatracker.ietf.org/doc/search?name=synthetic&rfcs=on&activedrafts=on&olddrafts=on` → aucun document sur les médias synthétiques ; les seuls RFC « synthetic » sont **RFC 4149** (2005, MIB de sources synthétiques) et **RFC 5297** (2008, AES-SIV).
+- `https://datatracker.ietf.org/doc/search?name=artificial+intelligence&…` → 8 drafts actifs (gouvernance, gestion de réseau, datacenters, MIB, Colorado AI Act) ; **aucun ne touche SIP, la téléphonie, les appels, ni la divulgation d'un agent IA**.
+
+**[F] Le seul véhicule normalisé qui pourrait porter une mention lisible par machine dans la signalisation est RFC 9795, *PASSporT Extension for Rich Call Data* (Proposed Standard, juillet 2025)** — `https://datatracker.ietf.org/doc/draft-ietf-stir-passport-rcd/`, consulté le 2026-09-14. Il définit :
+- la revendication `rcd` (`nam` nom d'affichage obligatoire, `apn`, `icn` icône, `jcd`/`jcl` jCard),
+- la revendication `rcdi` (empreintes d'intégrité des contenus référencés par URI),
+- **la revendication `crn` — *call reason* / intention de l'appel**.
+
+**[F]** Le document **ne mentionne ni l'IA, ni les appelants synthétiques** (une seule occurrence d'« automaton », dans un contexte sans rapport).
+
+**[H] Ce qu'on peut en tirer et ce qu'on ne peut pas** :
+- `crn` et `nam` sont **techniquement** des champs texte signés cryptographiquement (PASSporT/JWT, chaîne STIR), donc **extractibles par un logiciel sans intervention humaine** → ils cochent la définition du point (71).
+- **Mais** : (a) STIR/SHAKEN est un dispositif d'**authentification de l'appelant**, pas de marquage du **contenu** ; le §2 porte sur « les sorties du système d'IA », pas sur l'en-tête d'appel ; (b) en France, le mécanisme d'authentification des numéros (**MAN**, décret n° 2023-1093 du 24/11/2023, obligation opérateurs) **[NV sur le détail — non revérifié dans cette session, cf. note A3 du dossier]** ne transporte pas de champ libre destiné au terminal de l'appelé ; (c) **aucun terminal grand public n'affiche `crn`** ; (d) l'exemption du point (86) réservée aux métadonnées « moins robustes » est cantonnée aux produits physiques en environnement fermé, **pas à nous**.
+- **[F] Le Code de bonnes pratiques verrouille par ailleurs la sous-mesure métadonnées** : 1.1.1 ne s'applique que « *If content is generated, manipulated or exported **in a data format that supports attaching metadata*** ». **Un flux RTP/G.711 n'est pas un tel format.**
+
+→ **[H] Verdict : la signalisation SIP est un *complément* documentable, pas une solution de marquage au sens du §2.** La mettre en place coûte peu (champ `nam`/`crn` côté trunk si l'opérateur l'accepte), n'engage rien, et se raconte bien en cas de contrôle. Elle ne doit jamais être présentée comme « le marquage ».
+
+### 5.4 Journal de provenance (*logging method*) — la piste explicitement nommée par le texte
+
+**[F]** *Logging methods* figure dans la liste du considérant 133 **et** du point (73). C'est la seule technique de la liste qui soit réalisable sans toucher au signal ni au conteneur.
+
+**[F] Limite dure, posée par le Code de bonnes pratiques, mesure 1.1.3** : « *relying on fingerprinting or **logging alone** is not considered sufficient* » — dans le cadre de l'approche multicouche exigée pour les contenus « *that can be disseminated online* ».
+**[H]** Notre flux n'est précisément **pas** diffusable en ligne (ni fichier, ni export), ce qui affaiblit l'applicabilité de la mesure 1.1 à notre cas ; mais nous ne sommes **pas signataires** du Code (§6.3), donc ce n'est pas cette mesure qui nous lie — c'est l'article 50 §2 lui-même, lu à travers le point (148) (§7.3).
+
+**[R] Contenu minimal d'un journal de provenance défendable** (aucune de ces données n'est de l'audio ; la rétention reste soumise au RGPD) :
+
+| Champ | Valeur | Justification |
+|---|---|---|
+| `call_id` | identifiant d'appel SIP | jointure avec la signalisation |
+| `started_at` / `ended_at` | horodatage UTC | fenêtre d'exposition |
+| `ai_generated` | `true` | l'assertion elle-même |
+| `modelType` / `modelName` / `modelIdentifier` | moteur TTS + version | vocabulaire **C2PA 2.4 `c2pa.ai-disclosure`** (§2.4) |
+| `humanOversightLevel` | `fully_autonomous` \| `prompt_guided` \| `human_validated` | idem |
+| `disclosure_played` | `true` + texte exact + offset | preuve de la 2ᵉ condition du point (88) |
+| `codec` / `sample_rate` | `PCMU` / `8000` | preuve du canal invoqué à l'appui de l'infaisabilité |
+| `watermark_attempted` | `true`/`false` + méthode + raison d'échec | preuve de la 1ʳᵉ condition du point (88) |
+| `audio_retained` | `false` | preuve du caractère éphémère |
+
+**[R]** Réutiliser le **vocabulaire `c2pa.ai-disclosure` de la spec 2.4** même hors conteneur C2PA : cela rend le journal interopérable *par vocabulaire* à défaut de l'être *par format*, et c'est un argument gratuit en cas de contrôle.
+
+### 5.5 Marquer le seul enregistrement, quand il existe
+
+**[F] Point (88)** ne protège que le contenu « *without being **recorded**, stored or disseminated further* ». **Dès qu'un enregistrement est activé, l'exemption tombe pour ce contenu-là.**
+
+**[R] Conséquence opérationnelle nette** :
+1. **L'enregistrement d'appel est désactivé par défaut**, et c'est une décision de conformité, pas un choix produit.
+2. S'il est activé (à la demande d'un client, ou pour une transcription), le fichier produit **est** un conteneur : il redevient marquable. On produit alors du **WAV/BWF avec chunk RIFF `C2PA`** (§2.4, Annexe A de la spec C2PA 2.4) **ou**, a minima, un manifeste latéral signé portant les mêmes champs qu'en §5.4.
+3. **Ne jamais** laisser le client activer l'enregistrement sans que le pipeline de marquage du fichier soit en place : c'est le seul scénario où l'infaisabilité technique disparaît, et donc le seul où le §2 devient exigible **sans réserve**.
+
+---
+
+## 6. Ce que font réellement les acteurs du vocal
+
+> Vérifications faites le **2026-09-14** par lecture directe des pages éditeurs. **Aucun** des fournisseurs examinés ne documente un marquage lisible par machine sur sa **sortie en streaming à 8 kHz μ-law**.
+
+### 6.1 Tableau
+
+| Fournisseur | Marquage documenté | Sur le streaming ? | Désactivable ? | Détection ouverte ? | Signataire du Code ? |
+|---|---|---|---|---|---|
+| **Microsoft / Azure AI Speech** | **Oui, mais uniquement sur *personal voice* et *avatar*** [F] | non précisé [NV] | non documenté [NV] | **Non — sur demande par e-mail** [F] | **Oui** [F] |
+| **OpenAI** | **[NV]** — page de référence inaccessible (403) | [NV] | [NV] | [NV] | **Oui** [F] |
+| **Google / DeepMind** | SynthID audio, **limité à Lyria et NotebookLM** [F] | non applicable à Cloud TTS [F] | n/a | **Non — liste d'attente** [F] | **Oui** [F] |
+| **Meta** | AudioSeal, **MIT, ouvert** [F] (§3.2) | mode streaming **bogué** [F] | n/a (on l'intègre soi-même) | **Oui, librement** [F] | **Oui** [F] |
+| **ElevenLabs** | **Aucun watermark documenté** ; classifieur propriétaire seulement [F] | n/a | n/a | classifieur maison, non standard [F] | **Non listé** [F] |
+| **Cartesia** | **[NV]** — documentation derrière authentification (307 vers `play.cartesia.ai/docs-auth-login`) [F] | [NV] | [NV] | [NV] | **Non listé** [F] |
+| **Rime** | **Aucune mention de watermark** dans la doc publique [F] | n/a | n/a | n/a | **Non listé** [F] |
+| **Resemble AI** | *Perth*, MIT, **aucun chiffre publié** [F] (§3.1) | [NV] | n/a | code ouvert [F] | **Oui** [F] |
+
+### 6.2 Les constats qui comptent
+
+**[F] Microsoft** — *Transparency note* Azure TTS (`https://learn.microsoft.com/en-us/azure/ai-foundry/responsible-ai/speech-service/text-to-speech/transparency-note`, page datée du 31.3.2026, mise à jour 20.6.2026, consultée 2026-09-14), verbatim :
+> « **Watermarks are added to custom neural voices created with the personal voice feature.** Watermarks allow users to identify whether speech is synthesized using Azure Speech, and specifically, which voice was used. **Eligible customers** can use Azure Speech watermark detection capabilities. **To request to add watermark detection to your applications please contact `mstts[at]microsoft.com`.** »
+et, pour l'avatar : « *avatar outputs are automatically watermarked … To request watermark detection, please contact avatarvoice[at]microsoft.com* ».
+→ **[F] Les voix *standard* (neural, HD, prebuilt) — celles qu'on utiliserait — ne sont pas couvertes par cette phrase.** Et la détection est **fermée** : elle ne satisfait pas le point (76) (« *publicly-available industry standard detection solutions* »).
+**[F]** La même page impose au client la divulgation : « *Microsoft requires its customers to disclose the synthetic nature of text to speech avatars to its users.* »
+
+**[F] Google** — SynthID audio est explicitement borné à **Lyria** et à la génération de podcasts de **NotebookLM** (`deepmind.google/science/synthid`, §3.3). La documentation **Chirp 3: HD** de Cloud Text-to-Speech (`https://docs.cloud.google.com/text-to-speech/docs/chirp3-hd`, consultée 2026-09-14) **ne contient aucune mention de watermark ni de SynthID**. → **[F] Un flux Cloud TTS n'est pas tatoué, ou du moins ce n'est pas documenté.**
+
+**[F] ElevenLabs** — `https://elevenlabs.io/safety` (consulté 2026-09-14) : aucune occurrence de « watermark ». La page revendique une traçabilité **côté serveur**, pas dans le signal : « *Our systems are designed to trace generated content back to the user who generated it, allowing us to detect and respond to abuse* », et propose un **AI Speech Classifier** (« *lets you detect whether an audio clip was created using ElevenLabs* »). C2PA y est cité comme standard de référence, sans revendication d'implémentation audio. **Aucune mention de l'article 50.**
+**[H]** Un classifieur propriétaire, non téléchargeable, sans API de détection publique et documentée, ne remplit pas le point (75)-(76).
+
+**[F] Signataires du Code de bonnes pratiques** (`https://digital-strategy.ec.europa.eu/en/news/strong-backing-code-practice-transparency-ai-generated-content`, publié le 31.7.2026, mis à jour le 20.8.2026, consulté 2026-09-14) : ~190 organisations, dont **~82 en section 1 (fournisseurs)** et **~152 en section 2 (déployeurs)**. Section 1 : « *Aleph Alpha, Anthropic, Black Forest Labs, Cohere, **Google**, **Meta**, **Microsoft**, Mistral, **Open AI**, Synthesia* », plus **Resemble.ai**. **[F] ElevenLabs et Cartesia n'y figurent pas.**
+
+### 6.3 Ce que ça change pour nous
+
+**[H] Le point (74) permet de s'appuyer sur le marquage d'un fournisseur amont — mais il n'y a, à date, aucun fournisseur TTS commercialement disponible qui documente un marquage lisible par machine sur une sortie streaming téléphonique.** L'argument « notre fournisseur marque en amont » est donc **factuellement indisponible**, quel que soit le fournisseur retenu. Et il resterait de toute façon sans effet sur la charge de la preuve : point (74), « *Such reliance is without prejudice to the responsibility of the provider of the AI system to demonstrate compliance* ».
+
+**[R]** Conséquence de sélection fournisseur : **exiger par écrit, dans l'appel d'offres TTS, une réponse à la question « marquez-vous la sortie streaming, avec quelle méthode, et la détection est-elle publiquement disponible ? »**. La réponse — y compris « non » — est une pièce du dossier §7.3. C'est gratuit.
+
+---
+
+## 7. Le risque réel
+
+### 7.1 Qui contrôle, et combien ça coûte
+
+**[F] Sanction, lignes directrices point (152), verbatim** :
+> « Provider and deployers that do not comply with the applicable transparency obligations laid down in Article 50 AI Act may be **fined up to EUR 15 000 000 or, if the offender is an undertaking, up to 3 % of its total worldwide annual turnover** for the preceding financial year, whichever is higher. […] **In the case of small and medium-sized enterprises (SMEs), including start-ups, each fine shall be up to the above percentages or amount, whichever is lower.** »
+
+**[F]** Base : **article 99 §4, point g)** — « *transparency obligations for providers and deployers pursuant to Article 50* » — et **article 99 §6** pour le plafond PME. *Source : `https://artificialintelligenceact.eu/article/99/`, consulté 2026-09-14 ; texte concordant avec le point (152) des lignes directrices officielles.*
+→ **[F] Pour une PME française, le plafond effectif est donc le plus **faible** des deux : 3 % du CA mondial.** Sur un chiffre d'affaires de quelques dizaines de milliers d'euros, l'exposition financière brute est de l'ordre de **quelques centaines d'euros**. **[H] Le risque réel n'est pas la sanction pécuniaire : c'est l'injonction de mise en conformité, le retrait du marché (règlement (UE) 2019/1020), et la perte de crédibilité commerciale auprès de clients professionnels.**
+
+**[F] Qui contrôle, point (151), verbatim** :
+> « **Market surveillance authorities designated by the Member States**, the AI Office, and the European Data Protection Supervisor are responsible for supervising and enforcing the rules for AI systems falling within their competence, including the transparency obligations laid down in Article 50 AI Act. Such enforcement takes place within the system of market surveillance and compliance of products established by **Regulation (EU) 2019/1020** and the AI Act. […] Those authorities can take enforcement actions in relation to the obligations listed in Article 50 AI Act **on their own initiative or following a complaint, which every affected person or any other natural or legal person having grounds to consider such violations has the right to lodge** (Article 85). »
+
+**[H] La voie d'entrée la plus probable d'un contrôle n'est donc pas un audit spontané, mais la plainte d'un appelant** — article 85. C'est cohérent avec ce qui déclenche les contentieux dans notre secteur.
+
+**[F]** Le point (151) ajoute que ces compétences « *do not affect the powers and tasks of other supervisory authorities … (e.g. data protection, consumer protection)* ». **[H] En France, la CNIL reste donc compétente sur le volet données de l'appel, indépendamment du §2.**
+
+**[H] Autorité française compétente — état non consolidé au 2026-09-14.** La seule source obtenue indique que « *The Directorate-General for Competition, Consumer Affairs and Fraud Control* » (**DGCCRF**) « *will act as the coordinating market surveillance authority and single point of contact* », dans le cadre d'un **modèle décentralisé** élargissant les autorités existantes — mais présenté comme **proposition législative**, sans date de désignation définitive. *Source : `https://artificialintelligenceact.eu/national-implementation-plans/`, consultée 2026-09-14 (source secondaire).*
+**[NV]** Confirmation par une source officielle française **impossible dans cette session** : `economie.gouv.fr` renvoie **403 Forbidden sur deux tentatives** (page DGCCRF dédiée, puis racine DGCCRF) ; `senat.fr` 404 sur le dossier testé ; `cnil.fr/fr/intelligence-artificielle` ne contient aucune mention de désignation. **Ne pas affirmer que la DGCCRF est l'autorité désignée : dire qu'elle est pressentie comme point de contact unique, et vérifier avant tout usage contractuel.**
+
+### 7.2 Les dates — et la découverte qui change le calendrier
+
+**[F] Point (153), verbatim** :
+> « According to Article 113 AI Act, **Article 50 AI Act will apply as from 2 August 2026**. This requires all in scope AI systems placed on the market or put into service in the Union to be compliant with that provision on that date, regardless of their date of placement on the market or putting into service. **Regulation amending the AI Act (the AI Omnibus), which has been recently adopted by the Union legislature, envisages a targeted grandfathering rule only with regard to the marking and detection obligations under Article 50(2) AI Act for generative AI systems placed on the market or put into service before 2 August 2026. It gives providers of those existing systems a transitional period to bring their systems in conformity by 2 December 2026. Systems that are partly interactive and partly generative may benefit from this transitional period only with regard to the marking obligation under Article 50(2) AI Act, while compliance with the disclosure obligation for AI systems directly interacting with natural persons must be ensured as of 2 August 2026.** »
+
+**[F] Trois conséquences directes, et elles sont désagréables :**
+1. **Le sursis existe — « AI Omnibus », jusqu'au 2 décembre 2026 — mais il est réservé aux systèmes déjà mis sur le marché ou en service *avant le 2 août 2026*.** Un agent vocal lancé après cette date **ne bénéficie d'aucune période transitoire** : il doit être conforme **dès sa mise en service**.
+2. Un agent vocal est exactement le « *system partly interactive and partly generative* » visé par la dernière phrase. **Même si le sursis s'appliquait, il ne couvrirait que le §2** ; l'**annonce vocale du §1 est due sans délai depuis le 2 août 2026**.
+3. **[F] Point (154)** : pas de rétroactivité — rien de généré avant le 2 août 2026 n'est à marquer.
+
+**[H]** Le texte des lignes directrices qualifie l'« AI Omnibus » de « *recently adopted by the Union legislature* » au 20 juillet 2026. **[NV]** Sa référence exacte au JO n'a **pas** pu être vérifiée : `digital-strategy.ec.europa.eu/…/digital-omnibus` renvoie 404, la salle de presse de la Commission renvoie une page vide, et `artificialintelligenceact.eu/developments/` s'arrête au 12 juillet 2024. **Citer le point (153) comme source, jamais le règlement modificatif directement.**
+
+### 7.3 Ce qu'un éditeur doit pouvoir présenter — la pièce maîtresse
+
+**[F] Point (147)** : l'adhésion à un code de bonnes pratiques jugé adéquat est « *a straightforward, predictable, and legally certain way of demonstrating compliance* », et les autorités « *will focus their supervisory activities on assessing whether those signatories have adhered to the code* ».
+
+**[F] Point (148), verbatim — c'est le régime qui nous est applicable, puisque nous ne sommes pas signataires** :
+> « Providers and deployers that are **not signatories** to a code of practice that is deemed adequate pursuant to Article 50(7) AI Act **are expected to demonstrate how they have complied** with their obligations under Article 50(2), (4) and (5) AI Act **through other adequate means**. Furthermore, such providers and deployers **are expected to explain how the measures they implement ensure compliance** with their obligations under the AI Act. For instance, **they should carry out a gap analysis that compares the measures they have implemented with the measures set out by a code of practice that is assessed as adequate.** »
+
+→ **[F] L'attendu officiel, pour un non-signataire, porte un nom : une *gap analysis* écrite, mesure par mesure, en regard du Code de bonnes pratiques.** Ce n'est pas une obligation réglementaire au sens de l'article 11 (qui ne vise que le haut risque, §1.5) — c'est la forme de preuve que la Commission annonce attendre. **C'est le livrable à produire.**
+
+**[R] Le dossier à tenir, pièce par pièce** (rien de payant) :
+
+| # | Pièce | Ce qu'elle établit | Source de l'exigence |
+|---|---|---|---|
+| 1 | **Gap analysis** écrite vs. Code de bonnes pratiques, mesure par mesure (1.1.1 / 1.1.2 / 1.1.3 / 3.3 / 3.4), avec pour chacune : applicable / non applicable / non faisable, et pourquoi | le régime du non-signataire | point (148) [F] |
+| 2 | **Note d'infaisabilité technique** : canal G.711 μ-law 8 kHz, Nyquist 4 kHz, bande 300-3400 Hz, chunks 20 ms ; absence totale de littérature (§4.2) ; bug streaming AudioSeal #105 (§3.2) | 1ʳᵉ condition du point (88) | points (81), (83), (88) [F] |
+| 3 | **Mesures de banc d'essai** : taux de détection AudioSeal avant / après passage par le canal simulé, sur N échantillons, avec le script et les données | transforme l'argument en **fait mesuré** | point (83) « *state of the art* » [F] |
+| 4 | **Preuve de l'annonce** : texte exact, position en tête d'appel, rappels périodiques, journal par appel | 2ᵈᵉ condition du point (88) + §1 + §5 | points (36), (37), (88) [F] |
+| 5 | **Journal de provenance** (§5.4) + preuve de non-rétention de l'audio | qualification « *ephemeral, not recorded, stored or disseminated* » | point (88) [F] |
+| 6 | **Réponses écrites des fournisseurs TTS** sur leur marquage streaming | diligence au titre du point (74) | point (74) [F] |
+| 7 | **Note de veille datée**, révisée au moins deux fois par an | « *Providers must continuously adapt their marking and detection solutions in a timely and proportionate manner as the technology and state of the art evolves* » | point (83) [F] |
+
+**[R]** Pièce 3 : c'est la seule qui demande du travail, et c'est la seule qui vaut vraiment quelque chose. Un dossier qui **affirme** l'infaisabilité est une opinion ; un dossier qui la **mesure** est une preuve. Coût : AudioSeal (MIT), `sox`/`ffmpeg` (G.711 μ-law intégré), quelques heures de CPU. **Budget zéro respecté.**
+
+---
+
+## 8. Recommandation opérationnelle
+
+### 8.1 Ce qu'on met en place
+
+**[R] 1. L'annonce vocale, traitée comme une pièce de conformité et non comme un détail d'écriture.**
+Première phrase de chaque appel, avant toute autre parole, formulation explicite du type « Bonjour, vous parlez à un assistant vocal automatique du salon X. » Rappel si l'appel dépasse un seuil (à fixer) ou après une interruption/transfert, conformément au point (37). Texte **versionné dans le code**, jamais laissé à la main du client sans garde-fou. Journalisé à chaque appel.
+*Pourquoi* : due depuis le 2 août 2026 sans période transitoire (point 153), et 2ᵉ condition cumulative de l'exemption du point (88).
+
+**[R] 2. Le journal de provenance (§5.4), avec le vocabulaire `c2pa.ai-disclosure` de la spec C2PA 2.4.**
+Une ligne par appel, sans audio, incluant `watermark_attempted` et `audio_retained: false`. C'est une *logging method* nommée au considérant 133 et au point (73).
+*Pourquoi* : c'est la seule technique de la liste officielle réalisable sur un flux sans conteneur, et elle transforme « on n'a rien fait » en « on a fait ce qui était faisable ».
+
+**[R] 3. L'audio n'est jamais conservé, et c'est une décision architecturale écrite.**
+Pas de fichier temporaire, pas de buffer persistant, pas de transcription audio archivée. Si un client demande l'enregistrement, le marquage du **fichier** (WAV/BWF + chunk RIFF `C2PA`, ou manifeste latéral signé) devient un prérequis de l'activation de la fonction, pas une option (§5.5).
+*Pourquoi* : le point (88) tombe dès qu'il y a enregistrement. C'est la ligne à ne pas franchir sans compensation.
+
+**[R] 4. Le banc d'essai « canal téléphonique » (pièce 3 du §7.3), une fois, mesuré et daté.**
+Chaîne : TTS 24 kHz → AudioSeal `generator_base` → resample 8 kHz → filtre 300-3400 Hz → encodage μ-law → décodage → upsample 16 kHz → `detector_base`. N échantillons français, taux de détection publié en interne avec le script.
+*Pourquoi* : c'est ce qui distingue un dossier crédible d'une pétition de principe. Et si le résultat est bon — ce que le profil fréquentiel d'AudioSeal rend non absurde (§4.3) — la question change de nature.
+
+**[R] 5. La gap analysis écrite vs. le Code de bonnes pratiques, avant la première mise en service commerciale.**
+Deux à trois pages, mesure par mesure. Datée, signée, révisée deux fois par an.
+*Pourquoi* : point (148). C'est nommément ce que la Commission annonce attendre d'un non-signataire.
+
+**[R] 6. Question écrite au fournisseur TTS retenu, et archivage de la réponse.**
+*Pourquoi* : point (74), gratuit, et cela documente une diligence.
+
+**[R] 7. Voix génériques uniquement — jamais de clonage de la voix du gérant ou d'une employée.**
+*Pourquoi* : §1.5. Le clonage ferait basculer le dispositif dans le §4 (hypertrucage), avec une obligation d'étiquetage pesant sur le **client**, qui n'y est pas préparé et ne la respectera pas.
+
+### 8.2 Ce qu'on assume de ne pas faire — et pourquoi
+
+**[R] a. Pas de tatouage audio en production, à ce stade.**
+*Justification* : (i) aucune publication 2023-2026 ne mesure un tatouage neuronal sous codec téléphonique — c'est un angle mort complet de l'état de l'art (§4.2), et le point (83) précise que l'état de la technique « *does not necessarily imply the latest scientific research still in an experimental stage* » ; (ii) le mode streaming d'AudioSeal est **cassé** au 2026-09-14 (issue #105, PR #106 sans réponse), or notre unité de travail est le chunk de 20 ms ; (iii) le point (70) exige marquage **et** détection accessible : un tatouage qu'aucun tiers ne peut vérifier ne satisfait pas le §2 de toute façon.
+**Ce qu'on ne dit pas** : qu'un tatouage est impossible. On dit qu'il n'est **pas mesurable comme fiable** aujourd'hui sur ce canal, et on le documente. **Le renoncement est révisable** — c'est l'objet de la pièce 7.
+
+**[R] b. Pas de manifeste C2PA sur le flux.**
+*Justification* : la spec 2.4 ne prévoit aucune liaison forte hors conteneur (Annexe A : MP3/FLAC/WAV/AAC/MP4/OGG ; §19 live video : BMFF/CMAF, « *It does not support MPEG Transport Streams* »). Un flux RTP/G.711 n'a ni boîte `uuid`, ni `emsg` (§2.4). La seule voie résiduelle — *Durable Content Credential* par soft binding sur dépôt de manifestes — suppose un manifeste publié et interrogeable, ce qui contredit frontalement la destruction de l'audio.
+**Ce qu'on garde quand même** : le **vocabulaire** `c2pa.ai-disclosure`, gratuit et interopérable par convention (§5.4).
+
+**[R] c. Pas de signature du Code de bonnes pratiques.**
+*Justification* : la mesure 3.3 impose une robustesse (« *survival of the analogue hole* », recompression, pitch shifting) que l'état de l'art ne sait pas tenir sur un canal 8 kHz μ-law (§2.3) ; la mesure 3.4 impose une solution d'interopérabilité de détection **au plus tard le 2 février 2027**. Signer, c'est s'engager sur des mesures qu'on ne pourra pas honorer, et « *Any opt-out from sections by signatories … will result in those providers and deployers losing the benefit* » (point 147). La voie du point (148) — démontrer par d'autres moyens adéquats, gap analysis à l'appui — est **plus honnête et plus tenable**.
+**Ce qu'on perd** : la présomption de sérieux du point (147). **[H] Compensation : produire une gap analysis de meilleure qualité que la moyenne.**
+
+**[R] d. Pas de marquage par la signalisation SIP présenté comme « le » marquage.**
+*Justification* : aucun standard IETF de divulgation d'appelant IA n'existe (§5.3) ; RFC 9795 authentifie l'**appelant**, pas le **contenu** ; aucun terminal n'affiche `crn` ; le Code borne la sous-mesure métadonnées aux formats « *that support attaching metadata* ».
+**Ce qu'on fait quand même** : renseigner `nam`/`crn` si l'opérateur l'accepte, et le noter dans la gap analysis comme couche complémentaire. Coût nul.
+
+**[R] e. Pas d'attente d'une norme harmonisée.**
+*Justification* : CEN-CENELEC JTC 21 n'a aucun item marquage/provenance ; les dix domaines de la demande de normalisation relèvent tous du chapitre III (haut risque) ; le Code lui-même écrit que « *relevant interoperability standards and/or best practices are yet to be developed, except for digitally signed metadata* » (§2.5). **Il n'existe aucune présomption de conformité par norme pour l'article 50 §2.** Attendre serait attendre indéfiniment.
+
+### 8.3 Les trois choses à ne pas se raconter
+
+1. **[F] L'éphémérité n'est pas une exemption.** Le point (88) est une exemption **conditionnelle et cumulative** (infaisabilité **et** information), pas une exclusion de champ. Et ses exemples sont le jeu vidéo et la VR — pas la téléphonie. Le point (63) vise nommément les agents IA produisant de l'audio ; le point (60) définit l'audio comme un signal variant dans le temps, sans exigence de fichier.
+2. **[F] L'annonce vocale ne satisfait pas le §2.** Elle est nécessaire, elle n'est pas suffisante. Ceux qui répondent « on prévient l'appelant, donc c'est bon » confondent le §1 et le §2.
+3. **[F] « On est une petite structure » n'est pas un argument.** Point (81) : « *Technical feasibility is an objective notion that is **not dependent on the specific resources and capabilities of individual providers**.* » L'infaisabilité doit être démontrée comme **objective** — d'où le banc d'essai, qui est la seule pièce qui parle ce langage. Le statut de PME ne joue que sur le **plafond de l'amende** (art. 99 §6), pas sur l'obligation.
+
+### 8.4 Séquence
+
+| Ordre | Action | Bloquant pour la mise en service ? |
+|---|---|---|
+| 1 | Annonce vocale + journalisation de l'annonce | **Oui** — due depuis le 2 août 2026, sans transitoire |
+| 2 | Journal de provenance (§5.4) | **Oui** |
+| 3 | Décision écrite « audio non conservé » + garde-fou sur l'enregistrement | **Oui** |
+| 4 | Voix génériques, interdiction de clonage | **Oui** |
+| 5 | Gap analysis vs. Code de bonnes pratiques | **Oui** (point 148) |
+| 6 | Question écrite au fournisseur TTS | Non, mais avant le premier client |
+| 7 | Banc d'essai canal téléphonique | Non — mais c'est la pièce qui vaut le plus |
+| 8 | Note de veille semestrielle | Non |
+
+---
+
+## 9. Ce qui reste non vérifié
+
+- **[NV]** Référence au JO du règlement modificatif « **AI Omnibus** » et son texte exact : connue seulement par la citation qu'en font les lignes directrices (point 153). Trois domaines testés en échec (`digital-strategy.ec.europa.eu` 404, salle de presse vide, `artificialintelligenceact.eu/developments` obsolète).
+- **[NV]** **Désignation définitive de l'autorité française** : `economie.gouv.fr` 403 sur deux tentatives, `senat.fr` 404, `cnil.fr` muet. DGCCRF **pressentie**, non confirmée par source officielle.
+- **[NV]** **OpenAI** : page de référence sur les voix de synthèse en 403. Marquage de la sortie audio non établi.
+- **[NV]** **Cartesia** : documentation API derrière authentification (307 vers `play.cartesia.ai/docs-auth-login`).
+- **[NV]** Chiffres de robustesse de **SilentCipher**, latence de **Timbre**, **XAttnMark**, **Perth** ; contenu des trois publications pré-neuronales de tatouage sur canal téléphonique (IEEE Xplore inaccessible).
+- **[NV]** Reprise de C2PA en norme ISO (§2.5) — `iso.org` en 403.
+- **[NV]** Programme de travail complet de **CEN-CENELEC JTC 21** (`jtc21.eu` en HTTP 406) : l'absence d'item « watermarking » est une déduction de trois sources concordantes, pas un listing exhaustif.
+- **[NV]** Mécanisme d'authentification des numéros (MAN) français et sa capacité éventuelle à transporter un champ libre : non revérifié dans cette session.
+
+**Budget** : WebSearch épuisé (200/200) avant le premier appel ; **toute cette note a été établie par WebFetch direct et téléchargement des PDF officiels**, plus lecture intégrale hors ligne du PDF C(2026) 5054 final (51 pages, extraction `pdftotext -layout`). Chaque domaine en échec a été réessayé au moins une fois avant d'être déclaré inaccessible.
