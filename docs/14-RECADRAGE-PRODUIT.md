@@ -49,12 +49,25 @@ Trois exigences en découlent, et elles priment sur tout le reste :
 
 Le connecteur Crenolo (`docs/04-CONNECTEUR-CRENOLO.md`) devient **une implémentation d'un contrat**, pas le contrat lui-même. Quatre niveaux, et **ce que l'agent a le droit de promettre change à chaque niveau** :
 
-| Niveau | Ce qu'il y a en face | Ce que l'agent peut dire | Risque |
-|---|---|---|---|
-| **N3 — natif** | API du logiciel métier, avec verrou d'occupation et idempotence | « **C'est noté, jeudi 10 h 30** » | faible : `read-after-write` possible |
-| **N2 — agenda standard** | Google Calendar, Microsoft Graph, CalDAV | « C'est noté » — **seulement si** l'écriture est relue et le conflit détecté. ⚠️ **Les notifications Google sont explicitement non fiables** (« Expect a small percentage of messages to get dropped ») : réconciliation par `syncToken` obligatoire | moyen |
-| **N1 — passerelle** | Zapier, Make, webhook maison | « **Je transmets votre demande, vous recevrez une confirmation** » — jamais « c'est réservé » | élevé : latence et asynchronisme **[à confirmer]** |
-| **N0 — rien** | aucune intégration | « Je prends votre message, le salon vous rappelle » + SMS au gérant + export iCal | nul, mais valeur réduite |
+| Niveau | Ce qu'il y a en face | **La phrase exacte que l'agent a le droit de dire** |
+|---|---|---|
+| **N0 — notre base** | agenda interne, verrou et contrainte à nous | « **c'est réservé** » |
+| **N1 — réservation de créneau chez l'éditeur** | `POST /v2/slots/reservations` de Cal.com — « *Make a slot not available for others to book* », 5 min | « **c'est réservé** », dans le périmètre de cet éditeur |
+| **N2 — agenda standard** | Google Calendar, Microsoft Graph, CalDAV | « **c'est enregistré** » — ⛔ **jamais « c'est bloqué »** |
+| **N3 — passerelle** | Zapier, Make | « **je transmets votre demande** » |
+| **N4 — aucune API** | rien en face | « **j'ai noté votre demande** » |
+
+### Pourquoi N2 ne peut pas dire « c'est bloqué » — la réponse d'A11, et elle est nette
+
+**Aucun des trois grands n'empêche le chevauchement**, et ce n'est pas une lacune de documentation : c'est une absence de mécanisme.
+
+- **Google `events.insert`** : six paramètres optionnels, **aucune détection de conflit, aucun `requestId`, aucune clé d'idempotence**, rien sur le comportement en cas de chevauchement. **Deux insertions concurrentes sur le même créneau réussissent toutes les deux.** L'ETag n'apparaît que dans **une seule phrase** de toute la documentation, jamais spécifiée : le contrôle optimiste y est un **comportement de fait, non contractualisé**.
+- **Microsoft Graph** : rien non plus sur le conflit — la seule erreur de chevauchement documentée concerne les exceptions d'une série récurrente. ⚠️ **Mais une vraie exception existe** : **`transactionId`**, clé d'idempotence fournie par le client, « *to avoid redundant POST operations in case of client retries* ». **Elle règle le rejeu après timeout, pas la concurrence.** Et `getSchedule` est une **photographie sans durée de validité**, qui échoue au-delà de 1 000 entrées.
+- **CalDAV (RFC 4791)** est le seul à parler sérieusement de concurrence — **et à dire que le chevauchement n'est pas son sujet**. ETags forts **MUST** ; `If-None-Match: *` protège contre une **collision de nom de fichier**, la RFC le dit elle-même ; `CALDAV:no-uid-conflict` porte sur **l'UID, pas sur l'intervalle** ; et le rapport free-busy §7.10 précise : **« Preconditions: None. »** La RFC **autorise explicitement** des périodes occupées qui se recouvrent.
+
+**La ligne qui explique tout le reste : dans les trois cas, aucune ressource serveur ne représente « le créneau ». On ne verrouille que ce qui existe.** Cal.com peut offrir une réservation de créneau **parce qu'il possède sa propre base** — pas parce qu'il serait plus malin.
+
+**Et les autres voies sont pires qu'on ne le pensait** : Calendly a une API d'écriture, mais ses réponses documentées **ne comportent aucun `409`** alors que la même spécification en définit ailleurs — **un créneau déjà pris devient indistinguable d'une erreur de payload**. Les passerelles sont hors jeu dans le temps d'un appel : **Zapier va de 15 minutes à 1 minute selon le plan**, Make 15 minutes par défaut ; **seul n8n auto-hébergé** peut tenir le budget d'un tour de parole, et cela reste à mesurer. Enfin, sur **sept logiciels verticaux** examinés, **un seul — Phorest — publie une API d'écriture de rendez-vous**.
 
 **La règle qui tient l'ensemble : l'agent ne promet jamais plus que ce que son adaptateur garantit.** C'est ce qui évite la plainte n°1 relevée dans la recherche — *« unless they have a complete API integration, the ai agent is guaranteed to cause more pain »*. Un N1 honnête vaut mieux qu'un N3 menteur.
 
@@ -71,7 +84,7 @@ Le connecteur Crenolo (`docs/04-CONNECTEUR-CRENOLO.md`) devient **une implément
 3. **Connexion Google bidirectionnelle plus tard**, sur un projet dédié dont les 100 places sont **intactes** — et la vérification (10 jours annoncés, **3 à 6 semaines réelles**) se lance **dès maintenant**, puisqu'elle ne coûte rien à démarrer et que seule l'attente est perdue.
 4. **Nylas en soupape** : **83,50 $/mois à 50 clients, 448 $/mois à 500** — le seul intermédiaire qui publie un prix à l'agenda connecté. Cronofy démarre à **819 $/mois**, et **Cal.com Platform est fermé aux nouveaux depuis le 15/12/2025**.
 
-**Et la question du niveau N2 reste entière** : *ces API garantissent-elles la non-superposition ?* La session Crenolo espérait y répondre depuis son code — elle ne le peut pas : **Crenolo n'écrit pas dans Google Calendar**, il implémente le programme Actions Center en variante *Appointments Redirect*, où Google renvoie vers sa page sans aucune écriture distante. La question attend donc toujours la recherche A11.
+**La question du niveau N2 est tranchée** (A11, 14/09) : **non, aucune de ces API ne garantit la non-superposition** — voir §3. La session Crenolo n'avait pas pu y répondre depuis son code, et pour une bonne raison : **Crenolo n'écrit pas dans Google Calendar**, il implémente Actions Center en variante *Appointments Redirect*.
 
 ⚠️ **La question à dix minutes qui commande tout ce paragraphe** : la Console Google affiche-t-elle les scopes Calendar en *Sensitive* ou en *Restricted* ? La doc publique ne le dit **nulle part**. *Sensitive* = 10 jours de revue, zéro euro. *Restricted* = 6 semaines **et** un audit de sécurité annuel au prix non publié.
 

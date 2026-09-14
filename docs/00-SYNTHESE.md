@@ -224,6 +224,20 @@ Détail : `docs/recherche2/A10-extension-navigateur.md` · périmètre : `docs/1
 
 ---
 
+### A11 — Adaptateurs universels : **aucun agenda tiers ne garantit la non-superposition**
+Détail : `docs/recherche2/A11-adaptateurs-universels.md` (27 sources officielles).
+
+1. **Google `events.insert` n'empêche rien** : aucune détection de conflit, **aucune clé d'idempotence**, rien sur le chevauchement. **Deux insertions concurrentes sur le même créneau réussissent toutes les deux.** L'ETag tient dans **une seule phrase** de toute la documentation : le contrôle optimiste y est un **comportement de fait, non contractualisé**.
+2. **Microsoft Graph** : rien sur le conflit non plus, **mais `transactionId` existe** — une vraie clé d'idempotence. Elle règle **le rejeu, pas la concurrence**. `getSchedule` est une photographie sans durée de validité.
+3. **CalDAV** est le seul à traiter la concurrence sérieusement — **et à dire que le chevauchement n'est pas son sujet** : `If-None-Match: *` protège d'une collision de **nom de fichier**, `no-uid-conflict` porte sur **l'UID**, et le free-busy §7.10 indique **« Preconditions: None. »** La RFC **autorise** des périodes occupées qui se recouvrent.
+4. **L'explication tient en une ligne** : **aucune ressource serveur ne représente « le créneau ». On ne verrouille que ce qui existe.** Cal.com peut réserver un créneau (`POST /v2/slots/reservations`, 5 min) **parce qu'il possède sa base**.
+5. **Calendly** écrit sans interface, mais ses réponses documentées **n'incluent aucun `409`** alors que la spécification en définit ailleurs : **créneau pris et erreur de payload deviennent indistinguables**.
+6. **Les passerelles sont hors jeu** dans le temps d'un appel : Zapier **15 min à 1 min** selon le plan, Make 15 min. **Seul n8n auto-hébergé** peut tenir un tour de parole — à mesurer.
+7. **Sur sept logiciels verticaux, un seul publie une API d'écriture** : **Phorest**. Fresha, Booksy, Treatwell, Planity, Zenchef, Doctolib : aucune porte publique.
+8. **Conséquence produit** : la phrase autorisée à l'appelant devient **une donnée de configuration du connecteur, appliquée dans le code** — « c'est réservé » en N0/N1, « **c'est enregistré** » en N2, « je transmets » en N3, « j'ai noté » en N4. **Jamais confiée au prompt.**
+
+---
+
 ## 6. Dette de recherche (à ne pas présenter comme acquis)
 
 - ~~Tout le volet juridique est en source secondaire~~ → **levé par A5**, qui a atteint Légifrance et EUR-Lex par navigateur réel. ⚠️ Et qui a corrigé cinq références fausses, dont **le « référentiel CNIL du 2 avril 2026 sur les enregistrements d'appels », qui n'existe pas** : c'est le référentiel *durées de conservation RH*, dont une rubrique traite l'écoute et l'enregistrement (audio 6 mois, documents d'analyse 1 an). Restent inaccessibles : DGCCRF, Judilibre, CanLII — 23 points listés comme trous dans A5 §11.
