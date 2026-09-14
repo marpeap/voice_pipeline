@@ -21,8 +21,27 @@ Cinq écarts, tous issus de l'audit. Ils commandent les migrations du §4.
 
 ## 2. Les invariants à respecter — recopiés du code, pas réinventés
 
-### 2.1 Le verrou, mot pour mot
-Le connecteur **n'écrit pas directement en base**. Il appelle une route de Crenolo qui **réutilise la fonction de réservation existante**, donc le verrou reste unique et au même endroit. C'est le seul moyen d'éviter deux implémentations divergentes de la même règle.
+### 2.1 Le verrou — **révisé le 2026-09-14 : la fonction que je voulais réutiliser n'existe pas**
+
+Vérification faite par la session qui tient Crenolo : `routers/public/reservation.py` fait **447 lignes et ne contient qu'une seule `async def`**, la route `book()` elle-même. Le verrou, la sélection du praticien, la validation et les effets de bord sont **tous inline dans le handler HTTP**. Il n'y a donc aucune fonction à appeler, et mon « réutilise la fonction existante » était une vue de l'esprit.
+
+Trois voies, et une seule tient :
+
+| Voie | Ce qu'elle coûte | Verdict |
+|---|---|---|
+| **Extraire** la logique dans `services/reservation.py`, appelé par la route publique **et** par le connecteur | Touche du code qui sert aussi le domaine gelé. Facteur atténuant mesuré : `request` n'est utilisé **qu'une fois** sur 447 lignes (ligne 359, `origin`/`referer`), la dépendance au contexte HTTP est donc marginale | ✅ **retenu**, sous conditions (§2.1 bis) |
+| **Appeler la route HTTP** depuis le connecteur | Zéro modification du code gelé, mais on hérite du rate-limit `10/hour`, de l'obligation d'e-mail, et on ajoute un aller-retour HTTP **dans le chemin de l'appel téléphonique** — or notre budget est de 700 ms | ⛔ le coût tombe au mauvais endroit |
+| **Recopier** le verrou | Deux implémentations de la même règle d'occupation | ⛔ exactement ce que ce document interdit |
+
+### 2.1 bis Conditions de l'extraction
+
+L'extraction est un **remaniement à comportement constant**, pas une évolution fonctionnelle : la route publique reste le seul appelant au départ, sa signature et ses réponses ne changent pas, aucune migration n'y est liée. Quatre conditions :
+1. **Tests avant remaniement**, couvrant le verrou, le choix du praticien le moins chargé, le 409, et les onze refus.
+2. **Portée par la session qui tient Crenolo**, pas par ce chantier — c'est son code.
+3. **Déploiement séparé et vérifié**, avant que le connecteur s'appuie dessus. Rappel : l'API sert **aussi** le domaine gelé.
+4. **Accord d'Adnan avant mise en production** — voir §6, c'est un des deux arbitrages ouverts.
+
+Le verrou lui-même, inchangé :
 
 1. zéro praticien actif → `SELECT businesses.id … FOR UPDATE` puis `check_overlap` ;
 2. praticiens actifs → `SELECT practitioners.id … FOR UPDATE` **ordonné par `id`** (anti-deadlock), calcul des libres **sous verrou**, choix du **moins chargé du jour** ;
@@ -71,6 +90,11 @@ Idempotency-Key: <uuid v4, généré au DÉBUT du tour de parole>
 ```
 
 - **`email` facultatif.** Si absent, l'API synthétise une valeur interne pour satisfaire le `NOT NULL` existant (E1) — **sans jamais l'afficher au salon ni lui envoyer de courriel**. Alternative plus propre au §4.2.
+- ⚠️ **Et deux garde-fous existants tombent avec l'e-mail, ce que ma première version passait sous silence** (relevé par la session Crenolo) :
+  - **`fiches_clients.est_bloque(db, business.id, body.client_email)`** — **le blocage d'un client par le salon se fait par e-mail**. Sans e-mail réel, un client que le salon a explicitement bloqué **réserve par téléphone**. C'est le contournement d'une décision commerciale, pas un détail technique.
+  - **« Maximum 3 réservations actives par e-mail et par salon »** (429, `reservation.py:91`) — second plafond que ma spec ne citait pas, elle ne parlait que du `10/hour` par IP. Il saute aussi.
+  **Donc : si le téléphone devient l'identifiant, il reprend les deux rôles.** `est_bloque` par téléphone normalisé **et** plafond de réservations actives par téléphone, sinon **le canal vocal devient la porte dérobée du produit**. C'est une condition de livraison de `reserver()`, pas une amélioration ultérieure.
+- **Effets de bord de `book()` à trancher pour le canal vocal** : confirmation par e-mail (**non** — remplacée par le SMS, qui est notre preuve), notification au salon (**oui**), fidélité (**oui**, mais rattachée à la fiche via le téléphone).
 - **`Idempotency-Key`** : rejouée, la requête renvoie **le même résultat, y compris l'erreur** (modèle Stripe). Générée au début du tour, pas à l'appel d'outil : c'est ce qui rend un retry réseau inoffensif.
 - **Réponses** : `201` avec le rendez-vous complet · **`409`** créneau pris entre-temps (l'agent le dit et propose l'alternative suivante) · `422` règle métier violée, avec **un code machine** (`jour_ferme`, `hors_horaires`, `delai_minimum`, `client_bloque`…) et non un message français à interpréter · `402` facturation fermée.
 - **`read-after-write` obligatoire** : l'API relit le rendez-vous par son `id` avant de répondre `201`. **L'agent n'a le droit de dire « c'est noté » que sur un `201` relu.**
@@ -122,7 +146,15 @@ Portées : `agenda:lire`, `agenda:ecrire`, `client:lire`.
 | **b.** Déclencheur (`trigger`) vérifiant le conflit NULL ↔ praticien nommé | Le cas complet | Moyen, et un déclencheur est un endroit de plus où la règle vit |
 | **c.** Rendre `practitioner_id` obligatoire pour les écritures **nouvelles** (dont les nôtres) | Fait rentrer le trafic futur dans le filet sans toucher l'historique | Change le produit : il faut un praticien par défaut quand le salon n'en déclare aucun |
 
-**Recommandation : a + c.** La voie (a) se pose tout de suite et couvre le gros ; la voie (c) fait converger le trafic vers le cas protégé sans migration de données. La voie (b) reste en réserve si un conflit croisé est réellement observé.
+**Trois requêtes de contrôle exécutées le 14/09 sur la production** (session Crenolo) :
+
+| Contrôle | Résultat | Conséquence |
+|---|---|---|
+| Chevauchements entre deux lignes **sans praticien** | **0** | ✅ La contrainte (a) se pose telle quelle, sans échec |
+| Chevauchements **croisés** NULL ↔ praticien nommé | **0** | ✅ La voie (b), le déclencheur, **reste en réserve** |
+| Salons ayant au moins un praticien actif | **2 sur 13** (5 praticiens actifs) | ⛔ **La voie (c) n'est pas une contrainte douce** |
+
+**Donc : (a) seule est retenue aujourd'hui, (b) reste en réserve, et (c) devient un arbitrage produit.** Imposer un `practitioner_id` reviendrait à demander à **11 salons sur 13 de créer une personne fictive** — et « zéro praticien actif » n'est pas un oubli, c'est un mode traité comme tel par le code, avec son propre verrou sur la ligne du salon. Voir §6.
 
 **Conséquence immédiate, et elle remonte au §2.1** : pour 96 % des rendez-vous, **le verrou applicatif est aujourd'hui la seule protection contre le double-booking**. Passer par la route de Crenolo plutôt que d'écrire en base n'est donc pas une précaution d'architecture parmi d'autres — **c'est la protection elle-même**. Non négociable.
 
@@ -190,3 +222,13 @@ Exempter les routes `/connecteur/v1/*` du `10/hour`, et poser à la place une li
 **Inkra** — rien à construire côté API : `/api/vault/v1/*` existe, avec token haché par vault et limite de 100 requêtes/heure. Un agent vocal peut dicter une note (`POST …/notes/from-markdown`), compléter (`…/append`), chercher (`POST …/ai/search`), et **piloter un process à la voix** (`…/processes/{id}/run`, `…/process-runs/{id}/advance`). Le connecteur doit seulement convertir texte ↔ blocs BlockNote. ⚠️ Révoquer le token en dur de `agent/inkra_agent.py:49`.
 
 **Kompagnon (M-Campaign)** — rien à construire non plus : en-tête `X-Gateway-Token`, isolation par instance garantie côté serveur, ~45 routes `/agent/*`, et `GET /agent/capabilities` qui expose la découverte d'outils. **Le seul ajout est côté connecteur** : une **confirmation à deux temps** sur toute action coûteuse (changement de budget, création de campagne). Dire « d'accord, je passe le budget à 30 € » et l'exécuter dans le même tour est acceptable en écrit, jamais en vocal.
+
+
+---
+
+## 6. Les deux arbitrages qui reviennent à Adnan
+
+Ni l'un ni l'autre n'est technique, et aucun ne se tranche dans ce document.
+
+1. **Imposer un praticien aux nouvelles réservations ?** C'est ce qui ferait entrer le trafic futur dans le filet SQL. Mais **11 salons sur 13 n'ont aucun praticien**, et le code traite ce cas comme un mode normal. L'imposer, c'est demander à 85 % des clients de créer une personne fictive pour satisfaire une contrainte interne. **Recommandation : ne pas l'imposer.** On garde (a) comme filet partiel, le verrou applicatif comme protection principale, et la réconciliation nocturne comme dernière barrière.
+2. **Autoriser le remaniement de `reservation.py` ?** Sans lui, le connecteur ne peut ni réutiliser le verrou ni éviter le rate-limit — donc le chemin critique est bloqué. C'est un remaniement à comportement constant, porté par la session qui tient Crenolo, sous tests, déployé et vérifié **avant** que quoi que ce soit s'appuie dessus. Mais il touche l'API qui sert **aussi** `rdv.marpeap.com`, gelé par une promesse écrite à une cliente. **Recommandation : oui, sous les quatre conditions du §2.1 bis** — et avec un retour arrière préparé.
