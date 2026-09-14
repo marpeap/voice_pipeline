@@ -52,13 +52,26 @@ Le connecteur Crenolo (`docs/04-CONNECTEUR-CRENOLO.md`) devient **une implément
 | Niveau | Ce qu'il y a en face | Ce que l'agent peut dire | Risque |
 |---|---|---|---|
 | **N3 — natif** | API du logiciel métier, avec verrou d'occupation et idempotence | « **C'est noté, jeudi 10 h 30** » | faible : `read-after-write` possible |
-| **N2 — agenda standard** | Google Calendar, Microsoft Graph, CalDAV, Cal.com | « C'est noté » — **seulement si** l'écriture est relue et le conflit détecté **[à confirmer : ces API garantissent-elles la non-superposition ?]** | moyen |
+| **N2 — agenda standard** | Google Calendar, Microsoft Graph, CalDAV | « C'est noté » — **seulement si** l'écriture est relue et le conflit détecté. ⚠️ **Les notifications Google sont explicitement non fiables** (« Expect a small percentage of messages to get dropped ») : réconciliation par `syncToken` obligatoire | moyen |
 | **N1 — passerelle** | Zapier, Make, webhook maison | « **Je transmets votre demande, vous recevrez une confirmation** » — jamais « c'est réservé » | élevé : latence et asynchronisme **[à confirmer]** |
 | **N0 — rien** | aucune intégration | « Je prends votre message, le salon vous rappelle » + SMS au gérant + export iCal | nul, mais valeur réduite |
 
 **La règle qui tient l'ensemble : l'agent ne promet jamais plus que ce que son adaptateur garantit.** C'est ce qui évite la plainte n°1 relevée dans la recherche — *« unless they have a complete API integration, the ai agent is guaranteed to cause more pain »*. Un N1 honnête vaut mieux qu'un N3 menteur.
 
 **Conséquence de conception** : le niveau est une **propriété déclarée par l'adaptateur**, et le cœur adapte son vocabulaire automatiquement. Ce n'est pas au rédacteur du pack sectoriel d'y penser.
+
+### 3 bis. Le mur des 100 utilisateurs, et pourquoi le N0 passe devant le N2 (A17)
+
+**[F] Google plafonne une application non vérifiée à 100 nouveaux utilisateurs — « over the entire lifetime of the project », « cannot be reset or changed ».** Le plafond vaut **aussi pour les scopes sensibles**. Chaque test et chaque démo consomme une place **définitivement**, et au 100ᵉ commerçant connecté, la connexion Google **s'éteint**.
+
+**Cela inverse l'ordre de construction** que ce document laissait supposer :
+
+1. **Agenda interne par défaut** — zéro OAuth, zéro plafond, et **nous sommes la source de vérité**, donc le verrou anti-double-booking nous appartient.
+2. **Export iCal en lecture seule** — le commerçant retrouve ses rendez-vous dans **son** agenda. Google, Outlook **et Apple** l'acceptent nativement par simple abonnement à une URL : aucune vérification, aucun coût, et **c'est la seule chose qui fonctionne avec iCloud, qui n'a aucune API** [NV].
+3. **Connexion Google bidirectionnelle plus tard**, sur un projet dédié dont les 100 places sont **intactes** — et la vérification (10 jours annoncés, **3 à 6 semaines réelles**) se lance **dès maintenant**, puisqu'elle ne coûte rien à démarrer et que seule l'attente est perdue.
+4. **Nylas en soupape** : **83,50 $/mois à 50 clients, 448 $/mois à 500** — le seul intermédiaire qui publie un prix à l'agenda connecté. Cronofy démarre à **819 $/mois**, et **Cal.com Platform est fermé aux nouveaux depuis le 15/12/2025**.
+
+⚠️ **La question à dix minutes qui commande tout ce paragraphe** : la Console Google affiche-t-elle les scopes Calendar en *Sensitive* ou en *Restricted* ? La doc publique ne le dit **nulle part**. *Sensitive* = 10 jours de revue, zéro euro. *Restricted* = 6 semaines **et** un audit de sécurité annuel au prix non publié.
 
 ---
 
