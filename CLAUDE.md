@@ -1,7 +1,10 @@
 # voice-pipeline (refonte) — reprise de session
 
 **Quoi** : standard téléphonique IA en français, conçu comme **greffon** réutilisable (Crenolo, Inkra, Kompagnon, tiers).
-**Où en est-on** : **les deux vagues de recherche sont bouclées (14 rapports) et la conception est écrite (9 documents).** Prochaine étape : le **lot L0**, quatre mesures. **Aucune ligne de code écrite, et c'est voulu.**
+**Où en est-on** : deux vagues de recherche bouclées (15 rapports), **13 documents de conception**, et le **lot L0 mesuré à trois sur quatre**. **Aucune ligne de code produit, et c'est voulu** — les bancs de mesure, eux, tournent.
+
+**Mesures faites le 14/09** (`docs/09-L0-MESURES.md`) : Piper RTF 0,096 mais **TTFB 372 ms** (il synthétise la phrase entière avant de livrer → la première réplique doit être courte) · **WER français 8 kHz** : Nemotron 7,8 % (×1,11), Vosk 10,6 % (×1,40), sherpa 23,4 % · **le « zéro » initial des numéros** massacré par Vosk et sherpa, correct chez Nemotron · TTFT Groq 430 ms p50 depuis la France, **la distance mange le budget**.
+**Bloqué par Adnan** : une clé d'API pour le TTFT d'un candidat réel · l'arbitrage sur l'extraction de `reservation.py` (lot C0) · le praticien obligatoire ou non.
 
 **Décisions prises le 2026-09-13** : premier livrable = **greffon Crenolo** (vertical beauté) · bord téléphonique **tranché après les mesures du lot L0** · **Kompagnon = M-Campaign renommé** (agent Google Ads, `marpeap/campaign`), greffe de niveau 1 avec le suivi de conversion d'appel comme valeur propre.
 **Date de la recherche** : 2026-09-13 (toutes les sources portent cette date de consultation).
