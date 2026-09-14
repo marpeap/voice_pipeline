@@ -156,3 +156,85 @@ Version anglaise, même paragraphe — c'est elle qui porte la formule « techni
 - **[F] Rappel de sécurité** (AudioMarkBench) : **100 % de faux négatifs sous attaque en boîte blanche** pour les trois méthodes évaluées, à SNR 20. Un tatouage est une **trace de provenance coopérative**, pas un mécanisme anti-adversaire. Aucun tatouage n'empêchera un fraudeur de faire passer sa voix pour humaine.
 
 > **[F] Verdict de la section** : pour un flux 8 kHz / G.711 μ-law en chunks de 20 ms, **il n'existe aujourd'hui aucun chiffre publié sur lequel fonder une obligation de résultat**. Ni « ça marche », ni « ça casse ». Le croisement « watermark neuronal de parole synthétique » × « codec téléphonique bande étroite » est un **angle mort complet de l'état de l'art** — c'est exactement le terrain où joue la réserve de faisabilité technique de l'article 50 §2.
+
+---
+
+## 2. Normes, code de bonnes pratiques et lignes directrices
+
+### 2.1 Ce qui a changé depuis la rédaction du règlement — et qui décide de tout
+
+**[F] Deux textes de niveau Commission, publiés à l'été 2026, gouvernent désormais l'application concrète de l'article 50 :**
+
+| Texte | Référence | Date | Portée |
+|---|---|---|---|
+| **Code of Practice on Transparency of AI-generated Content** | PDF 38 p., `https://ec.europa.eu/newsroom/dae/redirection/document/129555` | **final le 10 juin 2026** ; avis d'adéquation de la Commission **8 juillet 2026** ; *Adequacy Assessment* de l'AI Board **9 juillet 2026** | art. 50 §2, §4, §5 — **~190 signataires** fin juillet 2026 |
+| **Lignes directrices de la Commission sur l'article 50** | **C(2026) 5054 final**, ANNEXE, 51 p., `https://ec.europa.eu/newsroom/dae/redirection/document/131215` | **20 juillet 2026** | interprétation officielle de l'ensemble de l'article 50 |
+
+*Pages de référence : `https://digital-strategy.ec.europa.eu/en/policies/code-practice-ai-generated-content` et `https://digital-strategy.ec.europa.eu/en/policies/guidelines-transparency-ai-generated-content` — consultées le 2026-09-14. Le PDF C(2026) 5054 a été téléchargé et lu intégralement pour la présente note.*
+
+**[F] Le point (88) des lignes directrices est la pièce maîtresse de notre dossier.** Verbatim, page 27 :
+
+> « **(88) Real-time content generation that is ephemeral and consumed immediately, without being recorded, stored or disseminated further (e.g. in video games, virtual reality applications), may also be exempted when marking is not technically feasible and the persons exposed to the content are made aware that the content is AI-generated or manipulated (e.g. in-experience disclosure, session-level notifications).** »
+
+**[F]** Les deux conditions sont **cumulatives** (« *when marking is not technically feasible **and** the persons exposed … are made aware* »). **[H]** Notre cas remplit la définition d'entrée (temps réel, éphémère, consommé immédiatement, ni enregistré, ni stocké, ni diffusé plus loin) ; il reste à établir (a) l'infaisabilité technique et (b) l'information de l'appelant. Les exemples cités sont le jeu vidéo et la VR, **pas la téléphonie** : ce n'est donc pas un blanc-seing, mais une application nommée du principe de proportionnalité, qu'il faut documenter pour son propre cas.
+
+**[F]** Deux exemptions voisines, pour bien situer la nôtre :
+- **Point (86)** : métadonnées moins robustes suffisantes pour un système embarqué « *in physical products generating outputs in a technically controlled and closed environment that is mainly instructive in nature (e.g., an AI system embedded in navigation systems in vehicles)* ». Ne nous concerne pas.
+- **Point (87)** : applications industrielles / B2B, « **excluding public and consumer-facing AI systems** », sous trois conditions cumulatives. **Un agent vocal qui répond à un appelant grand public en est explicitement exclu.**
+
+### 2.2 Ce que disent les lignes directrices sur « techniquement faisable » et « état de la technique »
+
+**[F] Point (81), verbatim** :
+> « ‘Technically feasible’ solutions within the meaning of Article 50(2) AI Act are solutions that are capable of being implemented for the modalities covered in the scope of the provision, using currently available technology, methods, and engineering practices, within the specific technical architecture and operational environment concerned. The provider is not obliged to make use of a technical solution that is not yet developed or available on the market, or that is technically unfeasible for implementation. **Technical feasibility is an objective notion that is not dependent on the specific resources and capabilities of individual providers.** »
+
+**[F] Point (83), verbatim (extraits)** :
+> « The ‘state of the art’ is to be understood as a developed stage of technical capability at a given time as regards products, processes and services, based on the relevant consolidated findings of science, technology and experience and which is accepted as good practice in technology. **The state of the art does not necessarily imply the latest scientific research still in an experimental stage or with insufficient technological maturity.** Providers must continuously adapt their marking and detection solutions in a timely and proportionate manner as the technology and state of the art evolves. »
+
+**[H] Lecture directe pour nous** : « *within the specific technical architecture and operational environment concerned* » légitime l'analyse au niveau de **notre** environnement (RTC, 8 kHz, μ-law, flux). Et « *does not necessarily imply the latest scientific research still in an experimental stage* » écarte l'exigence d'un fine-tuning d'AudioSeal sur canal téléphonique (§4.3), qui serait précisément de la recherche expérimentale. **Mais** « *not dependent on the specific resources and capabilities of individual providers* » interdit l'argument « on est une petite structure » : l'infaisabilité doit être **objective**, pas budgétaire.
+
+**[F] Point (72)** : « providers may rely on **a single marking technique or a combination of techniques**, so long as their overall technical solution is machine-readable and meets the requirements ». **Point (73)** reprend la liste du considérant 133 et ajoute : « While methods for proving provenance and authenticity are mentioned in Recital 133 AI Act, **providers are not required to record or keep a full provenance chain** ». **Point (74)** : la solution peut être mise en œuvre « *at the level of the underlying AI model or integrated in the AI system's inference process* », et le fournisseur « *may rely on the marking solution implemented by an upstream model provider* » — **mais** « *Such reliance is without prejudice to the responsibility of the provider of the AI system to demonstrate compliance* ». **[R] Donc : s'appuyer sur le marquage d'un fournisseur TTS ne transfère pas la responsabilité ; il faut le vérifier soi-même.**
+
+**[F] Point (75)-(76), obligation de détection** : le fournisseur doit rendre « *the means of detection … available to the persons potentially exposed to the content* », et « *must rely on publicly-available industry standard detection solutions* » ; à défaut de norme, « *in particular at the initial stage of the implementation of Article 50(2) AI Act for watermarking technologies* », il peut recourir à sa propre solution ou à une solution tierce, à titre transitoire. **[F] Il y a donc une obligation de détection et pas seulement de marquage** — point souvent oublié, et qui rend un tatouage propriétaire non détectable par un tiers insuffisant à lui seul.
+
+### 2.3 Le Code de bonnes pratiques — ce qu'il exige concrètement pour l'audio
+
+**[F] Mesure 1.1 — marquage multicouche** : « *So long as no single marking technique can, under the state of the art, ensure by itself compliance with the four requirements in Article 50(2) AI Act… for audio, images, video, and containerised text, in particular for content that can be disseminated online, Signatories will implement a multi-layered marking approach to ensure that the outputs of their generative AI systems are marked with **at least two layers** of machine-readable marking.* »
+- **1.1.1 métadonnées signées** — **conditionnelle** : « *If content is generated, manipulated or exported **in a data format that supports attaching metadata**…* » → **[H] un flux RTP/G.711 n'est pas un tel format : la sous-mesure ne mord pas.**
+- **1.1.2 watermark imperceptible** — « *with the exception of very short text* ».
+- **1.1.3 fingerprinting / logging** — optionnel, et « *relying on fingerprinting or logging alone is not considered sufficient* ».
+- **Dérogation à une seule couche** : réservée au système « *embedded in physical products … in a technically controlled and closed environment mainly instructive in nature* ».
+
+**[F] Mesure 3.3 robustesse** : les altérations à encaisser incluent explicitement `voice enhancement`, `pitch shifting`, `time stretching`, `(re)compression`, `change of file format`, et « *survival of the analogue hole, e.g. … audio playback and recording* ». **[H] Une recompression μ-law 8 kHz relève de cette catégorie — le Code place donc la barre au-dessus de ce que l'état de l'art sait faire (§4).**
+
+**[F] Mesure 3.4 interopérabilité, échéance dure** : « *At the time of publication of this Code, relevant interoperability standards and/or best practices are yet to be developed, except for digitally signed metadata.* » Les signataires doivent implémenter une solution d'interopérabilité de détection **au plus tard le 2 février 2027**.
+
+**[F] Fait notable : le Code ne cite jamais C2PA ni « Content Credentials »** — zéro occurrence dans les 38 pages ; il parle génériquement de « digitally signed metadata ».
+
+**[F] Portée juridique** : « *Even though adherence to the code is voluntary, the transparency requirements under article 50 of the AI Act are legal obligations* » ; « *providers and deployers that decide to comply through other means will have to demonstrate that those measures are adequate* » ; avis de la Commission : « *Adherence to the code does not constitute conclusive evidence of compliance.* »
+
+### 2.4 C2PA / Content Credentials — et pourquoi ça ne s'applique pas à notre flux
+
+**[F] Version courante : C2PA Technical Specification 2.4, avril 2026** (précédente : 2.3, décembre 2025). *Source : `https://spec.c2pa.org/specifications/specifications/2.4/specs/C2PA_Specification.html`, consultée le 2026-09-14.*
+
+**[F] Audio couvert, mais toujours comme fichier conteneur** (Annexe A) : MP3/FLAC via objet `GEOB` ID3v2 ; WAV/BWF via un chunk RIFF d'identifiant `C2PA` ; AAC/ALAC/MP4/M4A via une boîte `uuid` BMFF ; OGG Vorbis via un flux logique dédié (ajouté en 2.3). **Aucune entrée pour G.711, μ-law, RTP ou flux brut sans conteneur** — vérifié par extraction du texte intégral de la spec (zéro occurrence de RTP, telephony, G.711).
+
+**[F] Le « streaming » C2PA existe (§19 Live Video, introduit en 2.3, étendu en 2.4) mais présuppose un conteneur segmenté** :
+> « This version of the specification applies to content packaged using the **ISO BMFF** standard, while being agnostic of manifest and delivery protocols. It also applies to **CMAF** content… **It does not support MPEG Transport Streams.** »
+Validation segment par segment via `c2pa.livevideo.segment` ou *Verifiable Segment Info* (COSE_Sign1 dans une boîte `emsg`), les deux exigeant un `bmff-hash-map` et une boîte `uuid`.
+→ **[F] Un flux RTP/G.711 μ-law 8 kHz n'a ni boîte `uuid`, ni `emsg`, ni segment fMP4 : il n'existe aucune voie C2PA de liaison forte (*hard binding*) applicable.**
+
+**[F] La seule voie C2PA résiduelle est le *soft binding*** (§18.10, assertion `c2pa.soft-binding`, action `c2pa.watermarked.bound`) adossé à un *manifest repository* — notion formalisée en 2.4 sous le nom de **Durable Content Credential** : « *A Durable Content Credential is a Content Credential for which there exists one or more soft bindings that enable its discovery in a manifest repository.* » **[H] Cela suppose un manifeste publié et interrogeable, ce qui contredit frontalement « audio détruit après transmission ».**
+
+**[F]** La **Soft Binding Algorithm List** officielle (`https://spec.c2pa.org/softbinding-alg-list/softbinding-algorithm-list.json`) compte **28 entrées, dont 10 déclarant `audio`** : `com.digimarc.validate.1`, `org.atsc.a336`, `io.iscc.v0` (ISO 24138), `com.nagra.nexguard.watermark.1`, `com.mentaport.watermark.1`, `com.sonicorigin.watermark.1`, `com.microsoft.wavmark.1`, `ai.contentlens.audio.mono`/`.stereo`, `com.markany.watermark.1`. **[H] Aucune fiche ne documente un mode temps réel à 8 kHz ; le registre ne porte ni débit, ni latence, ni bande minimale. Leur aptitude au G.711 n'est pas établie par le registre.**
+
+**[F] Nouveauté 2.4 directement pertinente** : assertion **`c2pa.ai-disclosure`** (§18.28), « *for machine-readable AI transparency info* », avec `modelType`, `modelName`, `modelIdentifier`, `contentProfile` (dont `humanOversightLevel` : `fully_autonomous` / `prompt_guided` / `human_validated`). **[R] C'est le vocabulaire à réutiliser dans notre journal de provenance, même hors conteneur C2PA.**
+
+**[F] Programme de conformance C2PA** : lancé mi-2025 avec la C2PA Trust List officielle ; l'*Interim Trust List* a été gelée le 1er janvier 2026. Gouvernance JDF, « more than 500 members and over 6,000 affiliates » (juillet 2026). *Source : `https://c2pa.org/conformance/`, `https://c2pa.org/news/`.*
+
+### 2.5 ISO, JPEG Trust, normes harmonisées
+
+- **[F] JPEG Trust = ISO/IEC 21617.** Partie 1 *Core Foundation* **publiée en janvier 2025** (2ᵉ édition en cours) ; parties 2 (*Trust profiles catalogue*), **3 (*Media asset watermarking*)** et 4 (*Reference software*) en développement. Périmètre : « *due to its generic nature, many aspects of the framework can also be applied to other image file formats or other media modalities such as video or **audio*** » — mais l'intégration native visée est la famille JPEG. *Source : `https://jpeg.org/jpegtrust/`, consultée le 2026-09-14.* **[H] Rien d'exploitable pour un flux téléphonique aujourd'hui.**
+- **[NV] Reprise de C2PA en norme ISO (« ISO 22144 » ou autre numéro) : NON VÉRIFIÉE.** `iso.org` renvoie 403 (Cloudflare) sur toutes les URL testées ; le texte intégral de la spec C2PA 2.4 ne contient **aucune** occurrence de « 22144 » ni de mention d'une reprise ISO ; le site c2pa.org ne mentionne ISO nulle part hors référence indirecte à ISO 24138 (ISCC). **Ne pas affirmer que cette norme existe.**
+- **[F] Normes harmonisées CEN-CENELEC JTC 21 : aucun item marquage/watermarking/provenance.** La demande de normalisation de la Commission porte sur dix domaines, **tous rattachés au chapitre III (haut risque)** : risk management, datasets, record keeping, **transparency (art. 13, pas art. 50)**, human oversight, accuracy, robustness, cybersecurity, quality management, conformity assessment. Première norme harmonisée entrée en enquête publique : **prEN 18286** (système de management de la qualité, art. 17), le 30 octobre 2025. *Sources : `https://digital-strategy.ec.europa.eu/en/policies/ai-act-standardisation` et `https://www.cencenelec.eu/areas-of-work/cen-cenelec-topics/artificial-intelligence/`.* **[NV]** Le programme de travail complet de `jtc21.eu` renvoie HTTP 406 : l'absence d'item watermarking est une **[H] fondée sur trois sources concordantes**, dont le Code lui-même (« *relevant interoperability standards … are yet to be developed* »), et non sur un listing exhaustif.
+
+→ **[F] Conséquence : il n'existe aucune présomption de conformité par norme harmonisée pour l'article 50 §2. Le Code de bonnes pratiques est aujourd'hui le seul instrument reconnu à l'échelle de l'Union.**
