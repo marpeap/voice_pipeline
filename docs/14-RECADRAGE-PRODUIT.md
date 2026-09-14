@@ -71,6 +71,8 @@ Le connecteur Crenolo (`docs/04-CONNECTEUR-CRENOLO.md`) devient **une implément
 3. **Connexion Google bidirectionnelle plus tard**, sur un projet dédié dont les 100 places sont **intactes** — et la vérification (10 jours annoncés, **3 à 6 semaines réelles**) se lance **dès maintenant**, puisqu'elle ne coûte rien à démarrer et que seule l'attente est perdue.
 4. **Nylas en soupape** : **83,50 $/mois à 50 clients, 448 $/mois à 500** — le seul intermédiaire qui publie un prix à l'agenda connecté. Cronofy démarre à **819 $/mois**, et **Cal.com Platform est fermé aux nouveaux depuis le 15/12/2025**.
 
+**Et la question du niveau N2 reste entière** : *ces API garantissent-elles la non-superposition ?* La session Crenolo espérait y répondre depuis son code — elle ne le peut pas : **Crenolo n'écrit pas dans Google Calendar**, il implémente le programme Actions Center en variante *Appointments Redirect*, où Google renvoie vers sa page sans aucune écriture distante. La question attend donc toujours la recherche A11.
+
 ⚠️ **La question à dix minutes qui commande tout ce paragraphe** : la Console Google affiche-t-elle les scopes Calendar en *Sensitive* ou en *Restricted* ? La doc publique ne le dit **nulle part**. *Sensitive* = 10 jours de revue, zéro euro. *Restricted* = 6 semaines **et** un audit de sécurité annuel au prix non publié.
 
 ---

@@ -62,7 +62,8 @@ Sans ce lot, **le canal vocal devient la porte dérobée du produit**.
 | # | Tâche | Détail |
 |---|---|---|
 | C3.1 | Migration **034** : `telephone_e164` sur `bookings` et `fiches_clients`, + index `(business_id, telephone_e164)` | normalisation par `services/sms.numero_normalise` |
-| C3.2 | **Étendre la normalisation aux fixes** | aujourd'hui elle n'accepte que `06`/`07` : un client qui appelle de sa ligne fixe serait introuvable |
+| C3.2 | **Utiliser les deux fonctions existantes, ne pas en modifier une seule** | `reserver_avec_google.py::telephone_e164` pour identifier (E.164 générale, refuse ce qu'elle ne sait pas normaliser) · `sms.py::numero_normalise` pour décider de l'envoi SMS (mobiles seuls, **choix délibéré**) |
+| C3.2 bis | **Prévoir le client identifiable mais injoignable par SMS** | cas **normal** : rendez-vous écrit, marqué « sans confirmation », relecture orale supplémentaire. **Jamais traité comme un échec d'écriture** |
 | C3.3 | **`est_bloque` par téléphone** en plus de l'e-mail | sinon un client que le salon a bloqué réserve en appelant |
 | C3.4 | **Plafond de réservations actives par téléphone** | second garde-fou (429) qui saute avec l'e-mail |
 | C3.5 | `GET /connecteur/v1/client?telephone=` | sert l'accueil et les keyterms, **jamais** à autoriser une écriture |

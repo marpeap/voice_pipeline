@@ -160,15 +160,30 @@ Portées : `agenda:lire`, `agenda:ecrire`, `client:lire`.
 
 **Enfin, une réconciliation nocturne** doit détecter les chevauchements *a posteriori* et alerter le salon, quel que soit le filet choisi. C'est la même logique que les trois barrières anti-échec-silencieux : on ne fait pas confiance à une seule.
 
-### 4.4 Recherche par téléphone (E4)
-Normaliser à l'écriture avec la fonction **existante** `numero_normalise` (`services/sms.py:49`), stocker en E.164 dans une colonne additive `telephone_e164`, et indexer :
+### 4.4 Recherche par téléphone (E4) — **corrigé le 2026-09-14**
+
+⚠️ **Je proposais la mauvaise fonction.** Crenolo en a **deux**, et la distinction est **délibérée** (session Crenolo) :
+
+| Fonction | Ce qu'elle décide | Comportement |
+|---|---|---|
+| `services/sms.py::numero_normalise` | **Peut-on envoyer un SMS ?** | Mobiles `06`/`07` **seulement**, et c'est un choix assumé : « un rappel envoyé sur une ligne fixe est un message perdu, et chez certains opérateurs une facture quand même » |
+| `services/reserver_avec_google.py::telephone_e164` | **Qui est cette personne ?** | E.164 **générale** : accepte l'international, le `00` comme le `+`, et **refuse de rendre un numéro qu'elle ne sait pas normaliser** — « envoyer un numéro faux ferait appeler quelqu'un d'autre, ce qui est pire que ne pas afficher de numéro » |
+
+**Le lot C3 a besoin des deux** : `telephone_e164` pour la colonne et l'index (**un appelant peut appeler d'un fixe et doit rester retrouvable**), `numero_normalise` pour décider si la confirmation SMS peut partir.
+
+**Et cela crée un cas que ma doctrine ne prévoyait pas.** Le SMS de confirmation est notre **preuve de bout en bout** (`R6 §3.4e`) — mais **un client joignable pour l'identification et injoignable par SMS est un cas normal, pas une anomalie**. Le flux doit donc le prévoir explicitement :
+- **numéro mobile** → confirmation SMS, preuve complète, rendez-vous confirmé ;
+- **numéro fixe ou non normalisable** → **pas de SMS**, donc **pas de preuve de joignabilité**. L'agent **relit le numéro à voix haute une fois de plus**, le rendez-vous est écrit et marqué **« sans confirmation »**, et le commerçant le voit comme tel dans sa console.
+- **Ce qu'il ne faut surtout pas faire** : traiter l'absence de SMS comme un échec d'écriture. Le rendez-vous est valable ; c'est notre **niveau de preuve** qui est moindre, pas la réservation.
+
+Normaliser à l'écriture, stocker en E.164 dans une colonne additive `telephone_e164`, et indexer :
 ```sql
 ALTER TABLE bookings        ADD COLUMN IF NOT EXISTS telephone_e164 VARCHAR(20);
 ALTER TABLE fiches_clients  ADD COLUMN IF NOT EXISTS telephone_e164 VARCHAR(20);
 CREATE INDEX IF NOT EXISTS idx_bookings_tel   ON bookings(business_id, telephone_e164);
 CREATE INDEX IF NOT EXISTS idx_fiches_tel     ON fiches_clients(business_id, telephone_e164);
 ```
-Remplissage rétroactif par un script de rattrapage, sans toucher aux colonnes d'origine. ⚠️ `numero_normalise` ne reconnaît **que les mobiles français** (`06`/`07`) : les fixes doivent être acceptés séparément, sinon un client qui appelle de sa ligne fixe devient introuvable.
+Remplissage rétroactif par un script de rattrapage, sans toucher aux colonnes d'origine.
 
 ### 4.5 Durées réelles et journal d'appel (E5)
 ```sql
