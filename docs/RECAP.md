@@ -15,7 +15,8 @@
 | **TTS Piper** (voix FR, 63 Mo) | RTF **0,096**, RAM 136 Mo — mais **TTFB 372 ms** contre 150 visés, parce qu'il synthétise la phrase **entière** avant de livrer. **D'où la règle : la première réplique de l'agent doit être courte** (67 ms pour deux mots), la suite s'enchaîne en flux |
 | **WER français, bande téléphonique** | Nemotron **7,8 %** (×1,11) · Vosk 10,6 % (×1,40) · sherpa 23,4 %. Aucune source au monde ne publiait ce chiffre |
 | **Le « zéro » des numéros** | Massacré par Vosk et sherpa (« ses héros fit », « le verrou si »), **correct chez Nemotron**. C'est le maillon qui décide si le SMS de confirmation part |
-| **TTFT LLM** | 430 ms p50 depuis la France vers Groq, contre 250 visés — **c'est la distance, pas le modèle**. Démonstration chiffrée de la règle « héberger en UE » |
+| **TTFT LLM** | **2 040 ms** p50 en rouvrant une connexion à chaque appel, **378 ms** en la gardant ouverte, **85 ms** au mieux — vers un fournisseur américain. Ce n'est donc pas la distance : ce sont le DNS et les deux poignées de main, repayés à chaque tour de parole. Le premier levier de latence est le client, et il est gratuit |
+| **Conversion 8 kHz G.711** | 11 ms de travail pour 3 s d'audio — mais **45 ms rien que pour démarrer `ffmpeg`**. Aucun processus externe par fragment audio |
 
 ---
 
