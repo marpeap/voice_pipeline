@@ -11,7 +11,7 @@ Cinq écarts, tous issus de l'audit. Ils commandent les migrations du §4.
 
 | # | L'écart | Pourquoi le vocal le révèle |
 |---|---|---|
-| E1 | **`bookings.client_email` est NOT NULL** et obligatoire dans `BookRequest` (`reservation.py:54-72`) | Un appelant ne dicte pas son e-mail — et la règle produit l'interdit (`R6` : jamais d'e-mail par la voix). Le téléphone devient l'identifiant |
+| E1 | **`bookings.client_email` est NOT NULL** et obligatoire dans `BookRequest` (`reservation.py:54-72`) — et **11 lignes portent déjà une chaîne vide**, donc la contrainte est en pratique déjà contournée, salement | Un appelant ne dicte pas son e-mail — et la règle produit l'interdit (`R6` : jamais d'e-mail par la voix). Le téléphone devient l'identifiant |
 | E2 | **Aucune contrainte d'unicité SQL sur `bookings`** ; la non-superposition tient au verrou applicatif (`reservation.py:196-274`) | Un deuxième écrivain (nous) qui ne reproduit pas le verrou **double-booke**. Et un double-booking par un agent vocal est le pire échec possible : le client est confiant, le salon découvre le jour J |
 | E3 | **Rate-limit `10/hour`** sur `POST /public/{slug}/book` (`ratelimit.py:92`) | Un standard sérieux dépasse 10 réservations/heure. Notre trafic vient d'une IP unique : nous serions bloqués par notre propre volume |
 | E4 | **Aucune recherche client par téléphone** — numéros stockés bruts, pas d'index | Le seul identifiant dont dispose l'agent est le numéro… et encore (§2.3) |
@@ -100,17 +100,33 @@ Portées : `agenda:lire`, `agenda:ecrire`, `client:lire`.
 ### 4.2 `bookings.client_email` — desserrer sans casser (E1)
 `ALTER COLUMN … DROP NOT NULL` **est** additif au sens du gel (aucun appelant existant ne casse : ils envoient tous un e-mail). C'est plus propre que de synthétiser une adresse. **À arbitrer avec Adnan** : `DROP NOT NULL` contre e-mail synthétique. Recommandation : `DROP NOT NULL`, et le code lit `client_email or telephone` là où il affiche un contact.
 
-### 4.3 La contrainte qui manque (E2)
+### 4.3 La contrainte qui manque (E2) — **révisé le 2026-09-14 après audit de la base réelle**
 
-```sql
-CREATE EXTENSION IF NOT EXISTS btree_gist;
-ALTER TABLE bookings ADD CONSTRAINT bookings_pas_de_chevauchement
-  EXCLUDE USING gist (
-    business_id WITH =, practitioner_id WITH =,
-    tsrange((date + start_time), (date + end_time)) WITH &&
-  ) WHERE (status IN ('confirmed','completed') AND practitioner_id IS NOT NULL);
-```
-⚠️ **À valider d'abord en lecture** : si l'historique contient déjà des chevauchements, la création échoue. Procédure : requête de détection → correction manuelle par le salon → `ADD CONSTRAINT NOT VALID` puis `VALIDATE CONSTRAINT` hors heures d'ouverture. Le cas `practitioner_id IS NULL` (blocage global) reste couvert par le verrou applicatif seul.
+**Audit exécuté sur `rdv_db` en production par la session qui tient Crenolo**, à ma demande implicite (le §4.3 le réclamait avant le lot C6) :
+
+| Mesure | Valeur |
+|---|---|
+| `bookings` au total | **251** |
+| dont occupants (`confirmed`/`completed`) | 195 |
+| **paires en chevauchement** | **0** → la contrainte passerait sans échec, migration instantanée sur 251 lignes |
+| **`practitioner_id IS NULL`** | **241 sur 251, soit 96 %** |
+| `client_email` vides (chaîne vide) | 11 |
+
+⚠️ **Le troisième chiffre invalide la contrainte telle que je l'avais écrite.** Avec `WHERE … AND practitioner_id IS NOT NULL`, le filet SQL protégerait **10 réservations sur 251**. Pour un défaut que E2 qualifie de « pire échec possible », un filet qui couvre 4 % du trafic n'est pas un filet.
+
+**Et le cas dominant n'est pas exprimable en une contrainte d'exclusion.** `practitioner_id IS NULL` signifie « bloque tout le monde » (`booking.py:21-29`) : une telle ligne entre en conflit avec **toutes** les autres, y compris celles qui nomment un praticien. Or `EXCLUDE` compare des lignes deux à deux sur des clés égales — il ne sait pas dire « cette ligne est en conflit avec l'univers ». Trois voies, aucune gratuite :
+
+| Voie | Ce qu'elle couvre | Coût |
+|---|---|---|
+| **a.** Seconde contrainte `EXCLUDE (business_id WITH =, tsrange WITH &&) WHERE practitioner_id IS NULL` | Les chevauchements **entre lignes sans praticien** — la majorité des collisions plausibles | Faible, additif, immédiat |
+| **b.** Déclencheur (`trigger`) vérifiant le conflit NULL ↔ praticien nommé | Le cas complet | Moyen, et un déclencheur est un endroit de plus où la règle vit |
+| **c.** Rendre `practitioner_id` obligatoire pour les écritures **nouvelles** (dont les nôtres) | Fait rentrer le trafic futur dans le filet sans toucher l'historique | Change le produit : il faut un praticien par défaut quand le salon n'en déclare aucun |
+
+**Recommandation : a + c.** La voie (a) se pose tout de suite et couvre le gros ; la voie (c) fait converger le trafic vers le cas protégé sans migration de données. La voie (b) reste en réserve si un conflit croisé est réellement observé.
+
+**Conséquence immédiate, et elle remonte au §2.1** : pour 96 % des rendez-vous, **le verrou applicatif est aujourd'hui la seule protection contre le double-booking**. Passer par la route de Crenolo plutôt que d'écrire en base n'est donc pas une précaution d'architecture parmi d'autres — **c'est la protection elle-même**. Non négociable.
+
+**Enfin, une réconciliation nocturne** doit détecter les chevauchements *a posteriori* et alerter le salon, quel que soit le filet choisi. C'est la même logique que les trois barrières anti-échec-silencieux : on ne fait pas confiance à une seule.
 
 ### 4.4 Recherche par téléphone (E4)
 Normaliser à l'écriture avec la fonction **existante** `numero_normalise` (`services/sms.py:49`), stocker en E.164 dans une colonne additive `telephone_e164`, et indexer :
@@ -140,6 +156,14 @@ L'audit A3 a trouvé trois défauts dans la couche SMS existante, qui empêchent
 3. **L'abandon après cinq tentatives est silencieux.** Il doit marquer le rendez-vous et alerter le commerçant — c'est exactement le signal qui révèle un numéro mal capté.
 
 Et la sortie change : **la passerelle SIM est juridiquement inutilisable** (décision Arcep n° 2018-0881 consolidée au 01/01/2026, interdiction absolue pour un 06/07 d'émettre au nom d'un système automatisé) **et techniquement inadaptée** (aucun accusé de remise). Les routes internes existantes deviennent l'**adaptateur** vers un fournisseur A2P ; tout le reste du code est conservé.
+
+### 4.5 ter Contraintes de déploiement à connaître avant d'écrire une migration
+
+Transmises par la session qui tient Crenolo, et elles changent le niveau de risque :
+
+- **La dernière migration est la `031`** — les nôtres commencent à **032**.
+- **L'API applique les migrations au démarrage.** Donc **une migration qui échoue empêche l'API de démarrer** — pour `crenolo.com` **et pour le domaine gelé `rdv.marpeap.com`**, qui partagent la même API. Une migration fautive de notre fait casserait la promesse faite à la cliente. Toute migration se teste sur une copie avant d'approcher la production.
+- **Le front Vercel se déploie seul à chaque push, l'API du VPS non** : `ssh root@151.241.228.72 'cd /opt/rdv && git pull -q origin crenolo-v3 && bash scripts/deploy.sh'`. Le code vit **dans l'image Docker**, pas en volume : un `docker compose up -d` sans `--build` ne déploie rien.
 
 ### 4.6 Rate-limit (E3)
 Exempter les routes `/connecteur/v1/*` du `10/hour`, et poser à la place une limite **par clé d'API** (donc par salon), dimensionnée sur le volume d'appels réel. Une IP unique côté agent ne doit jamais être l'unité de compte.
