@@ -29,14 +29,14 @@ Trois voies, et une seule tient :
 
 | Voie | Ce qu'elle coûte | Verdict |
 |---|---|---|
-| **Extraire** la logique dans `services/reservation.py`, appelé par la route publique **et** par le connecteur | Touche du code qui sert aussi le domaine gelé. Facteur atténuant mesuré : `request` n'est utilisé **qu'une fois** sur 447 lignes (ligne 359, `origin`/`referer`), la dépendance au contexte HTTP est donc marginale | ✅ **retenu**, sous conditions (§2.1 bis) |
+| **Extraire** la logique dans `services/reservation.py`, appelé par la route publique **et** par le connecteur | Touche du code qui sert aussi le domaine gelé. Facteur atténuant mesuré : le contexte HTTP n'est lu que **deux fois, sur une seule ligne** (359 — `origin` et `referer`, passés à `adresses` pour l'URL de retour). Chiffre corrigé le 14/09 : j'avais écrit « une seule fois ». La dépendance reste marginale sur 447 lignes | ✅ **retenu**, sous conditions (§2.1 bis) |
 | **Appeler la route HTTP** depuis le connecteur | Zéro modification du code gelé, mais on hérite du rate-limit `10/hour`, de l'obligation d'e-mail, et on ajoute un aller-retour HTTP **dans le chemin de l'appel téléphonique** — or notre budget est de 700 ms | ⛔ le coût tombe au mauvais endroit |
 | **Recopier** le verrou | Deux implémentations de la même règle d'occupation | ⛔ exactement ce que ce document interdit |
 
 ### 2.1 bis Conditions de l'extraction
 
 L'extraction est un **remaniement à comportement constant**, pas une évolution fonctionnelle : la route publique reste le seul appelant au départ, sa signature et ses réponses ne changent pas, aucune migration n'y est liée. Quatre conditions :
-1. **Tests avant remaniement**, couvrant le verrou, le choix du praticien le moins chargé, le 409, et les onze refus.
+1. **Tests avant remaniement** ✅ **faits le 14/09** : 14 tests de caractérisation, 4 mutations rouges (verrou du mode sans praticien retiré · ordre anti-interblocage supprimé · blocage client basculé du mail au téléphone · refus métier passé en 400), 992 tests verts au total. Dont **un test qui échoue si `client_email` cesse d'être requis** — il forcera à constater que les deux garde-fous ont besoin de leur version téléphone. C'est le filet contre la régression invisible.
 2. **Portée par la session qui tient Crenolo**, pas par ce chantier — c'est son code.
 3. **Déploiement séparé et vérifié**, avant que le connecteur s'appuie dessus. Rappel : l'API sert **aussi** le domaine gelé.
 4. **Accord d'Adnan avant mise en production** — voir §6, c'est un des deux arbitrages ouverts.
