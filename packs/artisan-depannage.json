@@ -1,0 +1,156 @@
+{
+  "pack": "artisan-depannage",
+  "version": "2026.09.1",
+  "langue": "fr-FR",
+  "_lisez_moi": "Pack sectoriel — DONNEE livree avec le produit. Conception : docs/13. Ce qui change tout par rapport au salon : on n'appelle pas pour reserver, on appelle parce que quelque chose est casse maintenant. Et le droit impose des choses a dire AVANT l'intervention — or c'est l'agent qui parle en premier.",
+  "interdits_cables": [
+    {
+      "id": "I1", "regle": "L'agent n'annonce jamais un prix total.",
+      "pourquoi": "Le devis ecrit avant travaux est obligatoire et s'etablit sur place. Taux horaire, frais de deplacement et majorations peuvent etre dits a l'oral ; un total, non.",
+      "parametrable": false
+    },
+    {
+      "id": "I2", "regle": "L'agent ne qualifie jamais l'urgence au sens juridique.",
+      "pourquoi": "L'urgence conditionne la perte du droit de retractation de 14 jours. L'agent enregistre les faits, l'artisan tranche.",
+      "parametrable": false
+    },
+    {
+      "id": "I3", "regle": "Sortie immediate du scenario sur odeur de gaz, depart de feu, personne en danger.",
+      "pourquoi": "L'agent donne le numero des secours et quitte le script. Cable en dur, jamais parametrable.",
+      "declencheurs": ["odeur de gaz", "ca sent le gaz", "il y a le feu", "ca brule", "quelqu'un est blesse", "electrocute", "inconscient"],
+      "reponse": "Raccrochez et appelez le 18 ou le 112 tout de suite.",
+      "parametrable": false
+    },
+    {
+      "id": "I4", "regle": "La zone est une condition d'eligibilite, pas une preference.",
+      "pourquoi": "Le code postal se demande AVANT le creneau : mieux vaut refuser proprement que promettre puis annuler.",
+      "parametrable": false
+    }
+  ],
+  "blocs": [
+    {
+      "id": "A", "titre": "Activite et zone", "palier": 0,
+      "questions": [
+        {"id": "A1", "type": "choix_unique", "critique": true,
+         "libelle": "Votre metier",
+         "options": [
+           {"valeur": "plomberie", "libelle": "Plomberie", "defaut": true},
+           {"valeur": "serrurerie", "libelle": "Serrurerie"},
+           {"valeur": "electricite", "libelle": "Electricite"},
+           {"valeur": "chauffage", "libelle": "Chauffage / climatisation"},
+           {"valeur": "multi", "libelle": "Multi-services"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "metier"}},
+        {"id": "A2", "type": "liste_codes_postaux", "critique": true,
+         "libelle": "Communes ou codes postaux desservis",
+         "aide": "Demande avant le creneau : c'est une condition d'eligibilite.",
+         "ecrit": {"cible": "frontmatter", "chemin": "zone.codes_postaux"}},
+        {"id": "A3", "type": "choix_unique",
+         "libelle": "Hors zone, l'agent",
+         "options": [
+           {"valeur": "refuse", "libelle": "Refuse poliment et explique", "defaut": true},
+           {"valeur": "message", "libelle": "Prend le message quand meme"},
+           {"valeur": "confrere", "libelle": "Propose un confrere", "champs": [{"id": "nom", "type": "texte"}]}],
+         "ecrit": {"cible": "frontmatter", "chemin": "zone.hors_zone"}},
+        {"id": "A4", "type": "choix_unique", "critique": true,
+         "libelle": "Horaires d'intervention",
+         "options": [
+           {"valeur": "ouvrables", "libelle": "Heures ouvrables", "defaut": true},
+           {"valeur": "soirees", "libelle": "Heures ouvrables et soirees"},
+           {"valeur": "h24", "libelle": "24 h/24"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "horaires.intervention"}},
+        {"id": "A5", "type": "choix_unique",
+         "libelle": "Urgences la nuit et le week-end",
+         "options": [
+           {"valeur": "majoration", "libelle": "Oui, avec majoration", "defaut": true},
+           {"valeur": "rappel", "libelle": "Non, message et rappel"},
+           {"valeur": "clients", "libelle": "Seulement pour les clients existants"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "urgences.nuit_week_end"}}
+      ]
+    },
+    {
+      "id": "B", "titre": "Ce que l'agent doit dire avant tout", "palier": 0,
+      "questions": [
+        {"id": "B1", "type": "montant", "critique": true,
+         "libelle": "Frais de deplacement",
+         "aide": "Annonce a l'oral : obligation d'information prealable.",
+         "ecrit": {"cible": "frontmatter", "chemin": "tarifs.deplacement"}},
+        {"id": "B2", "type": "montant", "critique": true,
+         "libelle": "Taux horaire de main-d'oeuvre",
+         "ecrit": {"cible": "frontmatter", "chemin": "tarifs.horaire"}},
+        {"id": "B3", "type": "choix_multiple", "defaut_vide": true,
+         "libelle": "Majorations",
+         "aide": "Aucune majoration cochee = aucune majoration annoncee. C'est un choix, pas un oubli.",
+         "options": [
+           {"valeur": "week_end", "libelle": "Week-end", "champs": [{"id": "taux", "type": "pourcentage"}]},
+           {"valeur": "nuit", "libelle": "Nuit", "champs": [{"id": "taux", "type": "pourcentage"}]},
+           {"valeur": "feries", "libelle": "Jours feries", "champs": [{"id": "taux", "type": "pourcentage"}]}],
+         "ecrit": {"cible": "frontmatter", "chemin": "tarifs.majorations"}},
+        {"id": "B4", "type": "choix_unique", "critique": true,
+         "libelle": "Quand on demande un prix total, l'agent",
+         "aide": "Interdit cable I1 : aucun total ne peut etre annonce.",
+         "options": [
+           {"valeur": "devis_sur_place", "libelle": "« Je ne peux pas vous donner de total, le devis se fait sur place »", "defaut": true},
+           {"valeur": "fourchette", "libelle": "Donne une fourchette de depannage courant"},
+           {"valeur": "rappel", "libelle": "Fait rappeler"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "tarifs.question_total"}},
+        {"id": "B5", "type": "choix_unique",
+         "libelle": "Devis",
+         "options": [
+           {"valeur": "gratuit", "libelle": "Gratuit", "defaut": true},
+           {"valeur": "deduit", "libelle": "Payant, deduit si travaux"},
+           {"valeur": "payant", "libelle": "Payant"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "devis"}}
+      ]
+    },
+    {
+      "id": "C", "titre": "Qualification de la panne", "palier": 0,
+      "questions": [
+        {"id": "C1", "type": "fixe", "critique": true, "obligatoire_non_desactivable": true,
+         "libelle": "Trois questions posees systematiquement",
+         "valeur": ["nature de la panne", "risque immediat (eau qui coule, plus d'electricite, porte bloquee, odeur)", "adresse exacte"],
+         "ecrit": {"cible": "frontmatter", "chemin": "qualification.obligatoire"}},
+        {"id": "C2", "type": "choix_multiple",
+         "libelle": "Pannes les plus frequentes chez vous",
+         "aide": "Alimente l'amorcage lexical : seul le vocabulaire coche est injecte.",
+         "options": [
+           {"valeur": "fuite", "libelle": "Fuite d'eau", "defaut": true},
+           {"valeur": "wc", "libelle": "WC bouches"},
+           {"valeur": "serrure", "libelle": "Porte claquee ou serrure bloquee"},
+           {"valeur": "electricite", "libelle": "Panne d'electricite"},
+           {"valeur": "chaudiere", "libelle": "Chaudiere en panne"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "pannes"}},
+        {"id": "C3", "type": "texte_long",
+         "libelle": "Ce que vous ne faites pas",
+         "aide": "L'agent refusera au lieu de promettre.",
+         "ecrit": {"cible": "corps", "chemin": "hors_perimetre"}}
+      ]
+    },
+    {
+      "id": "E", "titre": "Ce que l'agent dit de lui-meme", "palier": 0,
+      "questions": [
+        {"id": "E3", "type": "choix_unique", "critique": true, "obligatoire_non_desactivable": true,
+         "libelle": "Comment l'agent annonce qu'il est automatique",
+         "aide": "Obligation AI Act art. 50. Vous en choisissez la formulation, jamais l'existence.",
+         "options": [
+           {"valeur": "assistant_automatique", "libelle": "« Je suis l'assistant automatique de l'entreprise »", "defaut": true},
+           {"valeur": "assistant_virtuel", "libelle": "« Je suis l'assistant virtuel de [nom] »"},
+           {"valeur": "personnalise", "libelle": "Formulation personnalisee", "champs": [{"id": "texte", "type": "texte"}]}],
+         "ecrit": {"cible": "frontmatter", "chemin": "annonce.formulation"}}
+      ]
+    }
+  ],
+  "keyterms": {
+    "groupe1": ["depannage", "urgence", "intervention", "devis", "deplacement", "adresse"],
+    "groupe3": {
+      "fuite": ["fuite", "degat des eaux", "ca coule", "robinet", "chasse d'eau", "compteur"],
+      "wc": ["wc bouche", "toilettes bouchees", "evacuation", "canalisation"],
+      "serrure": ["porte claquee", "verrouillee", "cle cassee", "cylindre", "barillet"],
+      "electricite": ["disjoncteur", "court-circuit", "plus de courant", "tableau electrique"],
+      "chaudiere": ["chaudiere", "plus d'eau chaude", "radiateur froid", "pression"]
+    }
+  },
+  "collisions": [
+    {"termes": ["porte claquee", "porte verrouillee"], "desambiguisation": "deux interventions et deux tarifs differents, demander laquelle"},
+    {"termes": ["fuite", "degat des eaux"], "desambiguisation": "la seconde engage l'assurance, ne pas confondre dans le message"}
+  ]
+}

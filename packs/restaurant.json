@@ -1,0 +1,117 @@
+{
+  "pack": "restaurant",
+  "version": "2026.09.1",
+  "langue": "fr-FR",
+  "_lisez_moi": "Pack sectoriel — DONNEE livree avec le produit. Conception : docs/13. Particularite du restaurant : l'appel arrive souvent PENDANT le service, la reservation porte sur un nombre de couverts et une plage horaire plutot qu'un creneau precis, et l'allergie alimentaire est un sujet ou l'agent ne doit jamais rassurer a la place du cuisinier.",
+  "interdits_cables": [
+    {"id": "I1", "regle": "L'agent ne garantit jamais l'absence d'un allergene.",
+     "pourquoi": "Il note la demande et la transmet ; c'est la cuisine qui repond. Une promesse fausse ici n'est pas un desagrement, c'est un risque vital.",
+     "reponse": "Je note votre allergie et je la transmets en cuisine ; le service vous confirmera sur place.",
+     "parametrable": false},
+    {"id": "I2", "regle": "L'agent ne modifie jamais une table deja attribuee sans verification en base.",
+     "pourquoi": "Regle generale du produit : aucune confirmation sans relecture de l'ecriture.",
+     "parametrable": false}
+  ],
+  "blocs": [
+    {
+      "id": "A", "titre": "Services et horaires", "palier": 0,
+      "questions": [
+        {"id": "A1", "type": "texte", "critique": true,
+         "libelle": "Quel nom l'agent doit-il prononcer en decrochant ?",
+         "ecrit": {"cible": "frontmatter", "chemin": "etablissement.nom"}},
+        {"id": "A2", "type": "services_semaine", "critique": true,
+         "libelle": "Vos services",
+         "aide": "Midi et soir se reservent separement : l'agent ne proposera jamais un service que vous n'assurez pas ce jour-la.",
+         "defaut": {"mardi": ["12:00-14:00", "19:00-22:00"], "mercredi": ["12:00-14:00", "19:00-22:00"],
+                    "jeudi": ["12:00-14:00", "19:00-22:00"], "vendredi": ["12:00-14:00", "19:00-22:30"],
+                    "samedi": ["12:00-14:30", "19:00-22:30"]},
+         "ecrit": {"cible": "frontmatter", "chemin": "services"}},
+        {"id": "A3", "type": "choix_unique", "critique": true,
+         "libelle": "Derniere prise de commande",
+         "aide": "C'est ce que l'agent doit dire a celui qui appelle a 21 h 45. S'il l'ignore, le client se deplace pour rien.",
+         "options": [
+           {"valeur": "30", "libelle": "30 minutes avant la fin du service", "defaut": true},
+           {"valeur": "45", "libelle": "45 minutes avant"},
+           {"valeur": "60", "libelle": "Une heure avant"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "service.derniere_commande_min"}}
+      ]
+    },
+    {
+      "id": "B", "titre": "Reserver une table", "palier": 0,
+      "questions": [
+        {"id": "B1", "type": "nombre", "critique": true,
+         "libelle": "Nombre de couverts au-dela duquel l'agent ne decide plus seul",
+         "aide": "Un grand groupe se traite a la main : l'agent prend le message au lieu de promettre.",
+         "defaut": 8,
+         "ecrit": {"cible": "frontmatter", "chemin": "reservation.seuil_groupe"}},
+        {"id": "B2", "type": "choix_unique",
+         "libelle": "Duree d'occupation d'une table",
+         "aide": "Sert a savoir si une table se libere a temps.",
+         "options": [
+           {"valeur": "90", "libelle": "1 h 30", "defaut": true},
+           {"valeur": "120", "libelle": "2 h"},
+           {"valeur": "libre", "libelle": "Pas de limite"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "reservation.duree_table"}},
+        {"id": "B3", "type": "choix_unique",
+         "libelle": "Terrasse",
+         "options": [
+           {"valeur": "aucune", "libelle": "Pas de terrasse", "defaut": true},
+           {"valeur": "sur_demande", "libelle": "Oui, sur demande et selon meteo"},
+           {"valeur": "reservable", "libelle": "Oui, reservable"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "salle.terrasse"}},
+        {"id": "B4", "type": "choix_unique", "critique": true,
+         "libelle": "Quand c'est complet, l'agent",
+         "options": [
+           {"valeur": "autre_horaire", "libelle": "Propose un autre horaire du meme service", "defaut": true},
+           {"valeur": "autre_jour", "libelle": "Propose un autre jour"},
+           {"valeur": "liste", "libelle": "Prend le nom pour une liste d'attente"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "reservation.complet"}}
+      ]
+    },
+    {
+      "id": "C", "titre": "Ce qu'on vous demande au telephone", "palier": 1,
+      "questions": [
+        {"id": "C1", "type": "choix_multiple",
+         "libelle": "Questions frequentes que l'agent doit savoir traiter",
+         "options": [
+           {"valeur": "carte", "libelle": "La carte du jour", "defaut": true},
+           {"valeur": "vegetarien", "libelle": "Options vegetariennes"},
+           {"valeur": "enfants", "libelle": "Accueil des enfants"},
+           {"valeur": "acces", "libelle": "Acces et stationnement"},
+           {"valeur": "emporter", "libelle": "Vente a emporter"}],
+         "ecrit": {"cible": "frontmatter", "chemin": "questions_frequentes"}},
+        {"id": "C2", "type": "texte_long",
+         "libelle": "Ce que l'agent doit repondre sur les allergies",
+         "aide": "Interdit cable I1 : il note et transmet, il ne rassure jamais a la place de la cuisine.",
+         "defaut": "Je note votre allergie et je la transmets en cuisine ; le service vous confirmera sur place.",
+         "ecrit": {"cible": "corps", "chemin": "allergies"}}
+      ]
+    },
+    {
+      "id": "E", "titre": "Ce que l'agent dit de lui-meme", "palier": 0,
+      "questions": [
+        {"id": "E3", "type": "choix_unique", "critique": true, "obligatoire_non_desactivable": true,
+         "libelle": "Comment l'agent annonce qu'il est automatique",
+         "options": [
+           {"valeur": "assistant_automatique", "libelle": "« Je suis l'assistant automatique du restaurant »", "defaut": true},
+           {"valeur": "assistant_virtuel", "libelle": "« Je suis l'assistant virtuel de [nom] »"},
+           {"valeur": "personnalise", "libelle": "Formulation personnalisee", "champs": [{"id": "texte", "type": "texte"}]}],
+         "ecrit": {"cible": "frontmatter", "chemin": "annonce.formulation"}}
+      ]
+    }
+  ],
+  "keyterms": {
+    "groupe1": ["table", "reserver", "couverts", "personnes", "ce soir", "midi", "annuler", "decaler"],
+    "groupe3": {
+      "carte": ["carte", "menu", "plat du jour", "formule"],
+      "vegetarien": ["vegetarien", "vegan", "sans viande"],
+      "enfants": ["chaise haute", "menu enfant"],
+      "acces": ["parking", "acces", "handicape", "ascenseur"],
+      "emporter": ["a emporter", "click and collect", "livraison"]
+    }
+  },
+  "collisions": [
+    {"termes": ["deux personnes", "deux heures"], "desambiguisation": "« pour deux » est ambigu au telephone : demander le nombre de couverts ET l'heure separement"},
+    {"termes": ["service", "carte"], "desambiguisation": "« le service » peut designer l'horaire ou le personnel"}
+  ]
+}

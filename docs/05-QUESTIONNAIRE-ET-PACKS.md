@@ -46,7 +46,7 @@ Un pack = **un fichier JSON versionné**, livré avec le produit, jamais édité
 ```
 
 **Cinq règles de format, toutes issues de la recherche :**
-1. **Jamais plus de 5 options** par question, **toujours un défaut** (`defaut: true`). Un salon qui ne répond rien doit obtenir un agent qui fonctionne.
+1. **Jamais plus de 5 options** par question, **toujours un défaut** (`defaut: true`). Un salon qui ne répond rien doit obtenir un agent qui fonctionne. ⚠️ **Précision du 15/09**, trouvée en écrivant les trois packs : un **choix multiple** peut légitimement n'avoir rien de coché — mais il doit le **dire** (`"defaut_vide": true`), sinon on ne distingue pas l'intention de l'oubli. C'est le validateur qui a attrapé le cas, sur mon propre pack.
 2. **`ecrit`** dit où va la réponse : `frontmatter` (machine) ou `corps` (prose lue par le modèle). Aucune réponse ne va nulle part — une question sans `ecrit` est un bug de pack.
 3. **`ouvre`** est le seul mécanisme de branchement, et il ne descend **que d'un niveau** (NN/g : jamais plus de deux niveaux de divulgation).
 4. **`critique: true`** marque les questions dont l'absence produit une erreur *audible par le client* — aujourd'hui A3 (pause), C1 (catalogue), D3 (mot employé pour les arrhes). Elles ne peuvent pas être sautées.
@@ -136,3 +136,22 @@ Le même fichier alimente trois consommateurs, et c'est ce qui justifie son form
 | **artisan dépannage** | Cadré (A6 §5.1) : devis avant travaux, déplacement annoncé, **l'agent ne qualifie jamais l'urgence lui-même** (effet juridique), sortie de secours câblée en dur sur gaz, feu, danger | Le détail des questions |
 | **restaurant** | Cadré (A6 §5.2) : couverts d'abord, shifts et non agenda continu | Le seuil « groupe » **à demander, jamais à supposer** |
 | santé, auto | Non traités | Tout — et le pack santé demandera un examen RGPD à part |
+
+
+---
+
+## 6. Les trois packs livrés, et le validateur qui les tient — 15/09
+
+Les packs sont écrits : `packs/coiffure.json` (10 questions, 6 critiques), `packs/artisan-depannage.json` (14 questions, 8 critiques, **quatre interdits câblés**), `packs/restaurant.json` (10 questions, 6 critiques, **deux interdits câblés**).
+
+**`bancs/valide_pack.py` vérifie les cinq règles de format**, et il tourne avant même que le produit existe :
+
+| Règle vérifiée | Ce qu'elle empêche |
+|---|---|
+| ≤ 5 options, toujours un défaut (ou `defaut_vide` déclaré) | Un commerçant qui ne répond rien obtient quand même un agent qui fonctionne |
+| Toute question porte une cible `ecrit` | Une réponse qui n'irait nulle part — et personne ne s'en apercevrait |
+| Un seul niveau de branchement | La divulgation en cascade, que la recherche interdit |
+| **E3 présente et non désactivable** | L'annonce AI Act supprimée par erreur dans un pack |
+| `keyterms.groupe3` indexé par prestation | Le déversement de tout le lexique du métier dans le prompt |
+
+**Un pack est de la donnée, mais une donnée fausse produit un agent faux, en silence.** Le validateur a d'ailleurs attrapé une faute dans le pack artisan dès sa première exécution — d'où la précision ajoutée au §2.
