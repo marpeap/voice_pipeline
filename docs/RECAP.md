@@ -1,49 +1,71 @@
-# Voice-Pipeline — où en est le chantier (15/09/2026, 2 h)
+# Voice-Pipeline — où en est le chantier (15/09/2026, 9 h)
 
 ## En une phrase
 
-**Un assistant téléphonique configurable, branchable sur n'importe quelle application** — Crenolo n'en est qu'un adaptateur. Et surtout : **un service à part entière, vendu seul**, configurable depuis un site. L'extension de navigateur est reportée — elle ne portait pas l'audio, et le site fait le même travail.
+**Un assistant téléphonique configurable, vendu comme service à part entière** — Crenolo n'en est qu'un adaptateur parmi d'autres.
 
-**21 documents de conception · 16 rapports de recherche sourcés · 7 mesures faites · toujours zéro ligne de code produit** (les bancs de mesure, eux, tournent). Dépôt : `marpeap/voice_pipeline`, branche **`refonte`**.
+**21 documents de conception · 16 rapports de recherche sourcés · 18 mesures · toujours zéro ligne de code produit** (les bancs, eux, tournent). Dépôt : `marpeap/voice_pipeline`, branche **`refonte`**.
 
----
-
-## Les mesures faites (personne d'autre ne les publie)
-
-| Mesure | Résultat |
-|---|---|
-| **TTS Piper** (voix FR, 63 Mo) | RTF **0,096**, RAM 136 Mo — mais **TTFB 372 ms** contre 150 visés, parce qu'il synthétise la phrase **entière** avant de livrer. **D'où la règle : la première réplique de l'agent doit être courte** (67 ms pour deux mots), la suite s'enchaîne en flux |
-| **WER français, bande téléphonique** | Nemotron **7,8 %** (×1,11) · Vosk 10,6 % (×1,40) · sherpa 23,4 %. Aucune source au monde ne publiait ce chiffre |
-| **Les numéros de téléphone** | **4 sur 10 perdus**, et *exactement les mêmes* en 16 kHz et en 8 kHz : le moteur coupe « quarante-trois » en « 40 3 ». Ce n'est donc pas le canal, **c'est la grammaire des nombres français** — donc le parsing, pas le micro |
-| **Le « zéro » des numéros** | Massacré par Vosk et sherpa (« ses héros fit », « le verrou si »), **correct chez Nemotron**. C'est le maillon qui décide si le SMS de confirmation part |
-| **TTFT LLM** | **2 040 ms** p50 en rouvrant une connexion à chaque appel, **378 ms** en la gardant ouverte, **85 ms** au mieux — vers un fournisseur américain. Ce n'est donc pas la distance : ce sont le DNS et les deux poignées de main, repayés à chaque tour de parole. Le premier levier de latence est le client, et il est gratuit |
-| **Conversion 8 kHz G.711** | 11 ms de travail pour 3 s d'audio — mais **45 ms rien que pour démarrer `ffmpeg`**. Aucun processus externe par fragment audio |
+**La nuit du 14 au 15 a produit douze mesures**, toutes faites depuis le poste, le banc étant hors ligne depuis neuf heures.
 
 ---
 
-## Les découvertes qui ont changé le projet
+## Les quatre choses à retenir si tu ne lis rien d'autre
 
-1. **La latence ne venait pas d'où on croyait.** Une connexion HTTPS rouverte à chaque appel coûte **2 040 ms** ; gardée ouverte, **378 ms**, et 85 ms au mieux — vers un fournisseur américain. Ce sont le DNS et les poignées de main, pas la distance. **Le premier levier de latence est gratuit.**
-2. **Le SMS coûte plus cher que l'intelligence artificielle** — 17,40 €/salon/mois contre 4 à 10 $ pour le STT, le TTS, le LLM et la téléphonie réunis. Et comme Crenolo envoie déjà le rappel, notre coût incrémental tombe à **~13 €**.
-3. **Un prompt plus long coûte moins cher** — le cache exige un préfixe de 4 096 tokens ; en dessous, **rien n'est caché**. On n'élague donc pas le fichier de connaissance, on le calibre au-dessus du seuil.
-4. **1 Go = un appel simultané**, pas trente (mon estimation initiale venait d'un test sans STT ni LLM ni TTS). Mais **les lignes se mutualisent** : 20 salons tiennent sur 4 lignes.
-5. **Google plafonne une application non vérifiée à 100 utilisateurs — à vie, sans réinitialisation.** D'où : agenda interne et **export iCal** d'abord (gratuit, sans OAuth, marche même avec iCloud qui n'a aucune API), connexion Google ensuite.
-6. **La passerelle SMS par SIM est illicite** (décision Arcep consolidée au 01/01/2026) **et** ne produit aucun accusé de remise. Ça concerne **Crenolo aujourd'hui**, pas seulement ce chantier.
-7. **NeMo-Speech.cpp ne compile pas tel qu'il est publié** — un symbole utilisé trois fois et défini nulle part. Ça explique qu'aucun chiffre de performance CPU n'existe : personne ne l'a compilé.
+**1. Un agent « prompt seul » ment une fois sur deux.** Sur douze tours ordinaires, six fautes : un créneau inventé (« neuf heures moins le quart » devient 9 h 15), un fait inventé (« le premier du mois prochain est un dimanche », alors qu'il n'a aucune date), et **deux confirmations orphelines** dont « votre rendez-vous de demain matin est annulé » — rien n'est écrit nulle part, le client s'organise là-dessus. **Aucune faute n'est signalée : un modèle ne dit jamais qu'il n'a pas compris, il comble.**
+
+**2. Avec les garde-fous, le mensonge disparaît — et l'utilité aussi.** Zéro confirmation orpheline, zéro date inventée. Mais zéro réservation : sept tours sur dix finissent en « pouvez-vous répéter ? », parce que le STT local est trop abîmé. **La rigueur ne remplace pas la qualité d'écoute, elle la révèle.** Un client raccroche dans les deux cas.
+
+**3. Ce qui coûte la latence n'était pas la distance.** Une connexion rouverte à chaque appel : 2 040 ms. Gardée ouverte : **378 ms**, et 85 ms au mieux — vers un fournisseur américain. Ce sont le DNS et les poignées de main. **Le premier levier de latence est gratuit.**
+
+**4. Le mur n'est pas là où on croyait.** Le STT tient 25 à 30 appels simultanés et coûte 11 Mo par appel. **C'est le TTS qui limite** — et en latence, pas en débit : le délai avant le premier son passe de 162 ms à un appel à 614 ms à six, pendant que la charge processeur reste basse. **Une machine soutient une dizaine d'appels en cours.**
+
+---
+
+## Les mesures, en un tableau
+
+| # | Ce qui a été mesuré | Résultat |
+|---|---|---|
+| 1 | TTS Piper | RTF 0,096 — **et le TTFB de 372 ms venait du binaire, pas du modèle** (voir 13) |
+| 3 | WER français 16 contre 8 kHz | Nemotron 7,8 % · Vosk 10,6 % · sherpa 23,4 % |
+| 4 | Latence LLM | **2 040 ms connexion neuve contre 378 ms gardée** ; DNS froid 1,6 à 4,7 s |
+| 5 | Tatouage audio | survit au canal téléphonique |
+| 6 | Conversion 8 kHz | 11 ms de travail, **45 ms rien que pour lancer `ffmpeg`** |
+| 7 | Bande téléphonique | **×1,03** sur un gros modèle — et **4 numéros sur 10 perdus, identiquement dans les deux bandes** |
+| 8-9 | Trois moteurs, même corpus | **le WER classe les moteurs à l'envers** ; un moteur streaming perd **un premier mot sur quatre** |
+| 10 | Courbe de bruit | **le classement s'inverse dès 15 dB** ; le WER réel à attendre est 20-27 %, pas 9-11 % |
+| 11 | Charge STT | 8 flux, RTF 0,27, **11 Mo par flux** → 25 à 30 appels |
+| 12 | Bruit, moteur distant | **+1,9 point seulement**, et **les numéros ne bougent pas** |
+| 13 | Charge TTS | **162 ms à un flux, 614 ms à six** ; +150 Mo par synthèse |
+| 14 | Tour complet | **624 ms p50**, 1 498 ms p90 — toute la variance vient du LLM |
+| 15-18 | Rigueur d'exécution | garde-fous, boucle de clarification (**2,2 tours**), escalade graduée |
+
+---
+
+## Trois décisions que ces mesures ont changées
+
+1. **Le STT reste en API, durablement.** L'auto-héberger économise 6,50 $/salon/mois et coûte deux choses : toute la grammaire française des nombres (les moteurs locaux rendent des mots, le distant rend des chiffres) **et** l'effondrement sous bruit. L'ordre de rapatriement « LLM → STT → TTS » devient **« STT en dernier »**.
+2. **Le bruit est du côté de l'appelant, jamais du salon.** L'agent entend la rue, la voiture, le haut-parleur. Ce qui nous décrit, c'est la ligne 10-15 dB.
+3. **Le modèle est une pièce d'usure.** Trois mouvements de catalogue en 48 h, dont un modèle disparu en pleine nuit et un remplaçant qui refuse un paramètre que l'autre acceptait. **Le nom du modèle et ses paramètres vivent en configuration.**
 
 ---
 
 ## Ce qui attend une décision de toi
 
-1. **L'extraction de `reservation.py`** côté Crenolo — le pair a écrit 14 tests de caractérisation et attend ton feu vert. Argument décisif trouvé depuis : **le verrou y est déjà dupliqué**, donc l'extraction en **supprime** un au lieu d'en ajouter un.
-2. **Rien d'autre.** La clé d'API est différée (tu as dit : pas de dépense), et j'ai retiré de ta pile l'arbitrage sur le praticien, qui était une affaire interne à Crenolo.
+1. **L'extraction de `reservation.py`** côté Crenolo — le pair a 14 tests de caractérisation et attend ton feu vert. Argument décisif : **le verrou y est déjà dupliqué**, donc l'extraction en supprime un au lieu d'en ajouter un.
+2. **Un salon volontaire.** `docs/18-SALON-PILOTE.md` contient tout : feuille de comptage à imprimer, accord de sous-traitance, argumentaire. **L'étape A ne demande aucune technique** — juste une feuille près du téléphone pendant une semaine.
+
+## Ce qui attend de l'argent
+
+**Une clé d'API payante**, pour la seule mesure encore impossible : le gain réel du cache de prompt. Le palier gratuit plafonne à 8 000 jetons par minute, soit un refus dès la deuxième requête avec un prompt réaliste.
 
 ## Ce qui attend une machine
 
-**`marpeap-series` est hors ligne depuis la mi-journée du 14** — c'est le banc de mesure, et aussi la machine d'AGENT-OS. Il ne reste qu'**une** mesure à y faire : la **tenue en charge** — combien d'appels simultanés une machine soutient, donc combien de salons par machine, donc la marge. Le reste a été mesuré depuis le poste cette nuit.
+**`marpeap-series` est hors ligne depuis neuf heures.** Plus rien n'en dépend : les mesures qui l'attendaient ont été refaites ici.
 
 ---
 
 ## La suite
 
-**Lot L1** : une machine dédiée, Asterisk durci, un numéro, le pipeline complet — et un premier appel qui tient une conversation, avec le SLO mesuré et non estimé.
+**Lot L1** (`docs/17`) : une machine, Asterisk durci, un numéro, le pipeline complet, un premier appel qui tient une conversation. **Il n'attend personne.**
+**Lot L2** (`docs/20`) : l'inscription, le questionnaire, le branchement du numéro — ce qui fait exister le service autonome.
