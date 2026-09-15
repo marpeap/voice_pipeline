@@ -119,3 +119,18 @@ Chaque ligne est un test. Les entrées marquées **[mesuré]** sont des sorties 
 **Côté serveur, jamais dans le modèle.** C'est la même leçon qu'en A8 : ce qui doit être vrai à 100 % ne se confie pas à un système probabiliste. Le LLM rapporte ce qu'il a entendu ; **la grammaire décide**, et c'est elle qui déclenche la relecture, la bascule DTMF ou l'escalade.
 
 Corollaire pour le corpus de régression : ces tests sont **déterministes et gratuits**, ils tournent à chaque changement sans appeler aucun fournisseur. Ce sont les seuls tests du produit qui ne coûtent rien à rejouer.
+
+
+---
+
+## Ce que l'agent PRONONCE — mesuré le 15/09 (mesure 19)
+
+La grammaire ci-dessus décrit ce que l'agent doit comprendre. La mesure 19 a fait le chemin inverse : synthétiser la parole de l'agent, la passer par le canal 8 kHz, et regarder ce qui en ressort.
+
+**Ce qui tient** : l'annonce « assistant automatique » (retrouvée intacte par deux moteurs indépendants), la relecture d'un numéro par groupes de deux (les dix chiffres retrouvés), les prix, les refus, le transfert.
+
+**Ce qui casse, et les deux règles d'énonciation qui en découlent :**
+
+**E1. Le quantième est le mot le plus fragile.** « jeudi **dix-sept** » devient « jeudi dix » ou « jeudi d'y séa » — raté deux fois sur deux, alors que le jour de la semaine et l'heure passent. **La date s'énonce donc jour + quantième + mois, et aucune confirmation ne repose sur le seul quantième** : c'est la redondance du jour de la semaine qui permet au client de détecter l'erreur.
+
+**E2. Deux horaires proches énoncés d'affilée fusionnent.** « neuf heures, neuf heures quarante-cinq, ou dix heures trente » est revenu sans sa première option. **Jamais deux horaires séparés de moins d'une heure dans la même phrase** : deux options espacées, la troisième sur demande. Au téléphone, le choix se paie en intelligibilité.

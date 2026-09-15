@@ -836,3 +836,45 @@ Le compteur n'a fonctionné qu'à la **troisième** définition, et les deux pre
 ```bash
 GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python appelant_tetu.py
 ```
+
+---
+
+## Mesure 19 — ce que l'agent dit survit-il au canal ? (et l'annonce légale, elle, passe-t-elle ?)
+
+> Tout le reste du dossier mesure ce que l'agent **entend**. Personne n'avait mesuré ce que l'appelant **reçoit** — alors que deux choses en dépendent : l'annonce « assistant automatique » (AI Act art. 50 §1), qui doit être **comprise** et pas seulement prononcée, et la relecture du numéro par groupes de deux, notre seul filet contre le mauvais SMS.
+
+### Protocole
+
+Dix phrases réelles d'agent, synthétisées, passées par le canal (**8 kHz µ-law aller-retour**), puis retranscrites par deux moteurs indépendants. Le transcripteur joue le rôle de l'oreille de l'appelant : ce n'est pas un humain, mais **un mot que deux moteurs ne retrouvent pas est un mot que le canal a abîmé**.
+
+### Résultat principal : la parole de l'agent tient très bien
+
+| Phrase | Ce que le canal en fait |
+|---|---|
+| **Annonce légale** | « Je suis un **assistant automatique** » → retrouvé **intact par les deux moteurs** (l'un écrit « assistante », le genre change, le sens non) |
+| **Relecture du numéro** | « zéro six, douze, trente-quatre, cinquante-six, soixante-dix-huit » → **les dix chiffres retrouvés**, dans les deux bandes et par les deux moteurs |
+| Transfert, prix, refus | intacts |
+
+**L'annonce obligatoire n'est pas menacée par le canal, et le filet de relecture du numéro tient.** C'est la première vérification de conformité faite sur l'audio réel plutôt que sur le texte du prompt.
+
+### Les deux fragilités réelles, et ce qu'elles imposent
+
+**1. Le quantième de la date est le mot le plus fragile de tout ce que l'agent dit.**
+« jeudi **dix-sept** à quinze heures trente » devient « jeudi **dix** » sur un moteur et « jeudi d'y séa » sur l'autre — **raté deux fois sur deux**, alors que le jour de la semaine et l'heure passent parfaitement.
+
+> **Règle** : la date s'énonce toujours **jour de la semaine + quantième + mois** (« jeudi dix-sept septembre »), et **aucune confirmation ne repose sur le seul quantième**. La redondance du jour de la semaine est ce qui permet au client de détecter l'erreur.
+
+**2. Deux créneaux proches énoncés d'affilée fusionnent.**
+« Il me reste **neuf heures, neuf heures quarante-cinq**, ou dix heures trente » est revenu en « de vers neuf heures quarante-cinq ou dix heures trente » : **la première option a disparu**.
+
+> **Règle** : ne jamais énoncer deux horaires séparés de moins d'une heure dans la même phrase. Deux options **espacées**, et la troisième seulement si le client la demande. Ça contredit l'idée intuitive de « donner le plus de choix possible » — au téléphone, le choix se paie en intelligibilité.
+
+### Un rappel de méthode, pour la troisième fois
+
+Le moteur distant affiche ici des WER de 35 à 85 % sur les phrases qui contiennent des nombres — **et il n'a rien perdu du tout** : il écrit `06 12 34 56 78` là où la référence écrit « zéro six, douze… ». **Le WER continue de mesurer l'orthographe, pas la compréhension.** C'est la troisième mesure du dossier où il faut le rappeler (voir 7, 8, 9) ; la métrique qui décide reste le **taux de retrouvaille des mots-clés**, calculé ici en comparant chiffres à chiffres et mots à mots.
+
+### Rejouer
+
+```bash
+GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python agent_audible.py
+```

@@ -1,0 +1,130 @@
+{
+  "resume": {
+    "phrases": 10,
+    "phrases_avec_mot_cle_perdu": 7,
+    "perdu_chez_les_deux": 1
+  },
+  "detail": [
+    {
+      "cle": "annonce",
+      "texte": "Bonjour, vous etes bien au salon Elegance. Je suis un assistant automatique, je peux prendre votre rendez-vous.",
+      "distant": "Bonjour, vous êtes bien au salon Elégance. Je suis un assistant automatique. Je peux prendre votre rendez-vous.",
+      "local": "bonjour vous rides bien au salon élégance je suis un assistant automatique je peux prendre votre rendez-vous",
+      "wer_distant": 0.0,
+      "wer_local": 5.6,
+      "manquants_distant": [],
+      "manquants_local": []
+    },
+    {
+      "cle": "annonce_courte",
+      "texte": "Bonjour, assistant automatique du salon, je vous ecoute.",
+      "distant": "Bonjour, assistante automatique du salon, je vous écoute.",
+      "local": "bonjour assistante automatique du salon je vous écoute",
+      "wer_distant": 12.5,
+      "wer_local": 12.5,
+      "manquants_distant": [],
+      "manquants_local": []
+    },
+    {
+      "cle": "relecture_numero",
+      "texte": "Je relis votre numero : zero six, douze, trente-quatre, cinquante-six, soixante-dix-huit. C'est bien cela ?",
+      "distant": "Je relis votre numéro 06 12 34 56 78. C'est bien cela.",
+      "local": "je relis votre numéro zéro six douze trente-quatre cinquante-six soixante-dix-huit c'est bien cela",
+      "wer_distant": 55.6,
+      "wer_local": 0.0,
+      "manquants_distant": [],
+      "manquants_local": [
+        "0612345678"
+      ]
+    },
+    {
+      "cle": "relecture_numero_2",
+      "texte": "Votre numero : zero sept, quatre-vingt-neuf, zero un, vingt-trois, quarante-cinq.",
+      "distant": "Votre numéro 07 89 01 23 45.",
+      "local": "votre numéro zéro sept quatre vingt-neuf zéro un vingt-trois quarante-cinq",
+      "wer_distant": 84.6,
+      "wer_local": 0.0,
+      "manquants_distant": [],
+      "manquants_local": [
+        "0789012345"
+      ]
+    },
+    {
+      "cle": "creneau",
+      "texte": "Je peux vous proposer jeudi dix-sept a quinze heures trente.",
+      "distant": "Je peux vous proposer jeudi d'y séa 15h30.",
+      "local": "je peux vous proposer jeudi dix à quinze heures trente",
+      "wer_distant": 54.5,
+      "wer_local": 9.1,
+      "manquants_distant": [
+        "quinze",
+        "trente"
+      ],
+      "manquants_local": []
+    },
+    {
+      "cle": "creneau_2",
+      "texte": "Il me reste neuf heures, neuf heures quarante-cinq, ou dix heures trente.",
+      "distant": "Il me reste 9 heures, 9 heures 45 ou 10 heures 30.",
+      "local": "il me reste de vers neuf heures quarante-cinq ou dix heures trente",
+      "wer_distant": 46.2,
+      "wer_local": 15.4,
+      "manquants_distant": [
+        "neuf",
+        "quarante",
+        "dix"
+      ],
+      "manquants_local": []
+    },
+    {
+      "cle": "confirmation",
+      "texte": "C'est enregistre : coupe et brushing, mardi quinze octobre a dix heures.",
+      "distant": "Cet enregistre, coupe et brushing, mardi 15 octobre à 10 heures.",
+      "local": "c'est enregistre coupe et brushing mardi quinze octobre à dix",
+      "wer_distant": 33.3,
+      "wer_local": 8.3,
+      "manquants_distant": [
+        "dix"
+      ],
+      "manquants_local": []
+    },
+    {
+      "cle": "refus",
+      "texte": "Nous sommes fermes entre treize heures et quatorze heures.",
+      "distant": "Nous sommes fermes entre 13h et 14h.",
+      "local": "nous sommes ferme entre treize heures et quatorze",
+      "wer_distant": 44.4,
+      "wer_local": 22.2,
+      "manquants_distant": [
+        "treize",
+        "quatorze"
+      ],
+      "manquants_local": [
+        "fermes"
+      ]
+    },
+    {
+      "cle": "transfert",
+      "texte": "Je vous passe quelqu'un du salon, un instant.",
+      "distant": "Je vous passe quelqu'un du salon un instant.",
+      "local": "je vous passe quelqu'un indices salon un instant",
+      "wer_distant": 0.0,
+      "wer_local": 11.1,
+      "manquants_distant": [],
+      "manquants_local": []
+    },
+    {
+      "cle": "prix",
+      "texte": "La coupe est a vingt-huit euros, le balayage a quatre-vingt-quinze euros.",
+      "distant": "La coupe est à 28 euros, le balayage à 95 euros.",
+      "local": "la coupe est à vingt-huit euros le balayage à quatre-vingt-quinze euros",
+      "wer_distant": 35.7,
+      "wer_local": 0.0,
+      "manquants_distant": [
+        "vingt",
+        "huit"
+      ],
+      "manquants_local": []
+    }
+  ]
+}
