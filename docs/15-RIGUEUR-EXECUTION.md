@@ -84,3 +84,15 @@ Trois métriques, toutes déjà prévues ailleurs dans le dossier, mais qui pren
 La recherche **A12** (ce que Retell appelle *Conversation Flow* et Vapi *Workflows*, et ce qu'ils documentent sur l'exécution rigoureuse) n'a jamais abouti — quatre lancements, quatre coupures réseau. **Ce document est donc une conception, pas une synthèse de l'état de l'art.** Ce qui le fonde est en revanche mesuré ou cité : τ-bench, l'aveu d'Intercom, et les règles de fiabilité déjà établies dans `04`, `06`, `07` et `10`.
 
 Ce que A12 pourrait encore apporter : les patrons de reprise après interruption, la façon dont les acteurs exposent une machine à états à un non-technicien, et si l'un d'eux publie un taux d'étapes non closes.
+
+
+---
+
+## Une valeur retenue doit pouvoir être oubliée — mesuré le 15/09
+
+La mesure 16 de `docs/09` a produit, au premier essai, **une boucle infinie polie** : la machine avait retenu une heure (`18:15`) avec une confiance maximale, l'appelant changeait de jour à chaque tour, et la machine répétait **mot pour mot** le même refus jusqu'à l'abandon. Le modèle n'y était pour rien ; c'est l'état qui était figé.
+
+**Deux règles en découlent, et elles sont aussi importantes que « le modèle propose, la machine dispose » :**
+
+1. **Deux refus consécutifs portant sur la même entité l'invalident.** La machine la vide et la redemande explicitement, en proposant les valeurs possibles : « à quelle heure, parmi 9 h, 9 h 45, 10 h 30 ? »
+2. **Aucune réponse de l'agent ne doit être identique à la précédente.** Si la machine s'apprête à redire exactement ce qu'elle vient de dire, c'est qu'elle boucle : elle change de stratégie, ou elle passe la main à un humain. Cette vérification coûte une comparaison de chaînes et supprime le pire mode d'échec téléphonique, celui où l'appelant ne peut pas comprendre d'où vient le blocage.

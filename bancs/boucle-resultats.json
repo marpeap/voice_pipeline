@@ -1,0 +1,275 @@
+{
+  "resume": {
+    "scenarios": 10,
+    "abouties": 9,
+    "tours_moyens_si_aboutie": 2.22,
+    "abandons": 1,
+    "arret_quota": 0
+  },
+  "detail": [
+    {
+      "id": "date-011",
+      "reference": "Je voudrais un rendez-vous jeudi prochain vers quinze heures trente.",
+      "issue": "aboutie",
+      "tours": 3,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "JE VOUDRAIS UN RENDEZ VOUS JE DIS PROCHAIN VERS QUINZE HEURES TRENTE",
+          "genre": "question",
+          "phrase": "Quel jour vous conviendrait ?"
+        },
+        {
+          "tour": 2,
+          "transcription": "JE DIS JE DIS PROCHAIN",
+          "genre": "question",
+          "phrase": "Je n'ai pas bien saisi votre demande, pouvez-vous repeter ?"
+        },
+        {
+          "tour": 3,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-17 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-17",
+        "heure": "15:30"
+      }
+    },
+    {
+      "id": "date-012",
+      "reference": "Est-ce que vous auriez quelque chose le douze octobre au matin ?",
+      "issue": "aboutie",
+      "tours": 2,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "EST CE QUE VOUS AURIEZ QUELQUE CHOSE LE DOUX OCTOBRE AU MAT",
+          "genre": "question",
+          "phrase": "Que puis-je faire pour vous ?"
+        },
+        {
+          "tour": 2,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-17 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-17",
+        "heure": "15:30"
+      }
+    },
+    {
+      "id": "date-013",
+      "reference": "Plutot demain en fin d'apres-midi si c'est possible.",
+      "issue": "aboutie",
+      "tours": 2,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "PLUTÔT DE M'A ENFIN D'APRÈS MIDI SUS EST POSSIBLE",
+          "genre": "question",
+          "phrase": "Je n'ai pas bien saisi votre demande, pouvez-vous repeter ?"
+        },
+        {
+          "tour": 2,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-17 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-17",
+        "heure": "15:30"
+      }
+    },
+    {
+      "id": "date-014",
+      "reference": "Samedi neuf heures moins le quart, ca vous irait ?",
+      "issue": "aboutie",
+      "tours": 2,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "SAMEDI NEUF HEURES MOIS LE QUART CAR VOUS IREZ",
+          "genre": "question",
+          "phrase": "Je n'ai pas bien saisi votre demande, pouvez-vous repeter ?"
+        },
+        {
+          "tour": 2,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-17 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-17",
+        "heure": "15:30"
+      }
+    },
+    {
+      "id": "date-015",
+      "reference": "Le premier du mois prochain, dans la journee.",
+      "issue": "aboutie",
+      "tours": 2,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "LE PREMIER DU MOIS PROCHAIN DANS LA JOURNÉ",
+          "genre": "hors horizon",
+          "phrase": "Je ne prends pas encore les rendez-vous aussi loin. Rappelez-nous quelques semaines avant."
+        },
+        {
+          "tour": 2,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-17 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-17",
+        "heure": "15:30"
+      }
+    },
+    {
+      "id": "date-016",
+      "reference": "Mardi dix-sept a dix-huit heures quinze.",
+      "issue": "abandon",
+      "tours": 4,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "MARDI DIX SEPT À DIX HUIT HEURES QUINZ",
+          "genre": "refus",
+          "phrase": "Ce creneau n'est pas libre. Il reste 09:00, 09:45, 10:30."
+        },
+        {
+          "tour": 2,
+          "transcription": "VENDREDI À LA MÊME HEURE",
+          "genre": "refus",
+          "phrase": "Ce creneau n'est pas libre. Il reste 09:00, 09:45, 10:30."
+        },
+        {
+          "tour": 3,
+          "transcription": "VENDREDI À LA MÊME HEURE",
+          "genre": "refus",
+          "phrase": "Ce creneau n'est pas libre. Il reste 09:00, 09:45, 10:30."
+        },
+        {
+          "tour": 4,
+          "transcription": "VENDREDI À LA MÊME HEURE",
+          "genre": "refus",
+          "phrase": "Ce creneau n'est pas libre. Il reste 09:00, 09:45, 10:30."
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-18",
+        "heure": "18:15"
+      }
+    },
+    {
+      "id": "date-017",
+      "reference": "Est-ce que vous ouvrez le lundi ? Sinon mardi midi.",
+      "issue": "aboutie",
+      "tours": 2,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "EST CE QUE VOUS OUVREZ LE LUNDI SINON MARDI MIDI",
+          "genre": "question",
+          "phrase": "Que puis-je faire pour vous ?"
+        },
+        {
+          "tour": 2,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-17 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-17",
+        "heure": "15:30"
+      }
+    },
+    {
+      "id": "date-018",
+      "reference": "Entre midi et deux, n'importe quel jour de la semaine.",
+      "issue": "aboutie",
+      "tours": 3,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "ENTRE MIDI ET DEUX N'IMPORTE QUEL JOUR DE LA SEMAINE",
+          "genre": "question",
+          "phrase": "Quel jour vous conviendrait ?"
+        },
+        {
+          "tour": 2,
+          "transcription": "JE DIS JE DIS PROCHAIN",
+          "genre": "question",
+          "phrase": "Je n'ai pas bien saisi votre demande, pouvez-vous repeter ?"
+        },
+        {
+          "tour": 3,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-17 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-17",
+        "heure": "15:30"
+      }
+    },
+    {
+      "id": "date-019",
+      "reference": "Le vingt-quatre decembre avant onze heures.",
+      "issue": "aboutie",
+      "tours": 2,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "VINGT QUATRE DÉCEMBRE À ONZE HEUR",
+          "genre": "hors horizon",
+          "phrase": "Je ne prends pas encore les rendez-vous aussi loin. Rappelez-nous quelques semaines avant."
+        },
+        {
+          "tour": 2,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-17 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-17",
+        "heure": "15:30"
+      }
+    },
+    {
+      "id": "date-020",
+      "reference": "Dans quinze jours, meme heure que d'habitude.",
+      "issue": "aboutie",
+      "tours": 2,
+      "echanges": [
+        {
+          "tour": 1,
+          "transcription": "DANS QUINZE JOURS ME MEURT QUE D'HABITUDE",
+          "genre": "hors horizon",
+          "phrase": "Je ne prends pas encore les rendez-vous aussi loin. Rappelez-nous quelques semaines avant."
+        },
+        {
+          "tour": 2,
+          "transcription": "JE VOUDRAIS EN RENDEZ VOUS JEUDI PROCHAIN À QUINZE HEURES TRENTE",
+          "genre": "proposition",
+          "phrase": "Je peux vous reserver le 2026-09-24 a 15:30. Je confirme ?"
+        }
+      ],
+      "retenu": {
+        "date": "2026-09-24",
+        "heure": "15:30"
+      }
+    }
+  ]
+}

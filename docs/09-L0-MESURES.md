@@ -694,3 +694,49 @@ GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python tour_complet.py
 ```bash
 GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python tour_garde.py
 ```
+
+---
+
+## Mesure 16 — la boucle de clarification ferme, et elle coûte deux tours
+
+> La mesure 15 laissait l'agent honnête mais muet : sept demandes de précision sur dix. Restait la question qui décide de l'utilisabilité — **quand l'agent demande une précision, l'obtient-il ?**
+
+### Protocole
+
+L'appelant est simulé, mais **ses réponses passent par la même chaîne que le reste** : elles sont synthétisées, dégradées en 8 kHz µ-law aller-retour, puis retranscrites par le moteur local. Une réponse de clarification est donc aussi abîmée que la demande initiale — un banc qui rendrait du texte parfait au deuxième tour mesurerait une conversation qui n'existe pas. Quatre tours au maximum, dix scénarios.
+
+### Résultats
+
+| | |
+|---|---|
+| Scénarios menés | 10 |
+| **Aboutis à un créneau valide** | **9** |
+| **Tours nécessaires, en moyenne** | **2,2** |
+| Abandons après quatre tours | 1 |
+
+**Lecture : la rigueur coûte environ un tour de parole supplémentaire, pas une conversation.** L'agent qui « fait répéter » de la mesure 15 obtient sa réponse au tour suivant dans neuf cas sur dix. Avec un tour médian de 624 ms (mesure 14), **un tour de plus, c'est moins d'une seconde de conversation** — le prix est dérisoire au regard de ce qu'il achète : zéro confirmation orpheline.
+
+### L'échec est plus instructif que les neuf réussites
+
+Le seul abandon révèle **un défaut de conception de la machine à états**, pas du modèle. Déroulé réel :
+
+| Tour | Ce que l'appelant dit | Ce que la machine répond |
+|---|---|---|
+| 1 | « mardi dix-sept à **dix-huit heures quinze** » | « Ce créneau n'est pas libre. Il reste 09:00, 09:45, 10:30. » |
+| 2 | « vendredi, à **la même heure** » | « Ce créneau n'est pas libre. Il reste 09:00, 09:45, 10:30. » |
+| 3 | idem | idem |
+| 4 | idem | idem |
+
+**La machine avait retenu `18:15` avec une confiance de 1,0 et ne l'a plus jamais remise en cause.** Le jour changeait, l'heure restait, le refus se répétait à l'identique. C'est une boucle infinie polie — le pire mode d'échec possible au téléphone, parce que l'appelant n'a aucun moyen de comprendre d'où vient le blocage.
+
+> **Règle qui manquait à `docs/15-RIGUEUR-EXECUTION.md` : une valeur retenue doit pouvoir être oubliée.** Concrètement : **deux refus consécutifs portant sur la même entité l'invalident**, la machine la vide et la redemande explicitement (« à quelle heure, parmi 9 h, 9 h 45, 10 h 30 ? »). Et **aucune réponse de l'agent ne doit être identique à la précédente** : si la machine s'apprête à redire mot pour mot ce qu'elle vient de dire, c'est qu'elle boucle — il faut changer de stratégie ou passer la main.
+
+### Ce que cette mesure ne dit pas
+
+Les réponses de l'appelant sont **scriptées et coopératives** (« jeudi », « quinze heures trente »). Elle mesure donc **la mécanique de la boucle**, pas la fidélité à l'intention : un vrai appelant qui tient à son samedi 8 h 45 n'accepterait pas le jeudi 15 h 30. Le chiffre à retenir est **« la boucle ferme en 2,2 tours quand l'appelant est souple »**, et la question ouverte reste le client qui ne l'est pas.
+
+### Rejouer
+
+```bash
+GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python boucle_clarification.py
+```
