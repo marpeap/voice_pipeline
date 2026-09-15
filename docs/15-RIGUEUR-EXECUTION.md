@@ -107,3 +107,23 @@ La mesure 17 a montré que les deux règles ci-dessus **se laissent déjouer par
 3. **La machine compte les tours écoulés depuis la dernière entité nouvellement validée. Au-delà de trois, elle passe la main**, quoi qu'aient dit les règles locales. C'est la seule qui attrape l'alternance, parce qu'elle regarde l'avancement et non les phrases.
 
 **Réglages retenus** : deux refus pour oublier une entité · trois tours sans progrès pour passer la main · **immédiat** pour une demande explicite d'humain — celle-ci détectée sur la transcription, **avant** l'appel au modèle : « passez-moi quelqu'un » n'a pas à être interprété, il a à être exécuté.
+
+
+## Les réglages, mesurés le 15/09 (mesure 18)
+
+| Déclencheur | Seuil | Effet |
+|---|---|---|
+| Demande explicite d'un humain | **immédiat**, détecté sur la transcription **avant** l'appel au modèle | transfert |
+| Même entité refusée | 2 fois de suite | oubliée, puis redemandée avec ses valeurs possibles |
+| Phrase identique à la précédente | 1ʳᵉ fois | **changement de stratégie** : une entité à la fois, choix explicites énoncés |
+| Phrase identique à la précédente | 2ᵉ fois | transfert |
+| Tours sans **valeur neuve** | 2 | transfert |
+
+**Se répéter ne veut pas dire abandonner** : la reformulation a transformé un transfert en rendez-vous pris, sur un appelant qui bouclait la veille.
+
+**Et « progrès » n'a pas le sens qu'on lui donne spontanément.** Trois définitions ont été essayées ; les deux premières échouaient **en silence** :
+- « le couple (date, heure) a changé » — mais **oublier n'est pas avancer**, et la règle d'oubli remettait le compteur à zéro ;
+- « une entité est passée de vide à remplie » — mais un appelant qui répète la même phrase la fait repasser de vide à remplie **à chaque tour** ;
+- ✅ **« une entité a pris une valeur jamais essayée »** — la machine tient la liste des valeurs déjà tentées, et ne compte comme progrès que ce qui est neuf.
+
+**Un compteur d'anti-boucle ne compte ni des tours ni des changements : il compte des valeurs neuves.**

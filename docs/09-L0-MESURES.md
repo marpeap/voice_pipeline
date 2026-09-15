@@ -787,3 +787,52 @@ Le modèle utilisé depuis hier, `qwen/qwen3.6-27b`, **a disparu du catalogue en
 ```bash
 GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python appelant_tetu.py
 ```
+
+---
+
+## Mesure 18 — l'escalade graduée, et trois définitions du mot « progrès » avant la bonne
+
+> La mesure 17 laissait deux défauts : l'appelant têtu bouclait six tours, et celui qui allait céder était transféré trop tôt. Cette mesure corrige les deux et donne les réglages retenus.
+
+### Ce qui a changé dans la machine
+
+1. **Se répéter ne veut pas dire abandonner.** À la première répétition, la machine **change de stratégie** — une seule entité à la fois, avec des choix explicites énoncés (« dites-moi seulement l'heure, par exemple 9 h, 9 h 45 ou 10 h 30 »). Elle ne passe la main qu'à la deuxième.
+2. **Le compteur de progrès déclenche à deux tours consécutifs sans progrès**, pas trois : au téléphone, deux tours stériles, c'est déjà long.
+
+### Résultat, mêmes trois appelants
+
+| Appelant | Mesure 17 | **Mesure 18** |
+|---|---|---|
+| insiste deux fois puis cède | transfert au tour 2 | **rendez-vous pris au tour 3** |
+| insiste jusqu'au bout | boucle, 6 tours | **transfert au tour 5** |
+| demande un humain | transfert au tour 2 | transfert au tour 2 |
+
+**La reformulation sauve l'appel** : l'appelant A, transféré la veille, obtient son créneau — parce que la machine a cessé de reposer la même question et a énoncé les possibilités.
+
+### Le vrai travail de cette mesure : définir « progrès »
+
+Le compteur n'a fonctionné qu'à la **troisième** définition, et les deux premières échouaient en silence — c'est-à-dire de la pire façon.
+
+| Définition essayée | Pourquoi elle échoue |
+|---|---|
+| « le couple (date, heure) a changé » | La règle d'oubli **vide** une entité : le couple change, donc c'est compté comme un progrès. **Oublier n'est pas avancer**, et le compteur repartait à zéro à chaque oubli. |
+| « une entité est passée de vide à remplie » | L'appelant répète la même phrase, le modèle en ré-extrait la même heure, l'entité repasse de vide à remplie **à chaque tour**. Compteur inopérant. |
+| ✅ **« une entité a pris une valeur jamais essayée »** | Seule définition qui résiste : la machine tient la liste des valeurs déjà tentées pour chaque entité, et ne compte comme progrès que ce qui est neuf. |
+
+> **Règle à écrire dans le code du jour où il s'écrira** : un compteur d'anti-boucle ne compte pas des tours, ni des changements — **il compte des valeurs neuves**. Toute autre définition se laisse déjouer par un interlocuteur qui se répète, et l'échec est silencieux : la machine croit avancer.
+
+### Réglages retenus, tous mesurés
+
+| Déclencheur | Seuil | Effet |
+|---|---|---|
+| Demande explicite d'un humain | **immédiat**, détecté sur la transcription **avant** l'appel au modèle | transfert |
+| Même entité refusée | **2 fois de suite** | l'entité est oubliée et redemandée avec ses valeurs possibles |
+| Phrase identique à la précédente | **1ʳᵉ fois** | changement de stratégie (choix explicites, une entité à la fois) |
+| Phrase identique à la précédente | **2ᵉ fois** | transfert |
+| Tours sans valeur neuve | **2** | transfert |
+
+### Rejouer
+
+```bash
+GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python appelant_tetu.py
+```

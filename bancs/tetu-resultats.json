@@ -1,23 +1,99 @@
 [
   {
     "scenario": "A_insiste_puis_cede",
-    "issue": "quota",
-    "tours": 0,
-    "repetitions_bloquees": 0,
-    "echanges": []
+    "issue": "aboutie",
+    "tours": 3,
+    "repetitions_bloquees": 1,
+    "tours_sans_progres": 0,
+    "echanges": [
+      {
+        "tour": 1,
+        "dit": "Je voudrais samedi a dix-huit heures trente.",
+        "transcription": "JE VOUDRAIS SAMEDI À DIX HUIT HEURES TRENTE",
+        "genre": "question",
+        "phrase": "Quelle heure preferez-vous ? Il reste 11 creneaux."
+      },
+      {
+        "tour": 2,
+        "dit": "Non, samedi dix-huit heures trente, c'est ce qui m'arrange.",
+        "transcription": "SAMEDI HORS TRENTE C'EST CE QUI M'ARRANG",
+        "genre": "reformulation",
+        "phrase": "Je vais faire autrement : dites-moi seulement l'heure, par exemple 09:00 ou 09:45 ou 10:30."
+      },
+      {
+        "tour": 3,
+        "dit": "Bon, tant pis, alors jeudi a quinze heures trente.",
+        "transcription": "BON TANT PIS ALORS JE DIS À QUINZE HEURES TRENT",
+        "genre": "proposition",
+        "phrase": "Je peux vous reserver le 2026-09-19 a 15:30. Je confirme ?"
+      }
+    ]
   },
   {
     "scenario": "B_insiste_toujours",
-    "issue": "quota",
-    "tours": 0,
+    "issue": "transfert_machine",
+    "tours": 5,
     "repetitions_bloquees": 0,
-    "echanges": []
+    "tours_sans_progres": 2,
+    "echanges": [
+      {
+        "tour": 1,
+        "dit": "Je voudrais samedi a dix-huit heures trente.",
+        "transcription": "JE VOUDRAIS SAMEDI À DIX HUIT HEURES TRENTE",
+        "genre": "question",
+        "phrase": "Quelle heure preferez-vous ? Il reste 11 creneaux."
+      },
+      {
+        "tour": 2,
+        "dit": "Non, samedi dix-huit heures trente.",
+        "transcription": "NON SAMEDI DIX HUIT HEURES TRENTE",
+        "genre": "question",
+        "phrase": "Pour annuler, pouvez-vous me donner votre nom et votre numero ?"
+      },
+      {
+        "tour": 3,
+        "dit": "Je vous ai deja dit, samedi dix-huit heures trente.",
+        "transcription": "JE VOUS AI DE JADIS SAMEDI DIX HUIT HEURES TRENT",
+        "genre": "refus",
+        "phrase": "Ce creneau n'est pas libre. Il reste 09:00, 09:45, 10:30."
+      },
+      {
+        "tour": 4,
+        "dit": "Samedi dix-huit heures trente, je ne comprends pas.",
+        "transcription": "SAMEDI DIX HUIT HEURES TRENTE JE NE COMPRENDS PAS",
+        "genre": "question",
+        "phrase": "Je n'ai pas bien saisi votre demande, pouvez-vous repeter ?"
+      },
+      {
+        "tour": 5,
+        "dit": "Samedi dix-huit heures trente.",
+        "transcription": "SAMEDI DIX HUIT HEURES TRENTE",
+        "genre": "transfert",
+        "phrase": "Je prefere vous passer quelqu'un du salon, ce sera plus simple."
+      }
+    ]
   },
   {
     "scenario": "C_demande_un_humain",
-    "issue": "quota",
-    "tours": 0,
+    "issue": "transfert_demande",
+    "tours": 2,
     "repetitions_bloquees": 0,
-    "echanges": []
+    "tours_sans_progres": 0,
+    "echanges": [
+      {
+        "tour": 1,
+        "dit": "Je voudrais samedi a dix-huit heures trente.",
+        "transcription": "JE VOUDRAIS SAMEDI LA DIX HUIT HEURES TRENT",
+        "genre": "question",
+        "phrase": "Quelle heure preferez-vous ? Il reste 11 creneaux."
+      },
+      {
+        "tour": 2,
+        "dit": "Passez-moi quelqu'un, une vraie personne s'il vous plait.",
+        "transcription": "PASSEZ MOI QUELQU'UNE VRAIE PERSONNE S'IL VOUS PLA",
+        "genre": "transfert",
+        "phrase": "Je vous passe quelqu'un."
+      }
+    ]
   }
 ]
