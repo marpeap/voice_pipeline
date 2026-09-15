@@ -567,3 +567,45 @@ L'auto-hébergement coûte, **en plus** de la machine :
 # corpus bruité : bancs/bruit.py ; puis les trois moteurs sur les mêmes fichiers
 GROQ_API_KEY=... python3 bancs/wer.py --corpus ~/corpus-bruit/rose-10db
 ```
+
+---
+
+## Mesure 13 — le TTS est le vrai mur, et il l'est en latence avant de l'être en débit
+
+> Suite directe de la mesure 11 : le STT ne limitait rien, donc le suspect suivant était le TTS. Il l'est, mais pas par où on l'attendait.
+
+### Protocole
+
+K synthèses simultanées **partageant une voix chargée en mémoire**, six phrases d'agent réelles (annonce, confirmation, relance, « d'accord »), 12 s par palier. Cette fois, la mesure se fait **par l'API Python**, qui rend un **flux de fragments** — on mesure donc le délai avant le **premier fragment**, le seul que l'appelant entende.
+
+### Résultats
+
+| Flux | Premier fragment p50 | p90 | RTF/flux | Débit | Mémoire résidente |
+|---|---|---|---|---|---|
+| 1 | **162 ms** | 226 ms | 0,065 | 15,4 × | 313 Mo |
+| 2 | 225 ms | 303 ms | 0,087 | 23,0 × | 465 Mo |
+| 3 | 319 ms | 438 ms | 0,126 | 23,7 × | 592 Mo |
+| **4** | **394 ms** | 588 ms | 0,167 | 23,9 × | 766 Mo |
+| 5 | 486 ms | 690 ms | 0,203 | 24,2 × | 872 Mo |
+| 6 | 614 ms | 877 ms | 0,245 | 24,0 × | 873 Mo |
+
+### Quatre enseignements, dont une correction de la mesure 1
+
+**1. Correction : le TTFB de 372 ms n'était pas une propriété du modèle, c'était le binaire.** En passant par l'API en flux, le premier fragment tombe à **162 ms p50** — **sous** les 250 ms visés. La mesure 1 mesurait un exécutable qui synthétise la phrase entière avant d'écrire son fichier. **La règle « la première réplique doit être courte » reste bonne, mais elle cesse d'être une contrainte dure** : ce qu'il faut, c'est appeler le moteur en flux, pas raccourcir les phrases.
+
+**2. Le TTS limite en latence, pas en débit.** Le RTF reste ridicule (0,245 à six flux) et le débit sature à 24 × le temps réel, exactement comme le STT. Mais **le premier fragment, lui, se dégrade linéairement** : 162 ms à un flux, 394 ms à quatre, 614 ms à six. Le STT ne faisait pas ça. **La capacité d'une machine ne se lit donc pas sur son RTF, mais sur le délai avant le premier son.**
+
+**3. La mémoire par appel, c'est le TTS.** +150 Mo par flux jusqu'à quatre (313 → 766 Mo), puis un plateau vers 870 Mo. La ligne « 150 à 320 Mo par appel » du chiffrage, que la mesure 11 avait retirée au STT (11 Mo), **se retrouve ici, presque au chiffre près**. Le compte est bon, mais il change de poste — et donc de levier : c'est le TTS qu'il faudra mutualiser ou borner.
+
+**4. Le dimensionnement réel, en tenant le budget de latence.** Si l'on refuse de dépasser ~400 ms avant le premier son, la machine soutient **quatre synthèses simultanées**, pas plus. Mais un agent ne parle qu'une fraction du temps d'un appel — l'ordre de grandeur usuel est 40 % —, donc **quatre synthèses simultanées correspondent à une dizaine d'appels en cours**. C'est le premier chiffre de capacité du projet qui repose sur une mesure et non sur une estimation.
+
+### Deux règles de conception
+
+1. **Borner le nombre de synthèses simultanées** (file d'attente à parallélisme fixe, de l'ordre de 4 sur une machine à 4 cœurs) plutôt que de laisser tous les appels synthétiser en même temps. Sans borne, le dixième appel dégrade les neuf autres ; avec borne, il attend quelques dizaines de millisecondes et personne ne s'en aperçoit.
+2. **Surveiller le délai avant premier fragment comme métrique de production**, au même titre que le taux de confirmation orpheline. C'est lui qui dira qu'une machine est pleine — bien avant la charge processeur, qui restera basse jusqu'au bout.
+
+### Rejouer
+
+```bash
+cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python charge_tts.py --max 6 --duree 12
+```

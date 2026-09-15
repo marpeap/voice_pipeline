@@ -28,7 +28,7 @@ A4 donnait « 1 Go = un appel simultané », en supposant **l'inférence déport
 
 | Poste | Mesuré | Nature |
 |---|---|---|
-| Piper (TTS, voix FR) | **136 Mo** au repos, **362 Mo** au pic | **résident, partagé** |
+| Piper (TTS, voix FR) | **136 Mo** au repos, **362 Mo** au pic | **résident, partagé** — ⚠️ mais **+150 Mo par synthèse simultanée** (mesure 13) : c'est **le** poste mémoire par appel |
 | Nemotron 3.5 (STT) | modèle 742 Mo, **chargement 2,8 s** | **résident, partagé** — jamais un processus par appel |
 | Orchestration par appel | ~150–320 Mo [H, d'après LiveKit] | **par appel** — ⚠️ **et la part STT n'y est pour rien** : mesuré le 15/09, un flux STT supplémentaire coûte **11 Mo** (mesure 11), modèle partagé. Cette ligne est donc à réattribuer à l'orchestration, au TTS et au LLM, où elle n'est pas encore mesurée |
 | Asterisk + PostgreSQL + système | ~400–600 Mo [H] | fixe |
