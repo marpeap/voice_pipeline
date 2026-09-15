@@ -54,6 +54,7 @@
 - [ ] **eager EOT + preemptive LLM activés, preemptive TTS non.**
 - [ ] `min_interruption_words ≥ 2`, `resume_false_interruption` activé.
 - [ ] Débruitage **sur le chemin VAD uniquement**, jamais sur le chemin STT (×2 de dégradation mesurée par Krisp).
+- [ ] **Pré-roll du VAD, et flux STT ouvert avant la parole.** Mesuré le 15/09 (`docs/09`, mesure 9) : un moteur streaming perd le premier mot d'**un énoncé sur quatre** (24 %, contre 5 % pour un décodage de fichier entier) — « Mon numéro c'est le zéro six » devient « NUMÉRO C'EST LE ZÉRO SIX ». Le flux doit donc être ouvert et alimenté **avant** que l'appelant ne parle, et le détecteur d'activité vocale doit conserver l'audio d'**avant** son seuil de déclenchement. **Recette** : sur dix appels, le premier mot de la première phrase est transcrit dix fois.
 
 ### T5 — Le dialogue minimal
 - [ ] Mission unique pour L1 : **répondre à une question simple et prendre un message**. Pas de réservation — c'est L2.
