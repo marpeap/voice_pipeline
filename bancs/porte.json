@@ -1,0 +1,107 @@
+{
+  "_lisez_moi": "Porte de non-regression du chantier voice-pipeline. Ce fichier est de la DONNEE, pas du code : il decrit ce que la porte doit verifier, d'ou vient chaque cas, et ce qui compte comme echec. Chaque famille cite la mesure qui l'a produite — aucun cas n'est invente. Regle generale : pass^5, un scenario reussi quatre fois sur cinq est un scenario echoue. Le lot n'est fini que si la porte passe deux fois d'affilee.",
+  "version": "2026-09-15",
+  "regle_de_comptage": {
+    "repetitions": 5,
+    "succes": "integral — toutes les entites attendues, et aucune phrase interdite",
+    "commentaire": "tau-bench : un agent qui reussit une fois sur une demonstration a une probabilite tres inferieure de reussir cinq fois d'affilee."
+  },
+  "familles": [
+    {
+      "nom": "confirmation_orpheline",
+      "origine": "mesure 14",
+      "gravite": "incident",
+      "cible": 0,
+      "description": "L'agent dit que c'est fait sans qu'aucune ecriture relue n'existe.",
+      "phrases_interdites_sans_ecriture_relue": ["c'est note", "c'est enregistre", "est annule", "j'ai bien enregistre", "c'est fait"],
+      "cas": [
+        {"appelant": "Mardi dix-sept a dix-huit heures quinze.", "echec_observe": "« C'est note, souhaitez-vous confirmer ? » — rien en base"},
+        {"appelant": "Je dois annuler mon rendez-vous de demain matin.", "echec_observe": "« votre rendez-vous de demain matin est annule » — rien en base"}
+      ]
+    },
+    {
+      "nom": "entite_inventee",
+      "origine": "mesures 14 et 15",
+      "gravite": "grave",
+      "cible": 0,
+      "description": "Le modele comble un trou de transcription au lieu de le signaler.",
+      "cas": [
+        {"appelant": "Samedi neuf heures moins le quart.", "echec_observe": "propose 9 h 15", "attendu": "08:45 ou question"},
+        {"appelant": "Le premier du mois prochain, dans la journee.", "echec_observe": "« est un dimanche, jour de fermeture »", "attendu": "aucune affirmation calendaire venue du modele"},
+        {"appelant": "Jeudi prochain vers quinze heures trente.", "echec_observe": "jour perdu par le STT, creneau propose quand meme", "attendu": "question sur le jour"}
+      ]
+    },
+    {
+      "nom": "absence_prise_pour_information",
+      "origine": "mesure 15",
+      "gravite": "grave",
+      "cible": 0,
+      "description": "Une donnee absente de l'agenda est presentee comme une fermeture.",
+      "cas": [
+        {"appelant": "Le vingt-quatre decembre avant onze heures.", "attendu": "hors horizon, jamais « nous sommes fermes »"}
+      ]
+    },
+    {
+      "nom": "boucle",
+      "origine": "mesures 16, 17, 18",
+      "gravite": "grave",
+      "cible": 0,
+      "description": "La machine tourne sans progres, ou se repete.",
+      "seuils": {
+        "entite_refusee_deux_fois": "oubliee et redemandee avec ses valeurs possibles",
+        "phrase_repetee_une_fois": "changement de strategie",
+        "phrase_repetee_deux_fois": "transfert",
+        "tours_sans_valeur_neuve": 2,
+        "demande_d_humain": "transfert immediat, detecte avant l'appel au modele"
+      },
+      "cas": [
+        {"appelant": "insiste deux fois puis cede", "attendu": "rendez-vous pris, 3 tours"},
+        {"appelant": "insiste jusqu'au bout", "attendu": "transfert, au plus 5 tours"},
+        {"appelant": "demande un humain", "attendu": "transfert, 2 tours"}
+      ]
+    },
+    {
+      "nom": "numero",
+      "origine": "mesures 7 et 19, regles T1 a T10 de docs/10",
+      "gravite": "grave",
+      "cible": "10/10 apres relecture",
+      "description": "Les quatre echecs reels mesures, plus les cas des regles.",
+      "cas": [
+        {"appelant": "zero un quarante-trois vingt-deux onze zero neuf", "piege": "onze chiffres, « quarante-trois » coupe en « 40 3 »", "regle": "T8"},
+        {"appelant": "zero six douze quatorze non quinze quarante soixante", "piege": "marqueur de correction", "regle": "T9"},
+        {"appelant": "zero six quatre-vingts douze zero trois quarante-quatre", "piege": "ambiguite de la langue", "regle": "T10, deux lectures proposees"},
+        {"appelant": "zero neuf soixante-dix zero zero quatre-vingt-un douze", "piege": "chiffres perdus", "regle": "T4, relecture sans deviner"}
+      ]
+    },
+    {
+      "nom": "parole_de_l_agent",
+      "origine": "mesure 19",
+      "gravite": "moyenne",
+      "description": "Ce que l'agent dit doit survivre au canal 8 kHz.",
+      "cas": [
+        {"phrase": "annonce legale", "attendu": "« assistant automatique » retrouve par deux moteurs independants"},
+        {"phrase": "relecture du numero par groupes de deux", "attendu": "les dix chiffres retrouves"},
+        {"phrase": "date", "regle": "E1 — jour + quantieme + mois, jamais le quantieme seul"},
+        {"phrase": "creneaux", "regle": "E2 — jamais deux horaires a moins d'une heure dans la meme phrase"}
+      ]
+    },
+    {
+      "nom": "bruit",
+      "origine": "mesure 10",
+      "gravite": "moyenne",
+      "description": "Le corpus se rejoue a 15 dB et 10 dB, bruit rose et babil : c'est le point de fonctionnement reel, pas l'audio propre.",
+      "attendu": "aucune regression du taux d'entite par rapport a la campagne precedente"
+    },
+    {
+      "nom": "latence",
+      "origine": "mesures 13, 14, 20",
+      "gravite": "moyenne",
+      "seuils": {
+        "premier_fragment_audio_p50_ms": 400,
+        "silence_percu_p50_ms": 800,
+        "delai_de_garde_ms": 700
+      },
+      "description": "Le delai avant premier son est la metrique qui dit qu'une machine est pleine — pas la charge processeur."
+    }
+  ]
+}

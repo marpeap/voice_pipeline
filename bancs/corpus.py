@@ -40,6 +40,16 @@ ENONCES = [
     ("numero", "Le zero neuf soixante-dix zero zero quatre-vingt-un douze.", {"tel": "0970008112"}),
     ("numero", "Zero six cinquante-cinq soixante-six soixante-dix-sept quatre-vingt-huit.", {"tel": "0655667788"}),
 
+    # --- numeros difficiles : les quatre echecs REELS de la mesure 7, plus les
+    # cas que les regles T8, T9 et T10 de docs/10 doivent couvrir ---
+    ("numero_difficile", "Je vous donne le fixe, zero un quarante-trois vingt-deux onze zero neuf.", {"tel": "0143221109", "regle": "T8 sur-segmentation"}),
+    ("numero_difficile", "Le zero neuf soixante-dix zero zero quatre-vingt-un douze.", {"tel": "0970008112", "regle": "T4 chiffres perdus, relecture"}),
+    ("numero_difficile", "Zero six, douze, quatorze, non, quinze, quarante, soixante.", {"tel": "0612154060", "regle": "T9 marqueur de correction"}),
+    ("numero_difficile", "Zero six quatre-vingts douze zero trois quarante-quatre.", {"tel": "AMBIGU", "regle": "T10 ambiguite de langue, deux lectures"}),
+    ("numero_difficile", "Zero six, pardon, zero sept, douze trente-quatre cinquante-six soixante-dix-huit.", {"tel": "0712345678", "regle": "T9 sur le premier groupe"}),
+    ("numero_difficile", "Plus trente-trois six douze trente-quatre cinquante-six soixante-dix-huit.", {"tel": "0612345678", "regle": "T5 format international"}),
+    ("numero_difficile", "Zero huit douze trente-quatre cinquante-six.", {"tel": "REFUS", "regle": "T1 numero special interdit"}),
+
     # --- dates et heures ---
     ("date", "Je voudrais un rendez-vous jeudi prochain vers quinze heures trente.", {"jour": "jeudi", "heure": "15:30"}),
     ("date", "Est-ce que vous auriez quelque chose le douze octobre au matin ?", {"date": "12/10", "moment": "matin"}),
