@@ -977,3 +977,45 @@ Même phrase, même canal, deux voix :
 ```bash
 GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python voix.py
 ```
+
+---
+
+## Mesure 23 — notre prompt fait 854 jetons, le seuil de cache est à 4 096
+
+> La recherche (A1) avait établi qu'en dessous de **4 096 jetons de préfixe, rien n'est mis en cache** — d'où la doctrine écrite dans `00-SYNTHESE` : « on n'élague pas le fichier de connaissance, on le calibre au-dessus du seuil ». Restait à savoir où se situe le nôtre. Personne ne l'avait compté.
+
+### Méthode
+
+Composer le `memoire.md` **réel** d'un salon à partir du pack coiffure et de données plausibles (horaires, coupure, cinq prestations avec durées et prix, trois praticiens, huit paragraphes de particularités), l'envoyer comme prompt système avec `max_tokens=1`, et lire le `usage.prompt_tokens` renvoyé par le fournisseur. **C'est le seul compte exact.**
+
+### Résultats
+
+| Morceau | Jetons | Caractères | Caractères par jeton |
+|---|---|---|---|
+| Consignes de l'agent | 147 | 289 | 1,97 |
+| **`memoire.md` d'un salon** | **782** | 2 420 | 3,09 |
+| **Prompt complet** | **854** | 2 709 | 3,17 |
+
+### Deux résultats, dont un qui corrige une doctrine
+
+**1. La règle de pouce « quatre caractères par jeton » est fausse en français** : on mesure **3,1**, soit **30 % de jetons en plus** que l'estimation courante. Toute prévision de coût faite à la louche sous-estime donc d'un tiers. (Mes propres bancs utilisaient cette approximation pour fabriquer un prompt « long » — ils visaient 5 000 jetons et en produisaient davantage.)
+
+**2. Le seuil de cache n'est pas atteignable par un salon, et il ne doit pas l'être.** Il manque **3 242 jetons**, soit environ **10 000 caractères** — près de **cinq fois** le fichier actuel. Aucun salon n'a dix mille caractères de particularités vraies à raconter. **Calibrer le fichier au-dessus du seuil reviendrait à le rembourrer**, c'est-à-dire à payer plus cher un texte qui n'apprend rien au modèle et qui dilue ce qui compte.
+
+> **Correction de doctrine.** Ce n'est pas le fichier du salon qu'il faut allonger, c'est **l'ordre du prompt** qu'il faut inverser : **du plus partagé au plus spécifique.**
+>
+> ```
+> [ consignes communes, grammaire, protocole, exemples ]  ← identique pour TOUS les salons
+> [ memoire.md du salon ]                                 ← ~800 jetons
+> [ variables du tour : calendrier, etat, transcription ] ← apres la coupure de cache
+> ```
+>
+> Le préfixe long et stable devient alors **commun à toute la flotte** : il est mis en cache une fois et touché par tous les appels de tous les locataires, au lieu d'être recalculé salon par salon sans jamais franchir le seuil. **Et ce bloc commun, nous avons déjà de quoi l'écrire honnêtement** — la grammaire française des nombres, les règles d'énonciation, les patrons de refus, les exemples tirés des mesures 14 à 21 font largement les 4 096 jetons, et chacun de ces jetons sert à quelque chose.
+
+**Ce qui reste non mesuré** : le **gain réel** du cache, qui exige une clé payante (le palier gratuit plafonne à 8 000 jetons/minute). Mais ce qu'il fallait savoir pour concevoir, on le sait : **l'ordre du prompt est un choix d'architecture, pas un détail de mise en forme.**
+
+### Rejouer
+
+```bash
+GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python taille_memoire.py
+```

@@ -1,0 +1,21 @@
+{
+  "consignes seules": {
+    "jetons": 147,
+    "caracteres": 289,
+    "caracteres_par_jeton": 1.97
+  },
+  "memoire.md seule": {
+    "jetons": 782,
+    "caracteres": 2420,
+    "caracteres_par_jeton": 3.09
+  },
+  "prompt complet (consignes + memoire)": {
+    "jetons": 854,
+    "caracteres": 2709,
+    "caracteres_par_jeton": 3.17
+  },
+  "_seuil": {
+    "seuil": 4096,
+    "manque_jetons": 3242
+  }
+}
