@@ -526,3 +526,44 @@ K flux simultanés **partageant un seul modèle en mémoire** — c'est ce que f
 ```bash
 cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python charge_stt.py --max 8 --duree 15
 ```
+
+---
+
+## Mesure 12 — le moteur distant sous bruit : il ne bouge pas, et il garde les numéros
+
+### Résultats, sur exactement les mêmes fichiers bruités que la mesure 10
+
+| Condition (8 kHz) | `vosk-small-fr` | `sherpa zipformer` | **`whisper-large-v3-turbo`** |
+|---|---|---|---|
+| propre | **11,5 %** | 20,0 % | 21,9 % |
+| rose 15 dB | 24,9 % | 20,7 % | **22,9 %** |
+| **rose 10 dB** | 36,4 % | 26,3 % | **23,8 %** |
+| babil 10 dB | 27,7 % | 20,2 % | **22,3 %** |
+| **Numéro reconstruit, à 10 dB** | — | — | **6 / 10, inchangé** |
+
+### Ce que ça tranche
+
+**1. Le moteur distant est quasi insensible au bruit** : +1,9 point de WER entre le propre et 10 dB de bruit rose, là où le petit modèle local en prend **+25** et le streaming local **+6,3**. Sa courbe est plate.
+
+**2. Et surtout : le taux de numéros reconstruits ne bouge pas d'un pouce** — 6 sur 10 au propre, 6 sur 10 sous bruit. Les quatre échecs sont **les mêmes qu'au calme**, et ils viennent de la grammaire française des nombres (mesure 7), pas de l'acoustique. **Le bruit n'attaque pas l'entité chez ce moteur ; il l'attaque chez les locaux.**
+
+**3. Au point de fonctionnement réel — 10 à 15 dB, l'environnement de l'appelant — le classement est net** : distant 23,8 % · sherpa local 26,3 % · vosk local 36,4 %. Le moteur qui gagnait de loin sur de l'audio propre arrive **dernier**, avec un écart de 12 points.
+
+### La conséquence pour l'arbitrage « local ou distant », qui n'était jusqu'ici qu'une question de coût
+
+L'auto-hébergement coûte, **en plus** de la machine :
+
+- **toute la grammaire française des nombres** (les deux moteurs locaux rendent des mots, le distant rend des chiffres — mesure 9) ;
+- **une dégradation qui vise les entités** dès 10 dB (mesure 10), c'est-à-dire exactement les numéros et les montants ;
+- et il rapporte, côté calcul, **moins que prévu** : le STT n'était pas le mur (mesure 11).
+
+> **Ce que je retiens, et qui contredit l'ordre de rapatriement écrit dans `docs/00-SYNTHESE` (« LLM → STT → TTS ») : le STT est le dernier poste qu'il faut rapatrier, pas le deuxième.** Il économise 6,50 $ par salon et par mois (`docs/11` §3), et il coûte la fiabilité sur la seule donnée qu'on n'a pas le droit de perdre. **Décision proposée : STT en API, durablement, et non « en phase 1 ».** À rouvrir seulement si un moteur local démontre, sur ce corpus bruité, à la fois une sortie en chiffres et une courbe plate.
+
+⚠️ **Limite** : trois moteurs, un corpus synthétique, une seule voix. Ce qui est solide, c'est **l'écart entre conditions sur le même audio** ; ce qui ne l'est pas, c'est le niveau absolu. La mesure se refait en une commande le jour où un corpus d'appels réels existe.
+
+### Rejouer
+
+```bash
+# corpus bruité : bancs/bruit.py ; puis les trois moteurs sur les mêmes fichiers
+GROQ_API_KEY=... python3 bancs/wer.py --corpus ~/corpus-bruit/rose-10db
+```

@@ -65,7 +65,7 @@
 | TTS | **Piper `fr_FR-siwis-medium`** (63 Mo) **en service HTTP séparé** | code GPL-3.0 / voix CC-BY 4.0 | Le process séparé est **obligatoire** pour rester hors du copyleft. Voix `tom` interdite (dataset AGPLv3), `gilles` à éviter (licence non vérifiée) |
 | LLM | **API externe** | — | Rien de local sous 2 Go |
 
-**Ordre de rapatriement plus tard : LLM → STT → TTS en dernier.** Le TTS français libre est le maillon faible (Kokoro annonce lui-même un support non-anglais « absent or thin »), pas le STT ni le LLM. [R2]
+**Ordre de rapatriement plus tard : LLM → STT → TTS en dernier.** ⚠️ **Révisé le 15/09 par les mesures 9 à 12** : au point de fonctionnement réel (10-15 dB, l'environnement de l'appelant), le moteur distant est **quasi insensible au bruit** (+1,9 point) et **conserve 6 numéros sur 10**, quand les moteurs locaux perdent jusqu'à la moitié des mots et rendent leurs nombres **en toutes lettres**. Rapatrier le STT économise 6,50 $/salon/mois et coûte la fiabilité sur la seule donnée qu'on n'a pas le droit de perdre. **Le STT devient le dernier poste à rapatrier, pas le deuxième.** Le TTS français libre est le maillon faible (Kokoro annonce lui-même un support non-anglais « absent or thin »), pas le STT ni le LLM. [R2]
 
 **Trois mesures à faire avant tout engagement client** — aucune source ne les publie : RTF de NeMo-Speech.cpp sur le VPS cible ; **WER français en bande téléphonique 8 kHz** (tous les WER publics sont en 16 kHz propre) ; RTF et RAM réels de Piper. [R1 §8.4]
 

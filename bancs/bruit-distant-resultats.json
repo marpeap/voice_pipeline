@@ -1,0 +1,29 @@
+[
+  {
+    "bruit": "rose",
+    "rsb_db": 15,
+    "moteur": "whisper-large-v3-turbo",
+    "wer_pct": 22.88,
+    "mots": 791,
+    "tel_exact_pct": 60.0,
+    "tel_n": 10
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 10,
+    "moteur": "whisper-large-v3-turbo",
+    "wer_pct": 23.77,
+    "mots": 791,
+    "tel_exact_pct": 60.0,
+    "tel_n": 10
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 10,
+    "moteur": "whisper-large-v3-turbo",
+    "wer_pct": 22.25,
+    "mots": 791,
+    "tel_exact_pct": 60.0,
+    "tel_n": 10
+  }
+]
