@@ -939,3 +939,41 @@ GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python agent_audible.p
 ### Une limite du banc, à dire clairement
 
 Le cas T10 n'est **pas observable sur ce corpus** : la voix de synthèse prononce « quatre-vingts douze » comme un `92`, donc l'ambiguïté disparaît **avant** le moteur. De même, le cas T4 a été rendu ambigu par la synthèse elle-même (« quatre-vingt-un douze » entendu « quatre-vingt-douze » par les trois). **Un corpus synthétique ne peut pas tester une ambiguïté de prononciation** — il faut une voix humaine. Dette de mesure déclarée, à lever avec le premier corpus réel.
+
+---
+
+## Mesure 22 — laquelle des deux voix licenciées embarquer ?
+
+> Tout le dossier a été mesuré avec `fr_FR-siwis-medium` sans jamais la comparer. Or les deux voix françaises utilisables commercialement (CC-BY 4.0) ne se valent pas, et le choix décide de deux choses mesurées ailleurs : le délai avant le premier son (mesure 13) et ce que l'appelant comprend après le canal (mesure 19).
+
+### Résultats — dix phrases d'agent, trois passages, puis passage en 8 kHz µ-law
+
+| Voix | Premier fragment p50 | p90 | RTF | **WER après canal (moteur local)** | Mots-clés perdus |
+|---|---|---|---|---|---|
+| **`siwis`** | 256 ms | 422 ms | 0,071 | **6,4 %** | 3 |
+| `mls` | 280 ms | 415 ms | 0,070 | **20,0 %** | 4 |
+
+*(Les « mots-clés perdus » sur les numéros sont, pour les deux voix, l'artefact chiffres/mots déjà signalé aux mesures 7, 8, 9 et 19 — les dix chiffres sont bien là, écrits en lettres.)*
+
+### Le cas qui tranche : l'annonce légale
+
+Même phrase, même canal, deux voix :
+
+| Voix | Ce que le moteur en comprend |
+|---|---|
+| `siwis` | « bonjour vous êtes bien au salon élégance **je suis un assistant automatique** » |
+| `mls` | « j'en viens au salon élégant **suzanne** assistant automatique » |
+
+**Chez `mls`, « je suis un » devient « suzanne ».** L'annonce reste à moitié reconnaissable, mais la phrase d'ouverture — celle qui porte l'obligation de l'AI Act et la première impression — part en bouillie. **Trois fois plus d'erreurs après le canal, pour une latence identique.**
+
+> **Décision : `fr_FR-siwis-medium` reste la voix embarquée par défaut**, et `mls` n'est qu'un repli licencié si un problème survenait sur la première. Ce qui n'était jusqu'ici qu'un choix par défaut est maintenant un choix mesuré.
+
+### Ce que ça apprend au-delà de ce projet
+
+**Une voix de synthèse se choisit sur ce qu'elle devient après le canal, pas sur son rendu en studio.** Les deux voix ont le même RTF et la même latence ; en large bande, `mls` passe souvent pour la plus naturelle. Après un aller-retour µ-law à 8 kHz, elle perd trois fois plus. **La bande étroite ne dégrade pas toutes les voix de la même façon, et rien dans leur fiche ne le dit.**
+
+### Rejouer
+
+```bash
+GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python voix.py
+```

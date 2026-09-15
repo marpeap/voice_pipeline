@@ -1,0 +1,186 @@
+{
+  "resume": {
+    "siwis": {
+      "premier_fragment_p50_ms": 256,
+      "premier_fragment_p90_ms": 422,
+      "rtf": 0.0708,
+      "wer_apres_canal_distant_pct": 40.0,
+      "wer_apres_canal_local_pct": 6.4,
+      "mots_cles_perdus": [
+        {
+          "phrase": "relecture_numero",
+          "perdus": [
+            "0612345678"
+          ]
+        },
+        {
+          "phrase": "relecture_numero_2",
+          "perdus": [
+            "0789012345"
+          ]
+        },
+        {
+          "phrase": "refus",
+          "perdus": [
+            "fermes"
+          ]
+        }
+      ]
+    },
+    "mls": {
+      "premier_fragment_p50_ms": 280,
+      "premier_fragment_p90_ms": 415,
+      "rtf": 0.0695,
+      "wer_apres_canal_distant_pct": 52.8,
+      "wer_apres_canal_local_pct": 20.0,
+      "mots_cles_perdus": [
+        {
+          "phrase": "relecture_numero",
+          "perdus": [
+            "0612345678"
+          ]
+        },
+        {
+          "phrase": "relecture_numero_2",
+          "perdus": [
+            "0789012345"
+          ]
+        },
+        {
+          "phrase": "refus",
+          "perdus": [
+            "fermes"
+          ]
+        },
+        {
+          "phrase": "transfert",
+          "perdus": [
+            "salon"
+          ]
+        }
+      ]
+    }
+  },
+  "detail": [
+    {
+      "voix": "siwis",
+      "phrase": "annonce",
+      "distant": "Bonjour, vous AIDS bien au salon Elégance. Je suis un assistante automatique. Je peux prendre votre rendez-vous.",
+      "local": "bonjour vous êtes bien au salon élégance je suis un assistant automatique je peux prendre votre rendez-vous"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "annonce_courte",
+      "distant": "Bonjour, assistante automatique du salon, je vous écoute.",
+      "local": "bonjour assistante automatique du salon je vous écoute"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "relecture_numero",
+      "distant": "Je relis votre numéro 06 12 34 56 78. C'est bien cela.",
+      "local": "je relis votre numéro zéro six douze trente-quatre cinquante-six soixante-dix-huit c'est bien cela"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "relecture_numero_2",
+      "distant": "Votre numéro 07 89 01 23 45.",
+      "local": "votre numéro zéro sept quatre vingt-neuf zéro un vingt-trois quarante-cinq"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "creneau",
+      "distant": "Je peux vous proposer jeudi 10 à 15h30.",
+      "local": "je peux vous proposer jeudi dix-sept à quinze heures trente"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "creneau_2",
+      "distant": "Il me reste 9 heures, 9 heures 45 ou 10 heures 30.",
+      "local": "il me reste neuf heures neuf heures quarante-cinq ou dix heures trente"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "confirmation",
+      "distant": "Cet enregistre, coupe et bréchigne, mardi 15 octobre à 10h.",
+      "local": "c'est enregistre coupe et brushing mardi quinze octobre à dix"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "refus",
+      "distant": "Nous sommes fermés entre 13h et 14h.",
+      "local": "nous sommes ferment entre treize heures et quatorze"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "transfert",
+      "distant": "Je vous passe quelqu'un du salon, un instant.",
+      "local": "je vous passe quelqu'un du salon à l'instant"
+    },
+    {
+      "voix": "siwis",
+      "phrase": "prix",
+      "distant": "La coupe est à 28 euros. Le balayage à 95 euros.",
+      "local": "la couperet à vingt-huit euros le balayage à quatre-vingt-quinze euros"
+    },
+    {
+      "voix": "mls",
+      "phrase": "annonce",
+      "distant": "J'ouvre bien au salon élégant. Je suis un assistant automatique. Je peux prendre votre rendez-vous.",
+      "local": "j'en viens au salon élégant suzanne assistant automatique je peux prendre votre rendez-vous"
+    },
+    {
+      "voix": "mls",
+      "phrase": "annonce_courte",
+      "distant": "Jove Assistant, automatique du salon. Je vous écoute.",
+      "local": "jour assistant automatique du salon je vous écoute"
+    },
+    {
+      "voix": "mls",
+      "phrase": "relecture_numero",
+      "distant": "Je relis. Autre numéro 06 12 34 56 78.",
+      "local": "je relis votre numéro zéro six douze trente-quatre cinquante-six soixante-dix-huit cinq cent six"
+    },
+    {
+      "voix": "mls",
+      "phrase": "relecture_numero_2",
+      "distant": "votre numéro 0 7 89 0 1 23 45",
+      "local": "votre numéro zéro sept quatre vingt-neuf zéro onze vingt-trois quarante-cinq"
+    },
+    {
+      "voix": "mls",
+      "phrase": "creneau",
+      "distant": "Je peux vous proposer jeudi d'ici la 15h30.",
+      "local": "je peux vous proposer jeudi dix-sept à quinze heures trente"
+    },
+    {
+      "voix": "mls",
+      "phrase": "creneau_2",
+      "distant": "me reste 9h45 ou 10h30.",
+      "local": "le reste ne vers neuf heures quarante-cinq ou dix heures trente"
+    },
+    {
+      "voix": "mls",
+      "phrase": "confirmation",
+      "distant": "Cette enregistre coupe et brûchine, mardi 15 octobre à 10h.",
+      "local": "c'est enregistre coupe et brushing mardi quinze octobre à dix"
+    },
+    {
+      "voix": "mls",
+      "phrase": "refus",
+      "distant": "Le somme ferme entre 13h et 14h.",
+      "local": "le sommes ferme entre treize et quatorze"
+    },
+    {
+      "voix": "mls",
+      "phrase": "transfert",
+      "distant": "Je vous passe quelqu'un du seul un instant.",
+      "local": "je vous passe quelqu'un du seul un instant"
+    },
+    {
+      "voix": "mls",
+      "phrase": "prix",
+      "distant": "La coupe est à 28 euros le balayage, à 95 euros.",
+      "local": "la coupe est à vingt-huit euros que balayage à quatre-vingt-quinze euros"
+    }
+  ]
+}

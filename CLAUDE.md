@@ -27,7 +27,7 @@
 ## Règles propres au projet
 - **Aucune décision de pile n'est figée avant le lot L0** : trois mesures manquent au monde entier (RTF NeMo-Speech.cpp sur le VPS, **WER français en 8 kHz**, RTF/RAM Piper).
 - **Piper tourne en service HTTP séparé** — obligatoire, son code est GPL-3.0 depuis 2026.
-- **Voix Piper autorisées** : `fr_FR-siwis-medium` ou `fr_FR-mls-medium` (CC-BY 4.0). **Interdites** : `tom` (dataset AGPLv3), `gilles` (licence non vérifiée).
+- **Voix Piper : `fr_FR-siwis-medium` par défaut, mesuré le 15/09** (mesure 22) — 6,4 % de WER après le canal contre 20 % pour `fr_FR-mls-medium`, à latence identique ; chez `mls`, « je suis un assistant automatique » devient « suzanne assistant automatique ». `mls` reste le repli licencié (CC-BY 4.0). **Interdites** : `tom` (dataset AGPLv3), `gilles` (licence non vérifiée).
 - **`read-after-write` avant toute confirmation orale.** Métrique `taux de confirmation orpheline`, cible 0.
 - **Annonce « assistant automatique » dans la première phrase**, non désactivable (AI Act art. 50, applicable depuis le 02/08/2026).
 - **Jamais de collecte d'e-mail par la voix.** Numéro de mobile + SMS.
