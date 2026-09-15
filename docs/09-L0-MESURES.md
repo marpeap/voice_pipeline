@@ -878,3 +878,31 @@ Le moteur distant affiche ici des WER de 35 à 85 % sur les phrases qui contienn
 ```bash
 GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python agent_audible.py
 ```
+
+---
+
+## Mesure 20 — dix appels parlent en même temps : le fournisseur tient, mais son temps de réponse ne veut rien dire
+
+### Résultats — K requêtes lancées ensemble, connexion neuve pour chacune
+
+| Simultanées | Servies | Refusées | TTFT p50 | TTFT max |
+|---|---|---|---|---|
+| 1 | 1 | 0 | **6 200 ms** | 6 200 ms |
+| 2 | 2 | 0 | 2 395 ms | 2 489 ms |
+| 4 | 4 | 0 | 2 015 ms | 2 189 ms |
+| 6 | 6 | 0 | 1 404 ms | 1 422 ms |
+| 8 | 8 | 0 | 4 943 ms | **8 751 ms** |
+| 10 | 10 | 0 | 1 665 ms | 1 998 ms |
+
+### Trois lectures
+
+**1. La simultanéité n'est pas le problème.** Dix requêtes lancées ensemble, **aucun refus**, et le TTFT à dix (1 665 ms) est meilleur qu'à un (6 200 ms). Le palier gratuit ne bronche pas sur dix appels concurrents — ce qui, rapporté à la capacité machine de la mesure 13 (~10 appels simultanés), veut dire que **le fournisseur n'est pas le goulot de capacité**.
+
+**2. Mais son temps de réponse ne se prédit pas.** De 1 404 ms à 8 751 ms sans rapport avec la charge. Le premier appel à 6 200 ms est la signature du démarrage à froid déjà mesuré (mesure 4 : DNS + TCP + TLS), les autres pics n'ont aucune explication visible de notre côté. **Un fournisseur distant est une variable aléatoire bornée par le haut, pas un service à latence garantie.**
+
+**3. Donc la conception doit absorber, pas espérer.** Trois mécanismes, tous obligatoires et tous déjà nommés ailleurs dans le dossier — cette mesure les rend non négociables :
+- **connexions ouvertes d'avance et maintenues** (mesure 4) : elles suppriment le pire cas, celui du démarrage à froid ;
+- **délai de garde** : au-delà de ~700 ms sans premier token, l'agent dit « je vérifie » — la mesure 14 donnait 935 ms au p90, celle-ci 8 751 ms au pire, le silence n'est donc pas une hypothèse d'école ;
+- **un second fournisseur en repli**, choisi le jour où la latence du premier sort de ses clous, et **dont le nom comme les paramètres vivent en configuration** (mesure 17 : le catalogue a bougé trois fois en 48 h).
+
+⚠️ **Limite** : palier gratuit, un seul fournisseur, requêtes courtes. Ce qui se transpose, c'est **la forme** — aucune corrélation entre concurrence et latence, et une dispersion d'un facteur six. Pas les valeurs.

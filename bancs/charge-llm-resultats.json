@@ -1,0 +1,68 @@
+[
+  {
+    "simultanees": 1,
+    "servies": 1,
+    "refusees": 0,
+    "ttft_p50_ms": 6200,
+    "ttft_max_ms": 6200,
+    "mur_ms": 6257,
+    "codes": [],
+    "attente_imposee_s": [],
+    "exemple_refus": null
+  },
+  {
+    "simultanees": 2,
+    "servies": 2,
+    "refusees": 0,
+    "ttft_p50_ms": 2395,
+    "ttft_max_ms": 2489,
+    "mur_ms": 2553,
+    "codes": [],
+    "attente_imposee_s": [],
+    "exemple_refus": null
+  },
+  {
+    "simultanees": 4,
+    "servies": 4,
+    "refusees": 0,
+    "ttft_p50_ms": 2015,
+    "ttft_max_ms": 2189,
+    "mur_ms": 2272,
+    "codes": [],
+    "attente_imposee_s": [],
+    "exemple_refus": null
+  },
+  {
+    "simultanees": 6,
+    "servies": 6,
+    "refusees": 0,
+    "ttft_p50_ms": 1404,
+    "ttft_max_ms": 1422,
+    "mur_ms": 1536,
+    "codes": [],
+    "attente_imposee_s": [],
+    "exemple_refus": null
+  },
+  {
+    "simultanees": 8,
+    "servies": 8,
+    "refusees": 0,
+    "ttft_p50_ms": 4943,
+    "ttft_max_ms": 8751,
+    "mur_ms": 8896,
+    "codes": [],
+    "attente_imposee_s": [],
+    "exemple_refus": null
+  },
+  {
+    "simultanees": 10,
+    "servies": 10,
+    "refusees": 0,
+    "ttft_p50_ms": 1665,
+    "ttft_max_ms": 1998,
+    "mur_ms": 2189,
+    "codes": [],
+    "attente_imposee_s": [],
+    "exemple_refus": null
+  }
+]
