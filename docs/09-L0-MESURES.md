@@ -658,3 +658,39 @@ Le même banc produit les réponses réellement générées. **Douze tours, sans
 ```bash
 GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python tour_complet.py
 ```
+
+---
+
+## Mesure 15 — les mêmes tours avec les garde-fous : le mensonge disparaît, l'utilité aussi
+
+> Suite immédiate de la mesure 14. Mêmes énoncés, même STT, même modèle — mais l'architecture de `docs/15` : le modèle **ne rédige plus rien**, il rend une proposition structurée ; le calendrier est **injecté** et calculé par la machine ; toute entité douteuse devient une **question** ; c'est la machine qui compose la phrase.
+
+### Résultats, sur les dix tours qui ont abouti
+
+| | Prompt seul (mesure 14) | **Avec garde-fous** |
+|---|---|---|
+| Confirmations orphelines | **2** | **0** |
+| Faits calendaires inventés | 1 | **0** |
+| Heures inventées **dites au client** | 3 | **0** |
+| Heures inventées **par le modèle** | — | 1, **interceptée par la validation d'agenda** |
+| Tours aboutissant à une réservation | (aucune n'était réelle) | **0** |
+| Questions de clarification | 0 | **7** |
+| Refus argumentés | 0 | 3 |
+
+### Trois lectures, dont une qui n'est pas confortable
+
+**1. La partie « ne pas mentir » est réglée, et elle l'est par construction.** Zéro confirmation orpheline, zéro date inventée — non pas parce que le modèle s'est amélioré, mais parce qu'**il n'a plus la parole**. La seule invention qu'il ait tentée (une heure absente de la transcription) a été **arrêtée par la validation contre l'agenda**. C'est exactement ce que la validation est censée faire, et elle l'a fait au premier essai.
+
+**2. Mais l'agent est devenu inutile sur ce corpus : zéro réservation.** Sept tours sur dix finissent en question de clarification. La cause n'est pas l'architecture, elle est en amont : **les transcriptions du moteur local sont trop abîmées** pour porter une date et une heure (mesures 9 et 10). Un agent rigoureux branché sur un STT médiocre ne ment plus — il fait répéter. **C'est un argument de plus, et mesuré, pour le STT distant** (mesure 12).
+
+> **Ce qu'il faut retenir pour la conception** : la rigueur ne remplace pas la qualité d'écoute, elle la révèle. Les deux chantiers sont distincts et tous les deux obligatoires — sans garde-fous l'agent invente, sans bon STT il fait répéter, et un client raccroche dans les deux cas.
+
+**3. Un piège trouvé au premier essai, et qui aurait fait mentir la machine à son tour.** Ma première version confondait **« absent de l'agenda »** et **« fermé »** : « le premier du mois prochain » et « le vingt-quatre décembre » tombaient hors de l'horizon de quatorze jours, et l'agent répondait « nous sommes fermés ce jour-là » — **faux, et invérifiable par le client**. Corrigé : trois réponses distinctes, **hors horizon** (« je ne prends pas encore les rendez-vous aussi loin »), **fermé** (jour non ouvré, vérifié), **incompris** (date non reconnue). La leçon est générale : **dans une machine à états, toute absence de donnée doit avoir sa propre réponse** — sinon elle se fait passer pour une information.
+
+⚠️ **Limite de la mesure** : dix tours sur douze ont abouti à la première exécution ; la seconde, faite pour valider la correction ci-dessus, s'est arrêtée après quatre tours sur le **plafond de jetons par minute du palier gratuit** (déjà rencontré à la mesure 4). Les chiffres du tableau viennent donc de la première exécution, et la correction n'est vérifiée que sur quatre tours.
+
+### Rejouer
+
+```bash
+GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python tour_garde.py
+```

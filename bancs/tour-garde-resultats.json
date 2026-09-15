@@ -1,0 +1,111 @@
+{
+  "resume": {
+    "tours": 4,
+    "questions": 4,
+    "refus": 0,
+    "propositions": 0,
+    "hors_horizon": 0,
+    "heures_inventees": 0,
+    "confirmations_orphelines": 0
+  },
+  "detail": [
+    {
+      "id": "date-011",
+      "reference": "Je voudrais un rendez-vous jeudi prochain vers quinze heures trente.",
+      "transcription": "JE VOUDRAIS UN RENDEZ VOUS JE DIS PROCHAIN VERS QUINZE HEURES TRENTE",
+      "proposition": {
+        "intention": "rdv",
+        "date": null,
+        "heure": "15:30",
+        "prestation": null,
+        "confiance": {
+          "date": 0.0,
+          "heure": 0.9,
+          "prestation": 0.0,
+          "intention": 0.95
+        },
+        "manque": [
+          "date",
+          "prestation"
+        ]
+      },
+      "genre": "question",
+      "phrase": "Quel jour vous conviendrait ?",
+      "heure_ancree": true
+    },
+    {
+      "id": "date-012",
+      "reference": "Est-ce que vous auriez quelque chose le douze octobre au matin ?",
+      "transcription": "EST CE QUE VOUS AURIEZ QUELQUE CHOSE LE DOUX OCTOBRE AU MAT",
+      "proposition": {
+        "intention": "question",
+        "date": null,
+        "heure": null,
+        "prestation": null,
+        "confiance": {
+          "date": 0.0,
+          "heure": 0.0,
+          "prestation": 0.0,
+          "intention": 0.9
+        },
+        "manque": [
+          "date",
+          "heure",
+          "prestation"
+        ]
+      },
+      "genre": "question",
+      "phrase": "Que puis-je faire pour vous ?",
+      "heure_ancree": true
+    },
+    {
+      "id": "date-013",
+      "reference": "Plutot demain en fin d'apres-midi si c'est possible.",
+      "transcription": "PLUTÔT DE M'A ENFIN D'APRÈS MIDI SUS EST POSSIBLE",
+      "proposition": {
+        "intention": "rdv",
+        "date": null,
+        "heure": null,
+        "prestation": null,
+        "confiance": {
+          "date": 0.0,
+          "heure": 0.0,
+          "prestation": 0.0,
+          "intention": 0.4
+        },
+        "manque": [
+          "date",
+          "heure",
+          "prestation"
+        ]
+      },
+      "genre": "question",
+      "phrase": "Je n'ai pas bien saisi votre demande, pouvez-vous repeter ?",
+      "heure_ancree": true
+    },
+    {
+      "id": "date-014",
+      "reference": "Samedi neuf heures moins le quart, ca vous irait ?",
+      "transcription": "SAMEDI NEUF HEURES MOIS LE QUART CAR VOUS IREZ",
+      "proposition": {
+        "intention": "rdv",
+        "date": null,
+        "heure": "09:15",
+        "prestation": null,
+        "confiance": {
+          "date": 0.0,
+          "heure": 0.8,
+          "prestation": 0.0,
+          "intention": 0.6
+        },
+        "manque": [
+          "date",
+          "prestation"
+        ]
+      },
+      "genre": "question",
+      "phrase": "Je n'ai pas bien saisi votre demande, pouvez-vous repeter ?",
+      "heure_ancree": true
+    }
+  ]
+}
