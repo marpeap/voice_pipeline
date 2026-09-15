@@ -740,3 +740,50 @@ Les réponses de l'appelant sont **scriptées et coopératives** (« jeudi », �
 ```bash
 GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python boucle_clarification.py
 ```
+
+---
+
+## Mesure 17 — l'appelant qui n'est pas coopératif, et comment il déjoue les deux garde-fous
+
+> La mesure 16 mesurait une boucle avec un appelant souple. Celle-ci fait l'inverse : quelqu'un qui tient à un créneau indisponible (samedi 18 h 30), se répète, s'agace. Les deux règles nées de la mesure 16 sont implémentées dans le banc — oublier une entité refusée deux fois de suite, ne jamais répéter une phrase mot pour mot — plus le transfert immédiat sur demande explicite d'un humain.
+
+### Résultats, trois variantes d'appelant
+
+| Appelant | Issue | Tours |
+|---|---|---|
+| **A** — insiste deux fois puis cède | **transfert décidé par la machine** | 2 |
+| **B** — insiste jusqu'au bout, sans jamais demander d'humain | **boucle, jusqu'au plafond de six tours** | 6 |
+| **C** — demande explicitement un humain | **transfert immédiat** | 2 |
+
+### Ce que ça apprend
+
+**1. Le transfert sur demande explicite fonctionne, et il doit rester en amont de tout.** Détecté sur la transcription, avant même d'appeler le modèle : « passez-moi quelqu'un » n'a pas à être interprété, il a à être exécuté. Deux tours, dont un seul de politesse. C'est la garantie que `docs/14` appelle N4 et elle tient.
+
+**2. Les deux garde-fous se laissent déjouer par l'alternance.** Déroulé de l'appelant B :
+
+| Tour | Réponse de la machine |
+|---|---|
+| 1 | question — « quelle heure préférez-vous ? » |
+| 2 | question — « je n'ai pas bien saisi » |
+| 3 | **refus** — « ce créneau n'est pas libre » |
+| 4 | question — « je n'ai pas bien saisi » |
+| 5 | **refus** — « ce créneau n'est pas libre » |
+| 6 | question — « quelle heure préférez-vous ? » |
+
+Jamais **deux refus consécutifs** (donc la règle d'oubli ne se déclenche pas), jamais **deux phrases identiques d'affilée** (donc la règle anti-répétition non plus). **Les deux garde-fous sont locaux ; l'échec, lui, est global.** Six tours, aucun progrès, et la machine aurait continué.
+
+> **Troisième règle, qui manquait : un compteur de progrès.** La machine compte les tours **depuis la dernière entité nouvellement validée**. Au-delà de **trois**, elle passe la main, quoi qu'aient dit les règles locales. C'est la seule qui attrape l'alternance, parce qu'elle ne regarde pas les phrases mais **l'avancement**.
+
+**3. Et la règle anti-répétition transfère parfois trop tôt.** L'appelant A allait céder au troisième tour ; la machine l'a transféré au deuxième. Ce n'est pas grave — un transfert coûte moins cher qu'une boucle — mais ça se paie en appels remontés vers le salon, donc en promesse commerciale. **Le réglage juste n'est pas « deux » dans l'absolu** : c'est deux pour une entité refusée, trois pour l'absence de progrès, et immédiat pour une demande d'humain.
+
+### Le catalogue a encore bougé pendant la mesure
+
+Le modèle utilisé depuis hier, `qwen/qwen3.6-27b`, **a disparu du catalogue en cours de nuit** (`model_not_found`) ; `qwen/qwen3.8-27b`, disparu la veille, **est réapparu**. Troisième mouvement en quarante-huit heures. Et le modèle de remplacement **refuse un paramètre que l'autre acceptait** (`reasoning_effort: "none"` → « must be one of low, medium, high »).
+
+> **Conséquence, qui vient s'ajouter à la règle « le nom du modèle vit en configuration » : les paramètres d'appel aussi.** Un pipeline qui code en dur un paramètre propre à un modèle tombe le jour où ce modèle s'en va. Et l'erreur doit être lisible : mon banc avalait un `KeyError: 'choices'` là où le fournisseur disait exactement ce qui n'allait pas — trois quarts d'heure perdus sur un message qui était disponible dès la première requête.
+
+### Rejouer
+
+```bash
+GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python appelant_tetu.py
+```

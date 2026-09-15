@@ -75,7 +75,7 @@ class Client:
     def proposer(self, transcription):
         corps = json.dumps({
             "model": self.modele, "temperature": 0.0, "max_tokens": 300,
-            "reasoning_effort": "none",
+            "reasoning_effort": REFLEXION,
             "response_format": {"type": "json_object"},
             "messages": [{"role": "system", "content": SYSTEME},
                          {"role": "user", "content": transcription}],
@@ -86,10 +86,17 @@ class Client:
                                    "User-Agent": "marpeap-banc-garde/1.0"})
         r = self.conn.getresponse()
         charge = json.loads(r.read())
+        if "choices" not in charge:
+            # Le message d'erreur du fournisseur vaut mieux qu'un KeyError muet.
+            raise RuntimeError(f"HTTP {r.status} : {json.dumps(charge)[:300]}")
         return charge["choices"][0]["message"]["content"]
 
 
 SEUIL = 0.7
+
+# Le catalogue bouge sous les pieds : "none" est refuse par gpt-oss, accepte
+# ailleurs. La valeur vit donc ici, pas en dur dans la requete.
+REFLEXION = os.environ.get("REFLEXION_LLM", "low")
 
 
 def decider(proposition):
@@ -156,7 +163,7 @@ def main():
 
     reconnaisseur = wer_sherpa.construire(os.path.expanduser(
         "~/modeles/sherpa-onnx-streaming-zipformer-fr-2023-04-14"), fils=2)
-    client = Client(cle, "qwen/qwen3.6-27b")
+    client = Client(cle, "openai/gpt-oss-20b")
 
     lignes = []
     inventions = 0

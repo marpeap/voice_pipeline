@@ -96,3 +96,14 @@ La mesure 16 de `docs/09` a produit, au premier essai, **une boucle infinie poli
 
 1. **Deux refus consécutifs portant sur la même entité l'invalident.** La machine la vide et la redemande explicitement, en proposant les valeurs possibles : « à quelle heure, parmi 9 h, 9 h 45, 10 h 30 ? »
 2. **Aucune réponse de l'agent ne doit être identique à la précédente.** Si la machine s'apprête à redire exactement ce qu'elle vient de dire, c'est qu'elle boucle : elle change de stratégie, ou elle passe la main à un humain. Cette vérification coûte une comparaison de chaînes et supprime le pire mode d'échec téléphonique, celui où l'appelant ne peut pas comprendre d'où vient le blocage.
+
+
+## Troisième règle : un compteur de progrès — mesuré le 15/09
+
+La mesure 17 a montré que les deux règles ci-dessus **se laissent déjouer par l'alternance** : un appelant qui répète la même demande obtient question, question, refus, question, refus, question — jamais deux refus consécutifs, jamais deux phrases identiques d'affilée. Six tours, aucun progrès, et la machine aurait continué.
+
+**Les deux premières règles sont locales ; l'échec, lui, est global.** D'où :
+
+3. **La machine compte les tours écoulés depuis la dernière entité nouvellement validée. Au-delà de trois, elle passe la main**, quoi qu'aient dit les règles locales. C'est la seule qui attrape l'alternance, parce qu'elle regarde l'avancement et non les phrases.
+
+**Réglages retenus** : deux refus pour oublier une entité · trois tours sans progrès pour passer la main · **immédiat** pour une demande explicite d'humain — celle-ci détectée sur la transcription, **avant** l'appel au modèle : « passez-moi quelqu'un » n'a pas à être interprété, il a à être exécuté.

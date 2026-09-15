@@ -1,0 +1,23 @@
+[
+  {
+    "scenario": "A_insiste_puis_cede",
+    "issue": "quota",
+    "tours": 0,
+    "repetitions_bloquees": 0,
+    "echanges": []
+  },
+  {
+    "scenario": "B_insiste_toujours",
+    "issue": "quota",
+    "tours": 0,
+    "repetitions_bloquees": 0,
+    "echanges": []
+  },
+  {
+    "scenario": "C_demande_un_humain",
+    "issue": "quota",
+    "tours": 0,
+    "repetitions_bloquees": 0,
+    "echanges": []
+  }
+]

@@ -77,7 +77,7 @@ def main():
     reconnaisseur = wer_sherpa.construire(os.path.expanduser(
         "~/modeles/sherpa-onnx-streaming-zipformer-fr-2023-04-14"), fils=2)
     voix = PiperVoice.load(os.path.expanduser("~/piper/fr_FR-siwis-medium.onnx"))
-    client = tour_garde.Client(cle_api, "qwen/qwen3.6-27b")
+    client = tour_garde.Client(cle_api, "openai/gpt-oss-20b")
 
     lignes = []
     for entree in scenarios:
