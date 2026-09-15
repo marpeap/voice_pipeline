@@ -906,3 +906,36 @@ GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python agent_audible.p
 - **un second fournisseur en repli**, choisi le jour où la latence du premier sort de ses clous, et **dont le nom comme les paramètres vivent en configuration** (mesure 17 : le catalogue a bougé trois fois en 48 h).
 
 ⚠️ **Limite** : palier gratuit, un seul fournisseur, requêtes courtes. Ce qui se transpose, c'est **la forme** — aucune corrélation entre concurrence et latence, et une dispersion d'un facteur six. Pas les valeurs.
+
+---
+
+## Mesure 21 — les sept numéros difficiles, vus par les trois moteurs
+
+> Les règles T8, T9 et T10 de `docs/10` sont nées des échecs de la mesure 7. Restait à vérifier qu'elles sont **implémentables** : la transcription contient-elle encore l'information nécessaire pour réparer ? Sept énoncés fabriqués exprès, passés en 8 kHz, transcrits par les trois moteurs.
+
+### Ce que chaque moteur rend
+
+| Cas | Moteur distant (écrit des chiffres) | Moteurs locaux (écrivent des mots) |
+|---|---|---|
+| **T8** « zéro un **quarante-trois** vingt-deux onze zéro neuf » | `01 40 3 22 11 09` — **11 chiffres**, composé coupé | « quarante-trois » **intact** |
+| **T9** « douze, quatorze, **non**, quinze… » | `06 12 14 **non** 15 40 60` | « non » **conservé** par les deux |
+| **T9 bis** « zéro six, **pardon**, zéro sept… » | `06, **pardon**, 07, 12, 34…` | « pardon » **conservé** par les deux |
+| **T5** « **plus trente-trois** six douze… » | `plus 33 6 12 34 56 78` | « plus trente-trois » puis dégradation |
+| **T1** « **zéro huit** douze… » | `0 8 12 34 56` | correct chez les deux |
+| **T4** « zéro neuf soixante-dix zéro zéro… » | `0970 0092` — **chiffres perdus** | perdus aussi, autrement |
+
+### Trois enseignements, dont un qui change une règle
+
+**1. La sur-segmentation est un défaut du moteur, pas de la langue.** « quarante-trois » n'est coupé en « 40 3 » **que par le moteur qui écrit des chiffres** ; les deux moteurs qui écrivent des mots le rendent intact. **T8 ne concerne donc que les moteurs à sortie numérique** — c'est-à-dire précisément celui qu'on a retenu. La règle reste, et sa portée est maintenant connue.
+
+**2. Les marqueurs de correction survivent chez les trois.** « non » et « pardon » sont transcrits par tout le monde, dans les deux bandes. **T9 est implémentable sans réserve** : l'information est toujours là, c'est l'interprétation qui manquait.
+
+**3. Et voici ce qui change une règle : le moteur distant tranche les ambiguïtés en silence.** « quatre-vingts douze » — qui peut valoir `92` ou `80 12` — ressort en `06 92 03 44`. Il a **choisi**, sans le dire. Les moteurs à sortie en mots, eux, rendent « quatre-vingt-douze » et laissent la question ouverte.
+
+> **Conséquence** : en choisissant un moteur qui écrit des chiffres, **on lui délègue une part du parsing — donc une part des erreurs de parsing, prises en silence et sans trace.** T10 (« ne jamais trancher une ambiguïté sans le dire ») **ne peut pas être appliquée en aval d'un tel moteur** : l'ambiguïté a déjà disparu de l'entrée.
+>
+> **La relecture du numéro devient donc inconditionnelle**, et non plus « en cas de doute ». Il n'y a plus de doute observable : c'est précisément le problème. La mesure 19 a déjà montré que cette relecture survit au canal — elle est notre seul filet, et elle doit être systématique.
+
+### Une limite du banc, à dire clairement
+
+Le cas T10 n'est **pas observable sur ce corpus** : la voix de synthèse prononce « quatre-vingts douze » comme un `92`, donc l'ambiguïté disparaît **avant** le moteur. De même, le cas T4 a été rendu ambigu par la synthèse elle-même (« quatre-vingt-un douze » entendu « quatre-vingt-douze » par les trois). **Un corpus synthétique ne peut pas tester une ambiguïté de prononciation** — il faut une voix humaine. Dette de mesure déclarée, à lever avec le premier corpus réel.

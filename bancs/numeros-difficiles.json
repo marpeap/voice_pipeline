@@ -1,0 +1,72 @@
+[
+  {
+    "id": "numero_difficile-011",
+    "regle": "T8 sur-segmentation",
+    "attendu": "0143221109",
+    "dit": "Je vous donne le fixe, zero un quarante-trois vingt-deux onze zero neuf.",
+    "distant": "Je vous donne le fixe 01 40 3 22 11 09.",
+    "vosk": "je vous donne le fc x zéro un quarante-trois vingt de onze zéro neuf",
+    "sherpa": "JE VOUS DONNE LE FIXE ZÉRO UN QUARANTE TROIS VINGT DEUX ONZE ZÉRO NE",
+    "chiffres_distant": "01403221109"
+  },
+  {
+    "id": "numero_difficile-012",
+    "regle": "T4 chiffres perdus, relecture",
+    "attendu": "0970008112",
+    "dit": "Le zero neuf soixante-dix zero zero quatre-vingt-un douze.",
+    "distant": "Le 0970 0092.",
+    "vosk": "le verrou neuf cent dix zéro zéro quatre-vingt-douze",
+    "sherpa": "LE VERROU NEUF SOIXANTE DIX ZÉRO ZÉRO QUATRE VINGT DOUZE",
+    "chiffres_distant": "09700092"
+  },
+  {
+    "id": "numero_difficile-013",
+    "regle": "T9 marqueur de correction",
+    "attendu": "0612154060",
+    "dit": "Zero six, douze, quatorze, non, quinze, quarante, soixante.",
+    "distant": "06 12 14 non 15 40 60",
+    "vosk": "zéro fils douze quatorze non quinze quarante soixante",
+    "sherpa": "ZÉRO FILS DOUZE QUATORZE NON QUINZE QUARANTE SOIXANTE",
+    "chiffres_distant": "061214154060"
+  },
+  {
+    "id": "numero_difficile-014",
+    "regle": "T10 ambiguite de langue, deux lectures",
+    "attendu": "AMBIGU",
+    "dit": "Zero six quatre-vingts douze zero trois quarante-quatre.",
+    "distant": "06 92 03 44",
+    "vosk": "véro si quatre-vingt-douze zéro trois quarante-quatre",
+    "sherpa": "VERRE AUSSI QUATRE VINGT DOUZE ZÉRO TROIS QUARANTE QUATRE",
+    "chiffres_distant": "06920344"
+  },
+  {
+    "id": "numero_difficile-015",
+    "regle": "T9 sur le premier groupe",
+    "attendu": "0712345678",
+    "dit": "Zero six, pardon, zero sept, douze trente-quatre cinquante-six soixante-dix-huit.",
+    "distant": "06, pardon, 07, 12, 34, 56, 78.",
+    "vosk": "zéro six pardon zéro sept douze trente-quatre cinquante-six soixante-dix-huit",
+    "sherpa": "VERRO SIX PARDON ZÉRO SEPT DOUZE TRENTE QUATRE CINQUANTE CENT SOIXANTE DIX HUIT",
+    "chiffres_distant": "060712345678"
+  },
+  {
+    "id": "numero_difficile-016",
+    "regle": "T5 format international",
+    "attendu": "0612345678",
+    "dit": "Plus trente-trois six douze trente-quatre cinquante-six soixante-dix-huit.",
+    "distant": "plus 33 6 12 34 56 78",
+    "vosk": "plus trente-trois fille douze trente-quatre cinquante-six soixante-dix-huit",
+    "sherpa": "PLUS TRENTE TROIS FIDOUSE TRENTE QUATRE CINQUANTE SIX SOIXANTE DIX HUIT",
+    "chiffres_distant": "33612345678"
+  },
+  {
+    "id": "numero_difficile-017",
+    "regle": "T1 numero special interdit",
+    "attendu": "REFUS",
+    "dit": "Zero huit douze trente-quatre cinquante-six.",
+    "distant": "0 8 12 34 56",
+    "vosk": "zéro huit douze trente-quatre cinquante-six",
+    "sherpa": "ZÉRO HUIT DOUZE TRENTE QUATRE CINQUANTE SIX",
+    "chiffres_distant": "08123456"
+  }
+]
