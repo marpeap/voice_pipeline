@@ -367,7 +367,7 @@ Corpus identique à la mesure 7 (79 énoncés, 16 kHz et 8 kHz µ-law), moteur *
 
 **2. Le format de sortie du moteur décide de la taille du travail de grammaire.** Whisper rend des chiffres : le numéro est presque déjà là. Vosk rend des mots : il faut **toute** la grammaire française des nombres pour en tirer dix chiffres — et le 1/10 de ce tableau mesure d'ailleurs **le convertisseur naïf du banc**, pas Vosk, dont les transcriptions en toutes lettres sont largement correctes. Autrement dit : selon le moteur retenu, `docs/10-GRAMMAIRE-FRANCAISE.md` est **un petit module ou la pièce la plus difficile du produit**. C'est un critère de choix qu'aucun comparatif ne mentionne.
 
-**3. La robustesse au 8 kHz se paie en taille de modèle.** ×1,03 pour le gros modèle, **×1,30** pour le petit — et la dégradation n'est pas répartie au hasard :
+**3. La robustesse au 8 kHz semblait se payer en taille de modèle** — ⚠️ **démenti par la mesure 9**, qui ajoute un troisième moteur : la sensibilité à la bande ne suit aucune propriété affichée et se mesure par candidat. Ce qui reste vrai ici, c'est la forme de la dégradation. ×1,03 pour le gros modèle, **×1,30** pour le petit — et la dégradation n'est pas répartie au hasard :
 
 | Famille | 16 kHz | 8 kHz | |
 |---|---|---|---|
@@ -391,4 +391,46 @@ Un petit modèle local tourne à **RTF 0,37** sur un processeur de poste, sans G
 python3 -m venv ~/bancs-stt && ~/bancs-stt/bin/pip install vosk
 # modèle : https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip (41 Mo)
 cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python wer_vosk.py
+```
+
+---
+
+## Mesure 9 — trois moteurs sur exactement le même corpus, et deux règles de pipeline qui en tombent
+
+### Méthode
+
+Même corpus que les mesures 7 et 8 (79 énoncés, 16 kHz et 8 kHz µ-law), troisième moteur : **`sherpa-onnx-streaming-zipformer-fr-2023-04-14`, int8, 380 Mo**, installé par `pip` sans compilateur, deux fils sur le processeur du poste. C'est un modèle **streaming** — donc le plus proche de ce que le produit fera réellement, puisqu'un agent transcrit au fil de la parole.
+
+### Le tableau complet
+
+| Moteur | Où | WER 16 kHz | WER 8 kHz | Écart | Numéro reconstruit | RTF | Sortie |
+|---|---|---|---|---|---|---|---|
+| `whisper-large-v3-turbo` | distant | 21,2 % | 21,9 % | ×1,03 | **6 / 10** | — | **chiffres** |
+| `vosk-small-fr-0.22` (41 Mo) | local | **9,0 %** | 11,6 % | ×1,30 | 1 / 10 | 0,37 | mots |
+| `sherpa zipformer-fr int8` (380 Mo) | local, **streaming** | 18,8 % | 20,0 % | ×1,06 | **0 / 10** | **0,065** | mots, capitales |
+
+### Ce que le troisième point change
+
+**1. Correction de la mesure 8 : la sensibilité au 8 kHz ne suit pas la taille du modèle.** J'avais écrit que la robustesse se payait en taille ; le troisième moteur dit non — 380 Mo pour ×1,06, 41 Mo pour ×1,30, et le plus robuste des trois est le plus gros mais aussi le distant. **La sensibilité à la bande est idiosyncrasique : elle se mesure par candidat, elle ne se déduit d'aucune propriété affichée.** Un moteur qui se trompe déjà beaucoup a d'ailleurs mécaniquement moins à perdre.
+
+**2. Le compromis « chiffres contre mots » est général, et il oppose le local au distant.** Les **deux** moteurs locaux rendent des nombres en toutes lettres ; seul le moteur distant rend des chiffres. Autrement dit : **choisir l'auto-hébergement, c'est s'engager à écrire toute la grammaire française des nombres** (`docs/10`), et choisir le distant, c'est en hériter presque gratuitement. Ce n'est plus une particularité de Vosk, c'est un critère de choix structurant — et il ne figure dans aucun comparatif public.
+
+**3. Un moteur streaming perd le début de l'énoncé, et c'est mesurable.** Premier mot différent de la référence :
+
+| Moteur | Premier mot faux |
+|---|---|
+| Vosk (hors ligne, fichier entier) | 4 / 79 (**5 %**) |
+| Whisper turbo (hors ligne, fichier entier) | 8 / 79 (10 %) |
+| **sherpa, streaming** | **19 / 79 (24 %)** |
+
+« Mon numéro c'est le zéro six… » devient « NUMÉRO C'EST LE ZÉRO SIX… ». **Un énoncé sur quatre perd son premier mot** sur le moteur qui travaille comme le fera le produit.
+
+**Règle de pipeline qui en découle, et qu'aucun de nos documents ne portait** : le flux STT doit être **ouvert et alimenté avant que l'appelant ne parle**, et le détecteur d'activité vocale doit **conserver l'audio d'avant le seuil de déclenchement** (pré-roll). Sinon la première syllabe, celle qui porte le « zéro » d'un numéro ou le « non » d'un refus, se perd dans le réchauffement du décodeur. À vérifier explicitement dans le lot L1.
+
+**4. Le calcul n'est pas le mur, et de loin.** RTF **0,065** pour le streaming : une machine soutient, côté STT seul, une quinzaine de flux par cœur. Le poste de coût d'un STT local est donc négligeable — ce qui déplace la question de la charge vers la mémoire et vers le LLM, exactement là où la mesure manquante (tenue en charge) doit regarder.
+
+### Rejouer
+
+```bash
+cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python wer_sherpa.py
 ```
