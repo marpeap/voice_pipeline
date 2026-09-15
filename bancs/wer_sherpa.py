@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 import subprocess
+import threading
 import time
 import wave
 
@@ -43,7 +44,8 @@ def transcrire(chemin, reconnaisseur):
     lu = chemin
     temporaire = None
     if taux != 16000:
-        temporaire = chemin + ".16k.wav"
+        # Nom unique : plusieurs flux simultanes convertissent le meme fichier.
+        temporaire = f"{chemin}.{os.getpid()}.{threading.get_ident()}.16k.wav"
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", chemin,
                         "-ar", "16000", "-ac", "1", temporaire], check=True)
         lu = temporaire

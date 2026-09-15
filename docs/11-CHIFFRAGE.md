@@ -30,7 +30,7 @@ A4 donnait « 1 Go = un appel simultané », en supposant **l'inférence déport
 |---|---|---|
 | Piper (TTS, voix FR) | **136 Mo** au repos, **362 Mo** au pic | **résident, partagé** |
 | Nemotron 3.5 (STT) | modèle 742 Mo, **chargement 2,8 s** | **résident, partagé** — jamais un processus par appel |
-| Orchestration par appel | ~150–320 Mo [H, d'après LiveKit] | **par appel** |
+| Orchestration par appel | ~150–320 Mo [H, d'après LiveKit] | **par appel** — ⚠️ **et la part STT n'y est pour rien** : mesuré le 15/09, un flux STT supplémentaire coûte **11 Mo** (mesure 11), modèle partagé. Cette ligne est donc à réattribuer à l'orchestration, au TTS et au LLM, où elle n'est pas encore mesurée |
 | Asterisk + PostgreSQL + système | ~400–600 Mo [H] | fixe |
 
 **Donc, pour une machine à 4 Go** : ~1,2 Go de modèles résidents + ~0,5 Go de socle + 4 à 6 appels simultanés. **Soit, d'après le §1, de l'ordre de 20 à 40 salons sur une seule machine.**
@@ -95,6 +95,6 @@ Le prix d'un VPS à 4 Go n'est **pas vérifié** dans cette recherche — les gr
    ⚠️ **Et la base de Crenolo ne peut pas y répondre** — vérifié le 14/09. Le seul proxy disponible est la saisie manuelle de rendez-vous (`services/rdv_manuel.py`, dont la docstring dit « saisi par le salon lui-même — au comptoir, **au téléphone** ») : **11 saisies au total sur 252 réservations et 69 jours, dont 9 chez un seul salon le même jour**. Ce n'est pas un signal, c'est un artefact, et il ne doit pas servir à étayer quoi que ce soit.
    **Mais le silence est lui-même instructif** : le salon le plus actif compte **224 réservations en ligne sur 59 jours et zéro saisie manuelle**. Soit il ne reçoit aucun appel — invraisemblable pour un salon —, soit **il en reçoit et ne les écrit nulle part**. Autrement dit : **aujourd'hui, les appels ne laissent aucune trace dans le produit.** C'est exactement le vide que le greffon comble, et c'est aussi pourquoi aucune source interne ne donnera jamais ce volume.
    **Conséquence pratique** : la mesure sera **externe** — demander à un salon volontaire de compter pendant une semaine, ou obtenir un relevé d'opérateur. À joindre à la recherche du salon pilote pour le corpus (L1).
-2. **La tenue en charge** : combien d'appels simultanés une machine à 4 Go soutient réellement avec les modèles résidents. Le RTF de 0,53 le laisse penser, il ne le prouve pas.
+2. **La tenue en charge — ⚠️ partiellement levée le 15/09 (mesure 11).** Côté STT, huit flux simultanés partageant un modèle tiennent un RTF de 0,27 par flux et coûtent 11 Mo chacun : **le STT n'est pas le mur**, l'extrapolation prudente donne 25 à 30 appels simultanés sur une machine à 4 cœurs. **Ce qui reste à mesurer, et qui portera la limite réelle : l'orchestration par appel, le TTS, et le nombre de requêtes simultanées qu'un fournisseur de LLM accepte.**
    ⚠️ **Mesure tentée le 14/09 à 12 h 30, interrompue** : le banc `marpeap-series` est passé **hors ligne** en cours d'exécution (Tailscale : « offline, last seen 10m ago »). Le protocole est prêt (1, 2, 3 puis 4 transcriptions simultanées du même fichier, temps mur et RSS relevés à mi-parcours) et sera rejoué dès que la machine répond. **À noter : cette machine porte aussi AGENT-OS** — son indisponibilité dépasse le cadre de ce chantier.
 3. **Le prix des machines**, à relever chez deux ou trois hébergeurs avant de figer la grille.

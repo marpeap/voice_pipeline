@@ -485,3 +485,44 @@ Deux moteurs locaux, 18 conditions, 1 422 transcriptions. **C'est la courbe que 
 ```bash
 cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python bruit.py      # ~20 min sur un processeur de poste
 ```
+
+---
+
+## Mesure 11 — tenue en charge du STT : ce n'est pas lui qui limitera la machine
+
+> **La mesure qui manquait au chiffrage** (`docs/11` §6-2), faite sur le poste plutôt que sur le banc, puisque le banc est hors ligne depuis trois heures. La machine diffère — Intel i5-9300H, 8 fils, bureau chargé en parallèle — mais **la forme du résultat se transpose** : elle dit où est la limite, et surtout où elle n'est pas.
+
+### Protocole
+
+K flux simultanés **partageant un seul modèle en mémoire** — c'est ce que fera le service, et c'est l'hypothèse sur laquelle repose toute l'arithmétique du chiffrage. Chaque flux décode le corpus 8 kHz en boucle pendant 15 s. Un fil par décodeur côté `onnxruntime`, pour que le parallélisme mesuré soit celui **des appels**, pas celui du décodeur.
+
+### Résultats
+
+| Flux simultanés | RTF par flux | Débit agrégé | Mémoire résidente |
+|---|---|---|---|
+| 1 | 0,082 | 10,2 × temps réel | 229 Mo |
+| 2 | 0,093 | 18,2 × | 240 Mo |
+| 3 | 0,116 | 22,2 × | 253 Mo |
+| 4 | 0,138 | **24,9 ×** | 265 Mo |
+| 5 | 0,174 | 24,2 × | 277 Mo |
+| 6 | 0,202 | 25,1 × | 285 Mo |
+| 7 | 0,234 | 25,5 × | 297 Mo |
+| 8 | 0,270 | 25,0 × | 308 Mo |
+
+*(Processus à vide : 201 Mo. Aucune erreur sur les huit paliers.)*
+
+### Trois choses, dont une qui corrige le chiffrage
+
+**1. Un flux STT coûte 11 Mo, pas 150.** La mémoire passe de 229 Mo à un flux à 308 Mo à huit : **+11,3 Mo par flux supplémentaire**, le modèle étant partagé. `docs/11` §2 retenait 150 à 320 Mo « par appel » d'après une source LiveKit — c'est le coût de **toute l'orchestration**, pas du STT. **La part STT de cette ligne est donc négligeable**, et la mémoire par appel doit être réattribuée au reste du pipeline, là où elle sera mesurée.
+
+**2. Le débit sature à 25 × le temps réel dès 4 flux** — le nombre de cœurs physiques de cette machine. Au-delà, les flux supplémentaires se partagent le même gâteau sans le faire grossir : le RTF par flux monte proportionnellement, mais reste **très en dessous de 1**. À 8 flux il est encore à 0,27, soit une marge de facteur 3,7.
+
+**3. Extrapolation prudente : de l'ordre de 25 à 30 appels simultanés avant que le STT ne prenne du retard sur la parole**, sur une machine de ce calibre. Et ce calcul est **pessimiste**, parce qu'un vrai appel laisse le décodeur inactif entre les répliques, là où ce banc le nourrit sans interruption.
+
+> **Conclusion pour le dimensionnement : le STT n'est pas le mur.** Les 4 à 6 appels simultanés que `docs/11` retenait pour une machine à 4 Go n'étaient pas limités par lui. Ce qui reste à mesurer, et qui portera la limite réelle, c'est **l'orchestration par appel, le TTS et surtout le LLM** — à commencer par le nombre de requêtes simultanées qu'un fournisseur accepte.
+
+### Rejouer
+
+```bash
+cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python charge_stt.py --max 8 --duree 15
+```
