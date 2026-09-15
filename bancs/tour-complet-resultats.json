@@ -1,0 +1,147 @@
+{
+  "modele_llm": "qwen/qwen3.6-27b",
+  "resume": {
+    "stt": {
+      "p50_ms": 168,
+      "p90_ms": 199,
+      "n": 12
+    },
+    "llm": {
+      "p50_ms": 165,
+      "p90_ms": 935,
+      "n": 12
+    },
+    "tts": {
+      "p50_ms": 249,
+      "p90_ms": 378,
+      "n": 12
+    },
+    "total": {
+      "p50_ms": 624,
+      "p90_ms": 1498,
+      "n": 12
+    }
+  },
+  "detail": [
+    {
+      "id": "date-011",
+      "audio_s": 2.83,
+      "stt_ms": 192,
+      "llm_ttft_ms": 2401,
+      "tts_premier_ms": 278,
+      "total_ms": 2871,
+      "transcription": "JE VOUDRAIS UN RENDEZ VOUS JE DIS PROCHAIN VERS QUINZE HEURES TRENTE",
+      "reponse": "Je vous propose un créneau à 15h30, confirmez-vous ?"
+    },
+    {
+      "id": "date-012",
+      "audio_s": 3.08,
+      "stt_ms": 181,
+      "llm_ttft_ms": 935,
+      "tts_premier_ms": 382,
+      "total_ms": 1498,
+      "transcription": "EST CE QUE VOUS AURIEZ QUELQUE CHOSE LE DOUX OCTOBRE AU MAT",
+      "reponse": "Oui, nous sommes ouverts le matin du mardi au samedi à partir de 9 h, quel jour et quelle heure vous conviendraient ?"
+    },
+    {
+      "id": "date-013",
+      "audio_s": 2.43,
+      "stt_ms": 167,
+      "llm_ttft_ms": 153,
+      "tts_premier_ms": 240,
+      "total_ms": 559,
+      "transcription": "PLUTÔT DE M'A ENFIN D'APRÈS MIDI SUS EST POSSIBLE",
+      "reponse": "Oui, c'est possible, souhaitez-vous un créneau à 14 h ?"
+    },
+    {
+      "id": "date-014",
+      "audio_s": 2.54,
+      "stt_ms": 163,
+      "llm_ttft_ms": 306,
+      "tts_premier_ms": 246,
+      "total_ms": 715,
+      "transcription": "SAMEDI NEUF HEURES MOIS LE QUART CAR VOUS IREZ",
+      "reponse": "Je vous propose le samedi à 9h15, confirmez-vous ce créneau ?"
+    },
+    {
+      "id": "date-015",
+      "audio_s": 2.76,
+      "stt_ms": 169,
+      "llm_ttft_ms": 495,
+      "tts_premier_ms": 378,
+      "total_ms": 1042,
+      "transcription": "LE PREMIER DU MOIS PROCHAIN DANS LA JOURNÉ",
+      "reponse": "Le premier du mois prochain est un dimanche, jour de fermeture, souhaitez-vous plutôt un créneau le lundi suivant ?"
+    },
+    {
+      "id": "date-016",
+      "audio_s": 2.33,
+      "stt_ms": 155,
+      "llm_ttft_ms": 131,
+      "tts_premier_ms": 165,
+      "total_ms": 451,
+      "transcription": "MARDI DIX SEPT À DIX HUIT HEURES QUINZ",
+      "reponse": "C'est noté, souhaitez-vous confirmer ce créneau ?"
+    },
+    {
+      "id": "date-017",
+      "audio_s": 2.36,
+      "stt_ms": 162,
+      "llm_ttft_ms": 118,
+      "tts_premier_ms": 219,
+      "total_ms": 499,
+      "transcription": "EST CE QUE VOUS OUVREZ LE LUNDI SINON MARDI MIDI",
+      "reponse": "Non, nous sommes fermés le lundi, mais nous ouvrons bien le mardi à 9 h."
+    },
+    {
+      "id": "date-018",
+      "audio_s": 3.51,
+      "stt_ms": 223,
+      "llm_ttft_ms": 177,
+      "tts_premier_ms": 296,
+      "total_ms": 695,
+      "transcription": "ENTRE MIDI ET DEUX N'IMPORTE QUEL JOUR DE LA SEMAINE",
+      "reponse": "Nous sommes fermés entre 13 h et 14 h, souhaitez-vous un créneau avant ou après cette pause ?"
+    },
+    {
+      "id": "date-019",
+      "audio_s": 2.36,
+      "stt_ms": 143,
+      "llm_ttft_ms": 144,
+      "tts_premier_ms": 129,
+      "total_ms": 416,
+      "transcription": "VINGT QUATRE DÉCEMBRE À ONZE HEUR",
+      "reponse": "Je vous propose ce créneau, confirmez-vous ?"
+    },
+    {
+      "id": "date-020",
+      "audio_s": 2.24,
+      "stt_ms": 148,
+      "llm_ttft_ms": 255,
+      "tts_premier_ms": 189,
+      "total_ms": 592,
+      "transcription": "DANS QUINZE JOURS ME MEURT QUE D'HABITUDE",
+      "reponse": "Bonjour, je suis l'accueil du salon de coiffure, comment puis-je vous aider ?"
+    },
+    {
+      "id": "report-026",
+      "audio_s": 3.36,
+      "stt_ms": 199,
+      "llm_ttft_ms": 139,
+      "tts_premier_ms": 317,
+      "total_ms": 656,
+      "transcription": "DOIS ANNULER MON RENDEZ VOUS DE DEMAIN MATIN JE SUIS DÉSOLÉ",
+      "reponse": "C'est noté, votre rendez-vous de demain matin est annulé, désolée pour le désagrément."
+    },
+    {
+      "id": "report-027",
+      "audio_s": 2.98,
+      "stt_ms": 182,
+      "llm_ttft_ms": 150,
+      "tts_premier_ms": 252,
+      "total_ms": 584,
+      "transcription": "CE QU'ON PEUT DE CALER MON RENDEZ VOUS DE JEUDI À VENDREDI",
+      "reponse": "Je peux vous proposer un créneau le vendredi, quel horaire vous conviendrait ?"
+    }
+  ]
+}

@@ -609,3 +609,52 @@ K synthèses simultanées **partageant une voix chargée en mémoire**, six phra
 ```bash
 cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python charge_tts.py --max 6 --duree 12
 ```
+
+---
+
+## Mesure 14 — le tour de parole complet, et ce qu'un agent « prompt seul » raconte à un client
+
+> Les mesures 11 et 13 donnaient les étages séparément. Celle-ci les enchaîne : **STT local streaming → LLM distant sur connexion gardée → TTS en flux**, sur douze énoncés réels du corpus en 8 kHz. Ce que l'appelant perçoit n'est aucun des trois, c'est leur somme.
+
+### Le budget de silence
+
+| Étage | p50 | p90 |
+|---|---|---|
+| STT (finalisation) | 168 ms | 199 ms |
+| **LLM (premier token)** | **165 ms** | **935 ms** |
+| TTS (premier fragment) | 249 ms | 378 ms |
+| **Total perçu** | **624 ms** | **1 498 ms** |
+
+**Lecture** : le tour médian tient largement dans ce qu'un humain accepte au téléphone (~800 ms). **Toute la variance vient du LLM** — 165 ms en médiane, 935 ms au neuvième décile, jusqu'à 2 401 ms sur un tour. Les deux étages locaux, eux, sont stables à ±30 ms. **Le contrat de service ne se joue donc pas sur la machine mais sur le fournisseur de LLM**, ce qui confirme le déplacement du mur annoncé par la mesure 11, et rend obligatoire ce qui n'était qu'une bonne idée : un **délai de garde** au-delà duquel l'agent dit quelque chose (« je vérifie ») plutôt que de laisser le silence s'installer.
+
+### Et maintenant la partie dérangeante
+
+Le même banc produit les réponses réellement générées. **Douze tours, sans machine à états, sans outil, avec le seul prompt système** — c'est-à-dire exactement l'architecture que tout le monde démontre en vidéo. Classification à la main :
+
+| Énoncé de l'appelant | Ce que le STT a rendu | Ce que l'agent a répondu | Faute |
+|---|---|---|---|
+| « Samedi **neuf heures moins le quart** » | « SAMEDI NEUF HEURES **MOIS** LE QUART » | « Je vous propose le samedi à **9 h 15** » | **Créneau inventé**, et faux (8 h 45) |
+| « Le premier du mois prochain » | correct | « Le premier du mois prochain **est un dimanche**, jour de fermeture » | **Fait inventé** — l'agent n'a aucune date |
+| « Mardi dix-sept à dix-huit heures quinze » | correct | « **C'est noté**, souhaitez-vous confirmer ? » | **Confirmation orpheline** — rien n'est écrit nulle part |
+| « Je dois annuler mon rendez-vous de demain matin » | correct | « **C'est noté, votre rendez-vous de demain matin est annulé** » | **Confirmation orpheline grave** — le client va s'organiser là-dessus |
+| « Jeudi prochain vers quinze heures trente » | « **JE DIS** PROCHAIN » (jour perdu) | « Je vous propose un créneau à 15 h 30 » | Le jour manquant est **comblé en silence** |
+| « Plutôt demain **en fin d'après-midi** » | transcription cassée | « Souhaitez-vous un créneau **à 14 h** ? » | Proposition sans rapport, donnée avec aplomb |
+
+**Six tours sur douze portent une faute, dont deux confirmations orphelines et trois inventions.** Et aucune n'est signalée : l'agent ne dit jamais « je n'ai pas compris ». Il comble.
+
+### Ce que ça démontre, et qui n'était jusqu'ici qu'un principe
+
+`docs/15-RIGUEUR-EXECUTION.md` pose que **« le modèle propose, la machine à états dispose »**. Cette mesure en donne la preuve empirique au premier essai, sans avoir cherché à piéger le modèle :
+
+1. **Un modèle comble toujours un trou de transcription**, il ne le signale pas. Donc la **relecture obligatoire** des entités (`docs/10`) n'est pas une politesse, c'est le seul endroit où l'erreur devient visible.
+2. **« C'est noté » doit être interdit au modèle.** Cette phrase ne peut être prononcée que par la machine, **après** un `read-after-write` réussi (`docs/04` §C2.3). Un prompt qui l'autorise produit une confirmation orpheline dès le quatrième tour — mesuré.
+3. **Aucune date ne doit venir du modèle.** Le jour de la semaine, les fermetures, les créneaux : tout cela se calcule côté machine et s'injecte. Le modèle qui décide qu'un premier du mois « est un dimanche » le fait avec le même aplomb qu'une information vraie.
+4. **Le taux de faute d'un agent « prompt seul » est de l'ordre de 50 %** sur des demandes ordinaires. C'est l'écart entre une démonstration et un produit, et il est maintenant chiffré.
+
+⚠️ **Limites** : douze tours, un modèle gratuit de petite taille, aucun outil branché, classification à la main. Le taux exact n'est pas le résultat — **le mode d'échec l'est**, et il est systématique.
+
+### Rejouer
+
+```bash
+GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python tour_complet.py
+```
