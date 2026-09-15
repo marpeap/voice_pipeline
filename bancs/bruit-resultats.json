@@ -1,0 +1,128 @@
+[
+  {
+    "bruit": "propre",
+    "rsb_db": null,
+    "moteur": "vosk",
+    "wer_pct": 11.5,
+    "mots": 791
+  },
+  {
+    "bruit": "propre",
+    "rsb_db": null,
+    "moteur": "sherpa",
+    "wer_pct": 19.97,
+    "mots": 791
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 20,
+    "moteur": "vosk",
+    "wer_pct": 15.17,
+    "mots": 791
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 20,
+    "moteur": "sherpa",
+    "wer_pct": 19.47,
+    "mots": 791
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 15,
+    "moteur": "vosk",
+    "wer_pct": 24.91,
+    "mots": 791
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 15,
+    "moteur": "sherpa",
+    "wer_pct": 20.73,
+    "mots": 791
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 10,
+    "moteur": "vosk",
+    "wer_pct": 36.41,
+    "mots": 791
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 10,
+    "moteur": "sherpa",
+    "wer_pct": 26.3,
+    "mots": 791
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 5,
+    "moteur": "vosk",
+    "wer_pct": 52.84,
+    "mots": 791
+  },
+  {
+    "bruit": "rose",
+    "rsb_db": 5,
+    "moteur": "sherpa",
+    "wer_pct": 34.51,
+    "mots": 791
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 20,
+    "moteur": "vosk",
+    "wer_pct": 12.01,
+    "mots": 791
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 20,
+    "moteur": "sherpa",
+    "wer_pct": 19.47,
+    "mots": 791
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 15,
+    "moteur": "vosk",
+    "wer_pct": 15.8,
+    "mots": 791
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 15,
+    "moteur": "sherpa",
+    "wer_pct": 18.96,
+    "mots": 791
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 10,
+    "moteur": "vosk",
+    "wer_pct": 27.69,
+    "mots": 791
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 10,
+    "moteur": "sherpa",
+    "wer_pct": 20.23,
+    "mots": 791
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 5,
+    "moteur": "vosk",
+    "wer_pct": 51.45,
+    "mots": 791
+  },
+  {
+    "bruit": "babil",
+    "rsb_db": 5,
+    "moteur": "sherpa",
+    "wer_pct": 28.7,
+    "mots": 791
+  }
+]

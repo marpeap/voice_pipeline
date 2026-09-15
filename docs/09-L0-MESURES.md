@@ -434,3 +434,54 @@ Même corpus que les mesures 7 et 8 (79 énoncés, 16 kHz et 8 kHz µ-law), troi
 ```bash
 cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python wer_sherpa.py
 ```
+
+---
+
+## Mesure 10 — la courbe de dégradation au bruit, et le classement des moteurs qui s'inverse
+
+### Méthode
+
+79 énoncés, **en 8 kHz** (la bande réelle), mélangés à un bruit calibré en rapport signal/bruit exact, à **20, 15, 10 et 5 dB**, plus la référence propre. Deux natures de bruit, parce qu'elles ne détruisent pas la même chose :
+
+- **bruit rose** large bande — le sèche-cheveux, la hotte, la rue ;
+- **babil** — six voix superposées et décalées, fabriquées **à partir du corpus lui-même**, donc avec le bon spectre et la bonne prosodie : une salle pleine.
+
+Deux moteurs locaux, 18 conditions, 1 422 transcriptions. **C'est la courbe que `docs/07` réclamait et qu'aucune source publique ne donne pour le français téléphonique.**
+
+### Résultats — WER en %
+
+| Condition | `vosk-small-fr` | `sherpa zipformer` |
+|---|---|---|
+| **propre** | **11,5** | 20,0 |
+| rose 20 dB | 15,2 | 19,5 |
+| **rose 15 dB** | **24,9** | **20,7** |
+| rose 10 dB | 36,4 | 26,3 |
+| rose 5 dB | **52,8** | 34,5 |
+| babil 20 dB | 12,0 | 19,5 |
+| babil 15 dB | 15,8 | 19,0 |
+| babil 10 dB | 27,7 | 20,2 |
+| babil 5 dB | 51,5 | 28,7 |
+
+### Ce que ça dit, et c'est le résultat le plus dérangeant du lot
+
+**1. Le classement des moteurs s'inverse avec le bruit.** Sur de l'audio propre, Vosk est **deux fois meilleur** que sherpa (11,5 contre 20,0). À partir de **15 dB de bruit rose**, il devient **le pire des deux** (24,9 contre 20,7), et à 5 dB il a perdu la moitié des mots (52,8) quand sherpa en perd un tiers (34,5).
+
+> **Conséquence directe : un moteur ne se choisit pas sur de l'audio propre.** Tout notre classement précédent — et tous les leaderboards publics — décrivent une condition que notre produit ne rencontrera jamais. **Le choix doit se faire au rapport signal/bruit du terrain**, c'est-à-dire autour de 10 à 15 dB.
+
+**2. La pente compte plus que le point de départ.** Sherpa est plat de 20 dB à 10 dB (19,5 → 20,2 en babil) puis se dégrade doucement ; Vosk s'effondre dès 15 dB. Un moteur médiocre mais stable vaut mieux, en exploitation, qu'un bon moteur fragile : le premier rend un service prévisible, le second rend un service qui dépend de la rue où se tient l'appelant.
+
+**3. Le babil est moins destructeur que le bruit rose, à rapport signal/bruit égal** — l'inverse de ce que j'attendais en écrivant le banc. À 10 dB : 27,7 contre 36,4 pour Vosk, 20,2 contre 26,3 pour sherpa. **[H]** Explication probable : notre babil est lui aussi passé en 8 kHz, il est donc confiné à la même bande étroite que la parole utile et il comporte des silences, là où le bruit rose occupe toute la bande en continu. À revérifier avec du babil enregistré en salon — c'est une dette de mesure, pas une conclusion.
+
+**4. Le bruit est du côté de l'appelant, pas du salon.** L'agent n'entend jamais le sèche-cheveux du salon : il entend **l'environnement de celui qui appelle** — la rue, la voiture, le magasin, le haut-parleur. Ce sont précisément des conditions de 10 à 15 dB. **Donc la colonne qui décrit notre exploitation n'est pas la ligne « propre », c'est la ligne 10-15 dB.** Le WER réel à attendre est entre 20 et 27 %, pas entre 9 et 11 %.
+
+### Trois règles de conception qui en tombent
+
+1. **Mesurer le rapport signal/bruit dès les premières secondes de l'appel** — c'est un calcul de deux lignes sur l'énergie pendant et hors parole, et il ne coûte rien. Il est connu avant la première question.
+2. **Basculer de stratégie quand il est bas**, au lieu de subir : questions plus courtes, une entité à la fois, **et passage au clavier pour le numéro dès le premier essai** au lieu d'attendre deux échecs (règle T7 de `docs/10`). Le numéro est la seule donnée qu'on ne peut pas se permettre de perdre, et c'est celle que le bruit attaque.
+3. **Le journal d'appel enregistre le rapport signal/bruit.** Sans lui, une plainte « l'agent comprend mal » n'est pas diagnosticable ; avec lui, on sait tout de suite si le problème est le moteur, le pack, ou la rue.
+
+### Rejouer
+
+```bash
+cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python bruit.py      # ~20 min sur un processeur de poste
+```
