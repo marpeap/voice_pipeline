@@ -1,0 +1,219 @@
+"""Le service — ce qui demarre, ce qui refuse de demarrer, et ce qu'il sait dire.
+
+Trois responsabilites, toutes nees d'une mesure ou d'une regle ecrite :
+
+- **amorcer la reserve de connexions au demarrage** (mesure 4 : 2 040 ms pour une
+  connexion neuve contre 378 ms pour une connexion gardee) ;
+- **refuser d'activer un agent incomplet** : tant qu'une question critique du pack
+  est sans reponse, l'agent ne decroche pas — ce sont exactement celles dont
+  l'absence produit une erreur entendue par le client ;
+- **tenir le journal** qui rend un appel diagnosticable sans le reecouter :
+  rapport signal/bruit, delai avant premier fragment, confirmations orphelines.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Any, Callable
+
+from standard import regles
+from standard.appel import Appel
+from standard.decision import Agenda
+from standard.ecoute import ReserveDeConnexions
+from standard.locataire import composer_memoire, lire_memoire, paliers_manquants
+
+
+@dataclass
+class Configuration:
+    """Tout ce qui change d'un deploiement a l'autre, et rien d'autre.
+
+    Les seuils prennent par defaut les valeurs **mesurees** (`standard.regles`) :
+    on peut les changer, mais il faut le vouloir, et cela se voit dans la
+    configuration plutot que dans le code.
+    """
+
+    tenant: str
+    pack: dict
+    reponses: dict = field(default_factory=dict)
+    corps: str = ""
+    modele: str | None = None
+    parametres: dict = field(default_factory=dict)
+    aujourd_hui: date = field(default_factory=date.today)
+    horizon_jours: int = 14
+    creneaux: tuple[str, ...] = ()
+    jours_fermes: tuple[int, ...] = (6,)
+    connexions: int = 4
+    seuil_bruite_db: int = regles.SEUIL_BRUITE_DB
+    consignes_communes: str = ""
+
+    @classmethod
+    def depuis(cls, source: dict) -> "Configuration":
+        """Construit depuis un dictionnaire — fichier, variables d'environnement
+        ou console : le service ne sait pas d'ou cela vient, et c'est voulu."""
+        if "pack" not in source:
+            raise ValueError("configuration sans pack : un agent sans pack n'a pas de questions")
+        pack = source["pack"]
+        if isinstance(pack, (str, Path)):
+            pack = json.loads(Path(pack).read_text())
+        return cls(
+            tenant=source.get("tenant", "inconnu"),
+            pack=pack,
+            reponses=dict(source.get("reponses", {})),
+            corps=source.get("corps", ""),
+            modele=source.get("modele"),
+            parametres=dict(source.get("parametres", {})),
+            aujourd_hui=(date.fromisoformat(source["aujourd_hui"])
+                         if isinstance(source.get("aujourd_hui"), str)
+                         else source.get("aujourd_hui") or date.today()),
+            horizon_jours=int(source.get("horizon_jours", 14)),
+            creneaux=tuple(source.get("creneaux", ())),
+            jours_fermes=tuple(source.get("jours_fermes", (6,))),
+            connexions=int(source.get("connexions", 4)),
+            seuil_bruite_db=int(source.get("seuil_bruite_db", regles.SEUIL_BRUITE_DB)),
+            consignes_communes=source.get("consignes_communes", ""),
+        )
+
+
+class AppelSuivi:
+    """Un appel, plus ce que le service doit en retenir."""
+
+    def __init__(self, appel: Appel, annonce: str, supervision: "Supervision"):
+        self._appel = appel
+        self._annonce = annonce
+        self._supervision = supervision
+        self._supervision.appels += 1
+
+    @property
+    def etat(self):
+        return self._appel.etat
+
+    @property
+    def journal(self):
+        return self._appel.journal
+
+    def salutation(self) -> str:
+        """La premiere phrase, et elle annonce l'agent — non desactivable.
+
+        Mesure 19 : cette phrase survit au canal telephonique, les deux moteurs la
+        retrouvent intacte. Il n'y a donc aucune raison technique de la raccourcir
+        ni de la deplacer.
+        """
+        return self._annonce
+
+    def tour(self, transcription: str, bruite: bool = False):
+        if bruite:
+            self._supervision.appels_bruites += 1
+        return self._appel.tour(transcription, bruite=bruite)
+
+    def confirmer(self):
+        reponse = self._appel.confirmer()
+        self._supervision.absorber(self._appel.journal)
+        return reponse
+
+
+@dataclass
+class Supervision:
+    """Les trois chiffres qui disent si le service va bien.
+
+    Le troisieme n'est pas une statistique : **toute confirmation orpheline est un
+    incident** (docs/07), et une machine pleine se voit au delai avant premier
+    fragment, pas a la charge processeur (mesure 13).
+    """
+    appels: int = 0
+    appels_bruites: int = 0
+    confirmations_orphelines: int = 0
+    premiers_fragments_ms: list[float] = field(default_factory=list)
+
+    def absorber(self, journal) -> None:
+        self.confirmations_orphelines = max(self.confirmations_orphelines,
+                                            journal.confirmations_orphelines)
+
+    def etat(self) -> dict[str, Any]:
+        import statistics
+        part = (100.0 * self.appels_bruites / self.appels) if self.appels else 0.0
+        return {
+            "appels": self.appels,
+            "part_bruitee_pct": round(part, 1),
+            "confirmations_orphelines": self.confirmations_orphelines,
+            "premier_fragment_p50_ms": (round(statistics.median(self.premiers_fragments_ms))
+                                        if self.premiers_fragments_ms else None),
+        }
+
+
+class Service:
+    """Le point d'entree : on le configure, on le demarre, il rend des appels."""
+
+    def __init__(self, configuration: Configuration, client_modele,
+                 base, fabrique_connexion: Callable[[], Any] | None = None,
+                 maintenir: Callable[[Any], None] | None = None):
+        self.configuration = configuration
+        self.client_modele = client_modele
+        self.base = base
+        self.metriques = Supervision()
+        self.reserve = ReserveDeConnexions(
+            fabrique=fabrique_connexion or (lambda: object()),
+            taille=configuration.connexions, maintenir=maintenir)
+        self._memoire = None
+        self._demarre = False
+
+    # --- demarrage ----------------------------------------------------------
+
+    def questions_manquantes(self) -> list[str]:
+        """Les questions critiques encore vides. Dire ce qui manque vaut mieux
+        qu'echouer sechement : le commercant peut agir."""
+        return paliers_manquants(self.configuration.pack, self.configuration.reponses)
+
+    def demarrer(self) -> None:
+        manquantes = self.questions_manquantes()
+        if manquantes:
+            raise RuntimeError(
+                "l'agent ne peut pas etre active, ces questions critiques sont sans "
+                f"reponse : {', '.join(manquantes)}")
+        texte = composer_memoire(self.configuration.pack, self.configuration.reponses,
+                                 self.configuration.corps)
+        self._memoire = (texte, lire_memoire(texte))
+        self.reserve.amorcer()          # au demarrage, jamais a l'arrivee d'un appel
+        self._demarre = True
+
+    # --- appels -------------------------------------------------------------
+
+    def _agenda(self) -> Agenda:
+        return Agenda(aujourd_hui=self.configuration.aujourd_hui,
+                      horizon_jours=self.configuration.horizon_jours,
+                      jours_fermes=tuple(self.configuration.jours_fermes),
+                      creneaux=set(self.configuration.creneaux))
+
+    def _annonce(self) -> str:
+        """La formulation choisie par le salon, jamais son existence."""
+        _, memoire = self._memoire
+        choix = memoire.frontmatter.get("annonce", {}).get("formulation", "assistant_automatique")
+        nom = memoire.frontmatter.get("salon", {}).get("nom") \
+            or memoire.frontmatter.get("etablissement", {}).get("nom") or "l'établissement"
+        libelles = {
+            "assistant_automatique": f"Bonjour, {nom}. Je suis l'assistant automatique, je vous écoute.",
+            "assistant_virtuel": f"Bonjour, je suis l'assistant virtuel de {nom}, je vous écoute.",
+        }
+        if choix in libelles:
+            return libelles[choix]
+        return f"Bonjour, {nom}. {choix}"
+
+    def supervision(self) -> dict[str, Any]:
+        """L'etat du service, en trois chiffres : combien d'appels, quelle part
+        d'entre eux etait bruitee, et combien de confirmations orphelines — ce
+        dernier devant rester a zero."""
+        return self.metriques.etat()
+
+    def nouvel_appel(self, identifiant: str) -> AppelSuivi:
+        if not self._demarre:
+            raise RuntimeError("le service doit etre demarre avant de prendre un appel")
+        texte, _ = self._memoire
+        appel = Appel(client_modele=self.client_modele, agenda=self._agenda(),
+                      base=self.base, memoire=texte,
+                      consignes_communes=self.configuration.consignes_communes,
+                      tenant=self.configuration.tenant, identifiant=identifiant,
+                      modele=self.configuration.modele,
+                      parametres=self.configuration.parametres or None)
+        return AppelSuivi(appel, self._annonce(), self.metriques)
