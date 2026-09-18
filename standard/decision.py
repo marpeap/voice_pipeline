@@ -24,10 +24,12 @@ JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
         "septembre", "octobre", "novembre", "décembre"]
 
-SEUIL_CONFIANCE = 0.7
-REFUS_AVANT_OUBLI = 2
-TOURS_SANS_PROGRES_AVANT_TRANSFERT = 2
-ECART_MINIMAL_ENTRE_HORAIRES_MIN = 60   # regle E2, mesuree sur l'audio (mesure 19)
+from standard.regles import (          # une seule source pour les seuils
+    ECART_MINIMAL_ENTRE_HORAIRES_MIN,
+    REFUS_AVANT_OUBLI,
+    SEUIL_CONFIANCE,
+    TOURS_SANS_PROGRES_AVANT_TRANSFERT,
+)
 
 
 @dataclass

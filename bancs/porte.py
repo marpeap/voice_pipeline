@@ -34,7 +34,7 @@ from standard.decision import Agenda, enoncer_date   # noqa: E402
 from standard.grammaire import enoncer_numero, lire_numero  # noqa: E402
 
 MARDI = date(2026, 9, 15)
-INTERDITS = ("c'est noté", "c'est enregistré", "est annulé", "j'ai enregistré", "c'est fait")
+from standard.regles import VERBES_DE_CONFIRMATION as INTERDITS  # noqa: E402
 
 
 class ModeleScripte:

@@ -30,7 +30,7 @@ def proposition(**champs):
 
 # --- ce que la machine a le droit de dire -----------------------------------
 
-INTERDITS = ("c'est noté", "c'est enregistré", "est annulé", "j'ai enregistré", "c'est fait")
+from standard.regles import VERBES_DE_CONFIRMATION as INTERDITS
 
 
 def test_aucune_confirmation_sans_ecriture_relue():

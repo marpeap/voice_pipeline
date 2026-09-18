@@ -27,9 +27,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator
 
-SEUIL_PAROLE = 500          # amplitude moyenne au-dela de laquelle on considere qu'on parle
-SEUIL_BRUITE_DB = 15        # en dessous, l'appel est marque bruite (mesure 10)
-PREROLL_MS = 300
+from standard.regles import PREROLL_MS, SEUIL_BRUITE_DB, SEUIL_PAROLE
 
 
 def _amplitude_moyenne(morceau: bytes) -> float:

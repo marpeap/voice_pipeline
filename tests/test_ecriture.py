@@ -15,7 +15,7 @@ from standard.ecriture import (
     ecrire_rendez_vous,
 )
 
-INTERDITS = ("c'est noté", "c'est enregistré", "est annulé", "j'ai enregistré")
+from standard.regles import VERBES_DE_CONFIRMATION as INTERDITS
 
 
 class BaseFactice:

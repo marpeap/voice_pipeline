@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from standard.decision import enoncer_date, enoncer_heure
+from standard.regles import VERBES_DE_CONFIRMATION
 
 
 class BaseRendezVous(Protocol):
@@ -73,7 +74,10 @@ def _phrase_de_confirmation(donnees: dict) -> str:
     quand = f"{enoncer_date(donnees['date'])} à {enoncer_heure(donnees['heure'])}"
     prestation = donnees.get("prestation")
     quoi = f"votre {prestation}" if prestation else "votre rendez-vous"
-    return f"C'est enregistré : {quoi}, {quand}. Vous recevrez un SMS de confirmation."
+    # Le verbe vient de la source unique : c'est la seule phrase du produit
+    # autorisee a le porter, et elle ne peut pas diverger de la liste que les
+    # tests interdisent partout ailleurs.
+    return f"{VERBES_DE_CONFIRMATION[1].capitalize()} : {quoi}, {quand}. Vous recevrez un SMS de confirmation."
 
 
 def _phrase_d_incertitude() -> str:

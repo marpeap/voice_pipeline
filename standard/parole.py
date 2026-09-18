@@ -22,8 +22,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Callable, Iterator
 
-SEUIL_GARDE_MS = 700
-PARALLELISME_PAR_DEFAUT = 4     # ~4 coeurs : au-dela, le premier son passe 400 ms
+from standard.regles import PARALLELISME_SYNTHESE, SEUIL_GARDE_MS
 
 # Plusieurs formulations, parce qu'une machine qui repete mot pour mot la meme
 # phrase est une machine qui boucle (mesure 16).
@@ -41,7 +40,7 @@ class FileDeSynthese:
     quelques dizaines de millisecondes et personne ne s'en apercoit.
     """
 
-    def __init__(self, parallelisme: int = PARALLELISME_PAR_DEFAUT):
+    def __init__(self, parallelisme: int = PARALLELISME_SYNTHESE):
         self.parallelisme = parallelisme
         self._jetons = threading.Semaphore(parallelisme)
 
