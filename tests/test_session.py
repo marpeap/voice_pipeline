@@ -203,3 +203,34 @@ def test_apres_l_interruption_le_tour_de_l_appelant_est_bien_pris():
     for _ in range(int(s.silence_de_fin_ms / 20) + 1):
         s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
     assert agent.entendus == ["une phrase"]
+
+
+# --- le transfert et la preuve de l'annonce ---------------------------------
+
+def test_le_transfert_est_un_signal_et_pas_seulement_une_phrase():
+    """Dire « je vous passe quelqu'un » sans rien signaler au bord telephonique,
+    c'est raccrocher au nez de l'appelant en musique."""
+    class AgentQuiTransfere(AgentFactice):
+        def tour(self, transcription, bruite=False):
+            from standard.appel import Reponse
+            return Reponse("transfert", "Je vous passe quelqu'un du salon.")
+
+    s = session(AgentQuiTransfere())
+    s.ouvrir()
+    for _ in range(3):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    for _ in range(int(s.silence_de_fin_ms / 20) + 1):
+        s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
+    assert s.transfert_demande is True
+
+
+def test_l_annonce_est_prouvable_apres_coup():
+    """L'AI Act demande que l'information soit donnee « de facon prouvable ».
+    Une annonce prononcee dont il ne reste rien n'est pas une preuve."""
+    s = session()
+    s.ouvrir()
+    preuve = s.preuve_d_annonce
+    assert preuve is not None
+    assert preuve["formulation"]
+    assert preuve["horodatage"].endswith("+00:00") or "T" in preuve["horodatage"]
+    assert preuve["conforme"] is True

@@ -89,6 +89,8 @@ class SessionTelephonique:
     audio_recu: int = 0
     saisie_terminee: bool = False
     interruptions: int = 0
+    transfert_demande: bool = False
+    preuve_d_annonce: dict | None = None
     erreurs: list[bytes] = field(default_factory=list)
 
     _decodeur: Decodeur = field(default_factory=Decodeur, repr=False)
@@ -104,8 +106,26 @@ class SessionTelephonique:
     # --- ouverture ----------------------------------------------------------
 
     def ouvrir(self) -> list[bytes]:
-        """Joue l'annonce. Elle est la premiere phrase, jamais une autre."""
-        return self._jouer(self.agent.salutation())
+        """Joue l'annonce, et **en garde la preuve**.
+
+        L'AI Act ne demande pas seulement d'informer : il demande de pouvoir le
+        prouver. Une annonce prononcee dont il ne reste aucune trace ne vaut rien
+        le jour ou quelqu'un la conteste — et la sanction associee monte a 15 M€
+        ou 3 % du chiffre d'affaires mondial.
+        """
+        from datetime import datetime, timezone
+
+        from standard.conformite import verifier_annonce
+
+        phrase = self.agent.salutation()
+        verdict = verifier_annonce(phrase)
+        self.preuve_d_annonce = {
+            "phrase": phrase,
+            "formulation": verdict.formulation,
+            "conforme": verdict.conforme,
+            "horodatage": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+        return self._jouer(phrase)
 
     # --- ce que l'agent est en train de dire --------------------------------
 
@@ -190,7 +210,12 @@ class SessionTelephonique:
         if not texte:
             return []
         reponse = self.agent.tour(texte)
-        return self._jouer(reponse.phrase)
+        morceaux = self._jouer(reponse.phrase)
+        if getattr(reponse, "genre", "") == "transfert":
+            # Le bord telephonique doit VRAIMENT passer la main : une phrase sans
+            # signal, c'est raccrocher au nez de l'appelant en musique.
+            self.transfert_demande = True
+        return morceaux
 
     # --- le clavier (regle T7) ----------------------------------------------
 
