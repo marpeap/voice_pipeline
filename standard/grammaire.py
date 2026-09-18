@@ -216,6 +216,14 @@ def lire_numero(texte: str) -> Lecture:
         return Lecture("relecture", relecture=None, explication="aucun chiffre entendu",
                        groupes=trace)
 
+    # T1 — un 08 se refuse des qu'on l'entend, sans attendre les dix chiffres.
+    # Trouve par la porte de non-regression : un numero special enonce a moitie
+    # partait en relecture, et on faisait repeter un numero qu'on n'appellera
+    # jamais. Refuser tout de suite est plus court et plus honnete.
+    if chiffres.startswith("08"):
+        return Lecture("refus", explication="numero special (08), non pris en charge",
+                       groupes=trace)
+
     # T2 et T3 — le zero initial ne se croit jamais : neuf chiffres lisibles et un
     # debut inintelligible se reconstruisent sous contrainte.
     if len(chiffres) == 9 and _prefixe_acceptable("0" + chiffres):

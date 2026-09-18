@@ -50,6 +50,14 @@ def test_numeros_refuses_ou_relus(entree, motif):
     assert lecture.issue == motif, lecture
 
 
+def test_un_08_se_refuse_des_les_premiers_chiffres():
+    """Trouve par la porte : « zero huit douze trente-quatre cinquante-six » ne
+    fait que huit chiffres, mais il n'y a aucune raison de le faire repeter —
+    on ne rappellera pas un numero special, quelle que soit sa longueur."""
+    lecture = lire_numero("zero huit douze trente-quatre cinquante-six")
+    assert lecture.issue == "refus"
+
+
 def test_numero_nominal():
     lecture = lire_numero("zero six douze trente-quatre cinquante-six soixante-dix-huit")
     assert lecture.issue == "accepte"
