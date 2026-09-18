@@ -121,16 +121,31 @@ def test_une_reponse_illisible_devient_une_intention_inconnue():
     assert proposition["confiance"]["intention"] == 0.0
 
 
-def test_une_date_hors_calendrier_perd_sa_confiance():
-    """Le modele ne peut pas proposer un jour que la machine ne lui a pas donne."""
+def test_une_date_hors_calendrier_est_conservee_pour_que_la_machine_reponde():
+    """Un appelant a le droit de demander le premier janvier. La machine doit
+    pouvoir repondre « je ne prends pas encore les rendez-vous aussi loin » —
+    pas faire semblant de ne pas avoir entendu (mesure 15 : toute absence de
+    donnee a sa propre reponse)."""
     client = ClientFactice(reponse=json.dumps(
         {"intention": "rdv", "date": "2027-01-01", "heure": "15:30",
          "confiance": {"intention": 0.9, "date": 0.9, "heure": 0.9}}))
     proposition = comprehension(client).analyser("le premier janvier", MEMOIRE, CALENDRIER)
+    assert proposition["date"] == "2027-01-01"
+    assert proposition["confiance"]["date"] == 0.9
+
+
+def test_une_date_illisible_est_jetee():
+    client = ClientFactice(reponse=json.dumps(
+        {"intention": "rdv", "date": "jeudi prochain", "heure": None,
+         "confiance": {"intention": 0.9, "date": 0.9}}))
+    proposition = comprehension(client).analyser("jeudi prochain", MEMOIRE, CALENDRIER)
+    assert proposition["date"] is None
     assert proposition["confiance"]["date"] == 0.0
 
 
 def test_une_heure_absente_du_jour_perd_sa_confiance():
+    """La ou la machine CONNAIT le jour, elle connait ses creneaux : une heure
+    qui n'y figure pas a ete inventee."""
     client = ClientFactice(reponse=json.dumps(
         {"intention": "rdv", "date": "2026-09-18", "heure": "15:30",
          "confiance": {"intention": 0.9, "date": 0.9, "heure": 0.9}}))

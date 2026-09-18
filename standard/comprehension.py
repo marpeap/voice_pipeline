@@ -17,6 +17,7 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, Protocol
 
 CHAMPS = ("intention", "date", "heure", "prestation", "confiance", "manque")
@@ -71,6 +72,14 @@ def ordonner_le_prompt(consignes_communes: str, memoire: str, calendrier: dict,
         {"role": "system", "content": f"Créneaux libres, calculés par la machine :\n{jours}"},
         {"role": "user", "content": transcription},
     ]
+
+
+def _date_lisible(valeur: str) -> bool:
+    try:
+        date.fromisoformat(valeur)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _proposition_vide() -> dict:
@@ -137,13 +146,22 @@ class Comprehension:
         manque = charge.get("manque")
         proposition["manque"] = [m for m in manque if isinstance(m, str)] if isinstance(manque, list) else []
 
-        # Le calendrier de la machine fait foi : une date ou une heure qu'il ne
-        # contient pas n'a pas pu etre lue, elle a ete inventee.
+        # Le calendrier de la machine fait foi sur les CRENEAUX, pas sur les
+        # demandes. Une date hors calendrier est conservee : un appelant a le
+        # droit de demander le 24 decembre, et c'est a la machine de repondre
+        # « je ne prends pas encore les rendez-vous aussi loin » — pas de faire
+        # semblant de ne pas avoir entendu (mesure 15 : une absence de donnee
+        # doit avoir sa propre reponse). Seule une date illisible perd sa
+        # confiance.
         jour = proposition["date"]
-        if jour and jour not in calendrier:
+        if jour and not _date_lisible(jour):
             proposition["confiance"]["date"] = 0.0
+            proposition["date"] = None
+
+        # L'heure, elle, ne peut venir que des creneaux donnes : si le jour est
+        # connu de la machine et que l'heure n'y figure pas, elle a ete inventee.
         heure = proposition["heure"]
-        if heure and (not jour or heure not in calendrier.get(jour, [])):
+        if heure and jour in calendrier and heure not in calendrier[jour]:
             proposition["confiance"]["heure"] = 0.0
 
         return {champ: proposition[champ] for champ in CHAMPS}
