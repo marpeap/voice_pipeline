@@ -30,6 +30,13 @@ from standard.audiosocket import (
 from standard.regles import SEUIL_PAROLE
 
 SILENCE_DE_FIN_MS = 700       # au-dela, on considere que l'appelant a fini de parler
+# Interruption (barge-in). Etat de l'art releve le 19/09/2026 : ecart de reprise
+# de parole de 200 a 400 ms, moins de 2 % d'interruptions a tort, coupure de la
+# synthese en moins de 60 ms. Le garde-fou le plus efficace est une DUREE
+# MINIMALE de parole avant de couper — il divise par plus de deux les
+# interruptions a tort, la premiere cause etant l'echo de notre propre voix
+# renvoye par le reseau telephonique.
+DUREE_MINIMALE_INTERRUPTION_MS = 240
 DUREE_PAQUET_MS = 20
 FIN_DE_SAISIE = "#"
 EFFACER_LA_SAISIE = "*"
@@ -75,11 +82,13 @@ class SessionTelephonique:
     synthetiser: Callable[[str], list[bytes]]       # texte -> fragments audio
     frequence_moteur: int = 16000
     silence_de_fin_ms: int = SILENCE_DE_FIN_MS
+    duree_minimale_interruption_ms: int = DUREE_MINIMALE_INTERRUPTION_MS
 
     identifiant: str | None = None
     fermee: bool = False
     audio_recu: int = 0
     saisie_terminee: bool = False
+    interruptions: int = 0
     erreurs: list[bytes] = field(default_factory=list)
 
     _decodeur: Decodeur = field(default_factory=Decodeur, repr=False)
@@ -89,12 +98,34 @@ class SessionTelephonique:
     _a_parle: bool = False
     _chiffres: list[str] = field(default_factory=list, repr=False)
     _attend_un_numero: bool = False
+    _a_dire: list[bytes] = field(default_factory=list, repr=False)
+    _parole_continue_ms: int = 0
 
     # --- ouverture ----------------------------------------------------------
 
     def ouvrir(self) -> list[bytes]:
         """Joue l'annonce. Elle est la premiere phrase, jamais une autre."""
         return self._jouer(self.agent.salutation())
+
+    # --- ce que l'agent est en train de dire --------------------------------
+
+    @property
+    def en_train_de_parler(self) -> bool:
+        return bool(self._a_dire)
+
+    @property
+    def reste_a_emettre(self) -> int:
+        """Paquets encore a jouer. Ils sont JETES si l'appelant reprend la parole :
+        les reprendre apres l'interruption ferait parler l'agent par-dessus lui."""
+        return len(self._a_dire)
+
+    def emettre(self) -> bytes | None:
+        """Le prochain paquet a envoyer, ou rien. C'est le serveur qui rythme."""
+        return self._a_dire.pop(0) if self._a_dire else None
+
+    def _interrompre(self) -> None:
+        self.interruptions += 1
+        self._a_dire.clear()
 
     # --- reception ----------------------------------------------------------
 
@@ -132,7 +163,14 @@ class SessionTelephonique:
         if _amplitude(trame.charge) >= SEUIL_PAROLE:
             self._a_parle = True
             self._silence_ms = 0
+            self._parole_continue_ms += DUREE_PAQUET_MS
+            # On ne coupe qu'apres une parole assez longue pour ne pas etre un
+            # « mm », une porte qui claque, ou notre propre voix qui revient.
+            if self.en_train_de_parler and \
+                    self._parole_continue_ms >= self.duree_minimale_interruption_ms:
+                self._interrompre()
             return []
+        self._parole_continue_ms = 0
 
         if not self._a_parle:
             return []                                # silence d'avant la parole
@@ -201,4 +239,5 @@ class SessionTelephonique:
             audio = reechantillonner(fragment, self.frequence_moteur, 8000) \
                 if self.frequence_moteur != 8000 else fragment
             morceaux += encoder_audio(audio, TYPE_AUDIO_8K, PAQUET_20MS_8K)
+        self._a_dire.extend(morceaux)
         return morceaux

@@ -156,3 +156,50 @@ def test_les_chiffres_hors_saisie_ne_polluent_pas():
     s.ouvrir()
     s.recevoir(encoder(TYPE_DTMF, b"5"))
     assert s.numero_compose() is None
+
+
+# --- l'interruption (barge-in) ----------------------------------------------
+#
+# Etat de l'art relevé le 19/09/2026 : écart de reprise de parole de 200 à
+# 400 ms, moins de 2 % d'interruptions à tort, et une coupure de la synthèse en
+# moins de 60 ms. Le garde-fou le plus efficace est une durée minimale de parole
+# avant de couper — il divise par plus de deux les interruptions à tort.
+
+def test_l_agent_se_tait_quand_l_appelant_reprend_la_parole():
+    s = session()
+    s.ouvrir()
+    assert s.en_train_de_parler
+    for _ in range(int(s.duree_minimale_interruption_ms / 20) + 1):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    assert not s.en_train_de_parler, "l'agent parle encore alors qu'on lui coupe la parole"
+    assert s.interruptions == 1
+
+
+def test_un_bruit_bref_ne_coupe_pas_la_parole():
+    """Un « mm », une porte qui claque, l'écho de notre propre voix sur le
+    réseau : rien de tout cela n'est une reprise de parole."""
+    s = session()
+    s.ouvrir()
+    s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))   # 20 ms
+    assert s.en_train_de_parler
+    assert s.interruptions == 0
+
+
+def test_ce_qui_restait_a_dire_est_jete_et_non_repris_plus_tard():
+    s = session()
+    s.ouvrir()
+    assert s.reste_a_emettre > 0
+    for _ in range(int(s.duree_minimale_interruption_ms / 20) + 1):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    assert s.reste_a_emettre == 0, "l'agent reprendra sa phrase par-dessus l'appelant"
+
+
+def test_apres_l_interruption_le_tour_de_l_appelant_est_bien_pris():
+    agent = AgentFactice()
+    s = session(agent)
+    s.ouvrir()
+    for _ in range(int(s.duree_minimale_interruption_ms / 20) + 2):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    for _ in range(int(s.silence_de_fin_ms / 20) + 1):
+        s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
+    assert agent.entendus == ["une phrase"]
