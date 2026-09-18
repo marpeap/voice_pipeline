@@ -1,13 +1,18 @@
 # voice-pipeline (refonte) — reprise de session
 
-**Quoi** : standard téléphonique IA en français, conçu comme **greffon** réutilisable (Crenolo, Inkra, Kompagnon, tiers).
-**Où en est-on** : deux vagues de recherche bouclées (15 rapports), **13 documents de conception**, et le **lot L0 mesuré à trois sur quatre**. **Aucune ligne de code produit, et c'est voulu** — les bancs de mesure, eux, tournent.
+**Quoi** : standard téléphonique IA en français, **service à part entière** ; Crenolo n'en est qu'un adaptateur.
+**Où en est-on (18/09)** : **le code existe**. Branche **`lot-l1`**, 144 tests verts, porte de non-régression ouverte en deux passages (`pass^5`). Neuf modules dans `standard/`, trois packs sectoriels, un mode de démonstration hors ligne.
 
-**Mesures faites le 14/09** (`docs/09-L0-MESURES.md`) : Piper RTF 0,096 mais **TTFB 372 ms** (il synthétise la phrase entière avant de livrer → la première réplique doit être courte) · **WER français 8 kHz** : Nemotron 7,8 % (×1,11), Vosk 10,6 % (×1,40), sherpa 23,4 % · **le « zéro » initial des numéros** massacré par Vosk et sherpa, correct chez Nemotron · TTFT 378 ms p50 **connexion gardée ouverte** contre **2 040 ms connexion neuve** (facteur 5,4, minimum 85 ms) — **ce n'est pas la distance, c'est la connexion rouverte à chaque tour de parole** · conversion 8 kHz G.711 ~11 ms pour 3 s d'audio, mais 45 ms rien que pour lancer `ffmpeg`.
-**Bloqué par Adnan** : une clé d'API pour le TTFT d'un candidat réel · l'arbitrage sur l'extraction de `reservation.py` (lot C0) · le praticien obligatoire ou non.
+**Commandes** :
+```bash
+.venv/bin/python -m pytest tests/ -q          # 144 tests
+.venv/bin/python bancs/porte.py --passages 2  # la porte
+.venv/bin/python demonstration.py             # un appel rejoué, sans clé ni téléphone
+```
 
-**Décisions prises le 2026-09-13** : premier livrable = **greffon Crenolo** (vertical beauté) · bord téléphonique **tranché après les mesures du lot L0** · **Kompagnon = M-Campaign renommé** (agent Google Ads, `marpeap/campaign`), greffe de niveau 1 avec le suivi de conversion d'appel comme valeur propre.
-**Date de la recherche** : 2026-09-13 (toutes les sources portent cette date de consultation).
+**Ce qui reste** : le bord téléphonique (Asterisk + AudioSocket + un numéro, `docs/19`), le gain du cache de prompt (clé payante), et les valeurs absolues de reconnaissance (corpus synthétique).
+
+**Règle de travail permanente (18/09)** : une valeur a une seule source — `standard/regles.py` porte les seuils et les phrases interdites, avec la mesure qui les justifie.
 
 ## Lire dans cet ordre
 1. `docs/00-SYNTHESE.md` — les dix faits qui ferment ou ouvrent des portes, la pile retenue, les décisions ouvertes (D1→D5)
