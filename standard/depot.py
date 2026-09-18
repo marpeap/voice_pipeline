@@ -1,0 +1,129 @@
+"""Le depot — des rendez-vous, cloisonnes par locataire, sans chevauchement.
+
+`docs/02` : tables partagees et `tenant_id`, jamais une base par client — avec
+`max_connections` a 100 par defaut, une base par salon plafonne le produit avant
+le centieme client.
+
+Le cloisonnement ne repose pas sur la bonne volonte de l'appelant : **on
+n'obtient un acces qu'en nommant le locataire** (`depot.pour("salon-1")`), et une
+lecture globale sans locataire echoue au lieu de tout rendre. Le pire defaut d'un
+multi-locataire n'est pas l'erreur : c'est la requete qui reussit et rend les
+donnees de tout le monde.
+
+En production, PostgreSQL ajoute la meme regle **sous** l'application
+(`migrations/001-rendez-vous.sql`, `ENABLE` **et** `FORCE`). Ici, SQLite suffit a
+faire tourner le produit sans rien installer — et les deux portent la meme regle.
+"""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from typing import Any
+
+
+class ChevauchementRefuse(RuntimeError):
+    """Deux rendez-vous ne peuvent pas occuper le meme creneau chez le meme salon.
+
+    C'est un refus, pas une erreur technique : la contrainte est la regle metier
+    elle-meme, et elle vit dans la base plutot que dans une verification que
+    quelqu'un oubliera d'appeler.
+    """
+
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS rendez_vous (
+    reference       TEXT PRIMARY KEY,
+    tenant_id       TEXT NOT NULL,
+    cle_idempotence TEXT NOT NULL,
+    date            TEXT NOT NULL,
+    heure           TEXT NOT NULL,
+    annule          INTEGER NOT NULL DEFAULT 0,
+    donnees         TEXT NOT NULL
+);
+-- Une cle d'idempotence appartient a UN locataire : deux salons peuvent produire
+-- la meme sans que leurs rendez-vous se melangent.
+CREATE UNIQUE INDEX IF NOT EXISTS rendez_vous_cle
+    ON rendez_vous (tenant_id, cle_idempotence);
+-- Le creneau ne se reserve qu'une fois — index partiel, pour qu'une annulation
+-- libere la place au lieu de la bloquer pour toujours.
+CREATE UNIQUE INDEX IF NOT EXISTS rendez_vous_creneau
+    ON rendez_vous (tenant_id, date, heure) WHERE annule = 0;
+"""
+
+
+class AccesLocataire:
+    """La seule facon de toucher aux donnees : au nom d'un locataire nomme."""
+
+    def __init__(self, depot: "Depot", tenant: str):
+        if not tenant:
+            raise ValueError("acces sans locataire refuse")
+        self._depot = depot
+        self._tenant = tenant
+
+    def inserer(self, cle: str, donnees: dict) -> str:
+        return self._depot._inserer(self._tenant, cle, donnees)
+
+    def relire(self, reference: str) -> dict | None:
+        return self._depot._relire(self._tenant, reference)
+
+    def annuler(self, reference: str) -> bool:
+        return self._depot._annuler(self._tenant, reference)
+
+
+class Depot:
+    def __init__(self, chemin: str = ":memory:"):
+        self._connexion = sqlite3.connect(chemin, check_same_thread=False)
+        self._connexion.row_factory = sqlite3.Row
+        self._connexion.executescript(SCHEMA)
+
+    def pour(self, tenant: str) -> AccesLocataire:
+        return AccesLocataire(self, tenant)
+
+    # --- operations, toutes portant le locataire ----------------------------
+
+    def _inserer(self, tenant: str, cle: str, donnees: dict) -> str:
+        deja = self._connexion.execute(
+            "SELECT reference FROM rendez_vous WHERE tenant_id = ? AND cle_idempotence = ?",
+            (tenant, cle)).fetchone()
+        if deja:
+            return deja["reference"]          # idempotence : la meme cle, la meme ligne
+
+        reference = f"rdv-{tenant}-{cle[:12]}"
+        try:
+            self._connexion.execute(
+                "INSERT INTO rendez_vous (reference, tenant_id, cle_idempotence, date, "
+                "heure, donnees) VALUES (?, ?, ?, ?, ?, ?)",
+                (reference, tenant, cle, donnees.get("date"), donnees.get("heure"),
+                 json.dumps(donnees, ensure_ascii=False)))
+        except sqlite3.IntegrityError as erreur:
+            # SQLite nomme les colonnes de l'index, pas l'index : on reconnait la
+            # contrainte par ses colonnes plutot que par un nom qu'il ne donne pas.
+            message = str(erreur)
+            if "date" in message and "heure" in message:
+                raise ChevauchementRefuse(
+                    f"{donnees.get('date')} {donnees.get('heure')} est deja pris") from erreur
+            raise
+        self._connexion.commit()
+        return reference
+
+    def _relire(self, tenant: str, reference: str) -> dict | None:
+        ligne = self._connexion.execute(
+            "SELECT donnees FROM rendez_vous WHERE tenant_id = ? AND reference = ? "
+            "AND annule = 0", (tenant, reference)).fetchone()
+        return json.loads(ligne["donnees"]) if ligne else None
+
+    def _annuler(self, tenant: str, reference: str) -> bool:
+        curseur = self._connexion.execute(
+            "UPDATE rendez_vous SET annule = 1 WHERE tenant_id = ? AND reference = ?",
+            (tenant, reference))
+        self._connexion.commit()
+        return curseur.rowcount > 0
+
+    def lister(self, tenant: str | None) -> list[dict[str, Any]]:
+        """Liste les rendez-vous d'un locataire. **Sans locataire, elle refuse.**"""
+        if not tenant:
+            raise ValueError("lister sans locataire : refuse, pour ne pas tout rendre")
+        return [json.loads(ligne["donnees"]) for ligne in self._connexion.execute(
+            "SELECT donnees FROM rendez_vous WHERE tenant_id = ? AND annule = 0 "
+            "ORDER BY date, heure", (tenant,))]
