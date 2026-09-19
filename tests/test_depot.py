@@ -120,3 +120,59 @@ def test_la_migration_interdit_le_chevauchement_en_base():
     sql = (Path(__file__).resolve().parents[1] / "migrations" /
            "001-rendez-vous.sql").read_text().lower()
     assert "exclude" in sql or "unique" in sql
+
+
+# --- concurrence ------------------------------------------------------------
+
+def test_deux_appels_simultanes_ne_corrompent_pas_la_base(tmp_path):
+    """La revue du 19/09 : une seule connexion SQLite partagée par tous les fils,
+    sans verrou, avec `SELECT` puis `INSERT` puis `commit()` — le `commit()` d'un
+    fil validait la transaction en cours d'un autre."""
+    import threading
+
+    depot = Depot(str(tmp_path / "concurrent.sqlite3"))
+    erreurs = []
+    barriere = threading.Barrier(8)
+
+    def reserver(index):
+        barriere.wait()
+        try:
+            depot.pour("salon-1").inserer(f"cle-{index}", {
+                "date": "2026-09-17", "heure": f"{9 + index:02d}:00"})
+        except Exception as erreur:
+            erreurs.append(erreur)
+
+    fils = [threading.Thread(target=reserver, args=(i,)) for i in range(8)]
+    for fil in fils:
+        fil.start()
+    for fil in fils:
+        fil.join()
+
+    assert erreurs == [], f"erreurs en concurrence : {erreurs[:2]}"
+    assert len(depot.lister("salon-1")) == 8
+
+
+def test_deux_fils_ne_peuvent_pas_prendre_le_meme_creneau(tmp_path):
+    """Le cas qui compte vraiment : deux appelants sur le même horaire."""
+    import threading
+
+    depot = Depot(str(tmp_path / "course.sqlite3"))
+    resultats = []
+    barriere = threading.Barrier(2)
+
+    def reserver(index):
+        barriere.wait()
+        try:
+            depot.pour("salon-1").inserer(f"cle-{index}", RDV)
+            resultats.append("pris")
+        except ChevauchementRefuse:
+            resultats.append("refuse")
+
+    fils = [threading.Thread(target=reserver, args=(i,)) for i in range(2)]
+    for fil in fils:
+        fil.start()
+    for fil in fils:
+        fil.join()
+
+    assert sorted(resultats) == ["pris", "refuse"], \
+        "les deux appelants ont obtenu le même créneau"

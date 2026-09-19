@@ -51,12 +51,13 @@ class PisteDAudit:
         if fuites:
             raise ValueError(f"la piste d'audit ne conserve aucun secret : {fuites[0]!r}")
 
-        self.depot._connexion.execute(
+        with self.depot._verrou:
+            self.depot._connexion.execute(
             "INSERT INTO audit (tenant_id, horodatage, acteur, action, cible, "
             "correlation, detail) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (tenant, datetime.now(timezone.utc).isoformat(timespec="seconds"),
-             acteur, action, cible, correlation, json.dumps(detail, ensure_ascii=False)))
-        self.depot._connexion.commit()
+                 acteur, action, cible, correlation,
+                 json.dumps(detail, ensure_ascii=False)))
 
     def lister(self, tenant: str, limite: int = 200) -> list[dict[str, Any]]:
         return [{"horodatage": ligne["horodatage"], "acteur": ligne["acteur"],

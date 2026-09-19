@@ -242,3 +242,33 @@ def test_un_sms_qui_echoue_se_voit_au_journal():
     dernier = conversation.journal.tours[-1]
     assert dernier.get("sms") == "échec"
     assert "passerelle" in dernier.get("sms_reserve", "")
+
+
+# --- le garde de sortie : le compteur d'incidents doit pouvoir monter ---------
+
+def test_une_phrase_de_confirmation_venue_d_ailleurs_est_bloquee_et_comptee(monkeypatch):
+    """La revue du 19/09 a trouvé que le compteur de confirmations orphelines
+    n'avait aucun appelant : l'invariant phare du produit était gardé par un
+    compteur que rien ne pouvait incrémenter. Il faut donc un garde qui voie
+    passer chaque phrase, et qui compte quand elle ment."""
+    import standard.appel as module
+    from standard.decision import Sortie
+
+    conversation = appel(ModeleQuiInvente([{"intention": "rdv"}]))
+    monkeypatch.setattr(module, "decider",
+                        lambda *args, **kw: Sortie("question", "C'est noté, à jeudi !"))
+
+    reponse = conversation.tour("JEUDI")
+    assert "c'est noté" not in reponse.phrase.lower(), "la phrase mensongère est sortie"
+    assert conversation.journal.confirmations_orphelines == 1
+
+
+def test_le_garde_laisse_passer_la_confirmation_legitime():
+    """Celle de l'écriture relue — la seule qui ait le droit d'exister."""
+    base = BaseFactice()
+    conversation = appel(ModeleQuiInvente([{"intention": "rdv", "date": "2026-09-17",
+                                            "heure": "15:30"}]), base)
+    conversation.tour("JEUDI QUINZE HEURES TRENTE")
+    reponse = conversation.confirmer()
+    assert "enregistré" in reponse.phrase.lower()
+    assert conversation.journal.confirmations_orphelines == 0

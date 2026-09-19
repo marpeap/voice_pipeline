@@ -19,6 +19,7 @@ from typing import Any
 from standard.comprehension import Comprehension, ErreurFournisseur
 from standard.decision import Agenda, Etat, decider
 from standard.assentiment import est_un_refus, est_un_oui
+from standard.regles import contient_une_confirmation
 from standard.langue import FRANCAIS, detecter_langue, phrase_de_passage
 from standard.ecriture import (
     BaseRendezVous,
@@ -124,11 +125,27 @@ class Appel:
                                     "Je vous passe quelqu'un du salon.")
 
         sortie = decider(proposition, self.etat, self.agenda)
+        sortie.phrase = self._garde_de_sortie(sortie.phrase)
         self._en_attente = sortie.entites if sortie.genre == "proposition" else None
         self.journal.noter(transcription=transcription, genre=sortie.genre,
                            phrase=sortie.phrase, bruite=bruite,
                            entites=dict(sortie.entites))
         return Reponse(sortie.genre, sortie.phrase, sortie.entites)
+
+    def _garde_de_sortie(self, phrase: str) -> str:
+        """Le dernier filet : aucune phrase venue d'ailleurs que de l'ecriture
+        relue ne peut affirmer qu'un rendez-vous existe.
+
+        Ce garde ne devrait jamais servir — la decision ne produit pas ces mots,
+        et le modele n'ecrit rien. C'est precisement pourquoi il existe : un
+        invariant garde par un compteur que rien ne peut incrementer n'est pas
+        garde du tout, et c'est ce qu'une revue independante a trouve le 19/09.
+        """
+        if not contient_une_confirmation(phrase):
+            return phrase
+        self.journal.ecriture.noter_confirmation_orpheline(
+            self.identifiant, f"phrase bloquee : {phrase!r}")
+        return ("Je vérifie votre demande, un instant.")
 
     def confirmer(self) -> Reponse:
         """L'appelant a dit oui. C'est ici, et seulement ici, qu'on ecrit.

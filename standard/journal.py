@@ -52,11 +52,12 @@ class JournalDAppels:
             # dans le régime d'opt-in applicable depuis août 2026.
             raise ValueError(f"le journal ne conserve pas d'audio : champ {interdits[0]!r}")
 
-        self.depot._connexion.execute(
+        with self.depot._verrou:
+            self.depot._connexion.execute(
             "INSERT OR REPLACE INTO appels (uuid, tenant_id, debut, donnees) "
             "VALUES (?, ?, ?, ?)",
-            (appel["uuid"], tenant, appel["debut"], json.dumps(appel, ensure_ascii=False)))
-        self.depot._connexion.commit()
+                (appel["uuid"], tenant, appel["debut"],
+                 json.dumps(appel, ensure_ascii=False)))
 
     # --- lecture ------------------------------------------------------------
 

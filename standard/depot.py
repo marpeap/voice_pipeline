@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from typing import Any
 
 
@@ -73,9 +74,16 @@ class AccesLocataire:
 
 class Depot:
     def __init__(self, chemin: str = ":memory:"):
-        self._connexion = sqlite3.connect(chemin, check_same_thread=False)
+        self._connexion = sqlite3.connect(chemin, check_same_thread=False,
+                                          isolation_level=None, timeout=5.0)
         self._connexion.row_factory = sqlite3.Row
-        self._connexion.executescript(SCHEMA)
+        # Une seule connexion partagee par tous les fils d'appel : sans verrou,
+        # le commit d'un fil validait la transaction en cours d'un autre. Le
+        # verrou serialise les ecritures ; `isolation_level=None` rend les
+        # transactions explicites au lieu de les laisser s'emboiter.
+        self._verrou = threading.RLock()
+        with self._verrou:
+            self._connexion.executescript(SCHEMA)
 
     def pour(self, tenant: str) -> AccesLocataire:
         return AccesLocataire(self, tenant)
@@ -83,6 +91,10 @@ class Depot:
     # --- operations, toutes portant le locataire ----------------------------
 
     def _inserer(self, tenant: str, cle: str, donnees: dict) -> str:
+        with self._verrou:
+            return self._inserer_sous_verrou(tenant, cle, donnees)
+
+    def _inserer_sous_verrou(self, tenant: str, cle: str, donnees: dict) -> str:
         deja = self._connexion.execute(
             "SELECT reference FROM rendez_vous WHERE tenant_id = ? AND cle_idempotence = ?",
             (tenant, cle)).fetchone()
@@ -104,26 +116,27 @@ class Depot:
                 raise ChevauchementRefuse(
                     f"{donnees.get('date')} {donnees.get('heure')} est deja pris") from erreur
             raise
-        self._connexion.commit()
         return reference
 
     def _relire(self, tenant: str, reference: str) -> dict | None:
-        ligne = self._connexion.execute(
-            "SELECT donnees FROM rendez_vous WHERE tenant_id = ? AND reference = ? "
-            "AND annule = 0", (tenant, reference)).fetchone()
+        with self._verrou:
+                ligne = self._connexion.execute(
+                "SELECT donnees FROM rendez_vous WHERE tenant_id = ? AND reference = ? "
+                "AND annule = 0", (tenant, reference)).fetchone()
         return json.loads(ligne["donnees"]) if ligne else None
 
     def _annuler(self, tenant: str, reference: str) -> bool:
-        curseur = self._connexion.execute(
-            "UPDATE rendez_vous SET annule = 1 WHERE tenant_id = ? AND reference = ?",
-            (tenant, reference))
-        self._connexion.commit()
-        return curseur.rowcount > 0
+        with self._verrou:
+            curseur = self._connexion.execute(
+                "UPDATE rendez_vous SET annule = 1 WHERE tenant_id = ? AND reference = ?",
+                (tenant, reference))
+            return curseur.rowcount > 0
 
     def lister(self, tenant: str | None) -> list[dict[str, Any]]:
         """Liste les rendez-vous d'un locataire. **Sans locataire, elle refuse.**"""
         if not tenant:
             raise ValueError("lister sans locataire : refuse, pour ne pas tout rendre")
-        return [json.loads(ligne["donnees"]) for ligne in self._connexion.execute(
-            "SELECT donnees FROM rendez_vous WHERE tenant_id = ? AND annule = 0 "
-            "ORDER BY date, heure", (tenant,))]
+        with self._verrou:
+            return [json.loads(ligne["donnees"]) for ligne in self._connexion.execute(
+                "SELECT donnees FROM rendez_vous WHERE tenant_id = ? AND annule = 0 "
+                "ORDER BY date, heure", (tenant,))]
