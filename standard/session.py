@@ -97,6 +97,7 @@ class SessionTelephonique:
     interruptions: int = 0
     trames_ignorees: int = 0
     premiers_fragments_ms: list = field(default_factory=list)
+    annonce_delivree: bool = False
     pannes: int = 0
     transfert_demande: bool = False
     preuve_d_annonce: dict | None = None
@@ -112,6 +113,8 @@ class SessionTelephonique:
     _chiffres: list[str] = field(default_factory=list, repr=False)
     _attend_un_numero: bool = False
     _a_dire: list[bytes] = field(default_factory=list, repr=False)
+    _annonce_en_cours: bool = False
+    _amorcage: bool = False
     _source: object = None                      # synthese en cours, consommee au fil de l'eau
     # Un verrou, parce que DEUX fils touchent a la parole : celui qui lit la
     # socket (et qui declenche une nouvelle phrase) et celui qui emet. Sans lui,
@@ -155,7 +158,10 @@ class SessionTelephonique:
             "conforme": verdict.conforme,
             "horodatage": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
-        return self._jouer(phrase)
+        sortant = self._jouer(phrase, annonce=True)
+        if not sortant:
+            self.annonce_delivree = True     # rien a dire : rien a proteger
+        return sortant
 
     # --- ce que l'agent est en train de dire --------------------------------
 
@@ -187,7 +193,15 @@ class SessionTelephonique:
                 else:
                     if self._source is source:
                         self._source = None
-            return self._a_dire.pop(0) if self._a_dire else None
+            paquet = self._a_dire.pop(0) if self._a_dire else None
+            # L'annonce legale est delivree quand son DERNIER paquet est parti —
+            # pas quand la file se vide pendant l'amorcage de la synthese, ou le
+            # premier paquet est aussitot remis dans la file par `_jouer`.
+            if (self._annonce_en_cours and not self._amorcage
+                    and not self._a_dire and self._source is None):
+                self._annonce_en_cours = False
+                self.annonce_delivree = True
+            return paquet
 
     def _interrompre(self) -> None:
         with self._parole_verrou:
@@ -264,8 +278,13 @@ class SessionTelephonique:
             self._parole_continue_ms += DUREE_PAQUET_MS
             # On ne coupe qu'apres une parole assez longue pour ne pas etre un
             # « mm », une porte qui claque, ou notre propre voix qui revient.
-            if self.en_train_de_parler and \
-                    self._parole_continue_ms >= self.duree_minimale_interruption_ms:
+            # L'annonce legale ne se coupe pas. Trouve en jouant un vrai appel :
+            # un appelant qui parle en meme temps la faisait interrompre, et
+            # l'obligation d'information de l'AI Act tombait avec elle. Apres
+            # elle, tout est interruptible — c'est la premiere phrase, et elle
+            # seule, qui doit etre entendue.
+            if (self.en_train_de_parler and self.annonce_delivree
+                    and self._parole_continue_ms >= self.duree_minimale_interruption_ms):
                 self._interrompre()
             return []
 
@@ -375,7 +394,7 @@ class SessionTelephonique:
 
     # --- emission -----------------------------------------------------------
 
-    def _jouer(self, texte: str) -> list[bytes]:
+    def _jouer(self, texte: str, annonce: bool = False) -> list[bytes]:
         """Synthetise et decoupe en paquets de vingt millisecondes.
 
         C'est le rythme qu'attend un canal telephonique : 160 echantillons de
@@ -383,14 +402,22 @@ class SessionTelephonique:
         """
         with self._parole_verrou:
             depart = time.perf_counter()
+            self._annonce_en_cours = annonce
             self._source = iter(self.synthetiser(texte))
             # On amorce un premier paquet tout de suite : le reste suivra a la
             # demande, pendant que l'agent parle deja.
-            premier = self.emettre()
+            self._amorcage = True
+            try:
+                premier = self.emettre()
+            finally:
+                self._amorcage = False
             # C'est CE delai qui dit qu'une machine est pleine — bien avant la
             # charge processeur, qui reste basse jusqu'au bout (mesure 13).
             self.premiers_fragments_ms.append((time.perf_counter() - depart) * 1000)
             if premier is None:
+                if annonce:
+                    self.annonce_delivree = True   # rien a dire : rien a proteger
+                    self._annonce_en_cours = False
                 return []
             self._a_dire.insert(0, premier)
             return list(self._a_dire)

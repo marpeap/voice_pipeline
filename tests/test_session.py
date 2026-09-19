@@ -167,9 +167,17 @@ def test_les_chiffres_hors_saisie_ne_polluent_pas():
 # moins de 60 ms. Le garde-fou le plus efficace est une durée minimale de parole
 # avant de couper — il divise par plus de deux les interruptions à tort.
 
+def vider_l_annonce(s):
+    """L'annonce legale n'est pas interruptible : on la laisse se dire."""
+    while s.emettre() is not None:
+        pass
+
+
 def test_l_agent_se_tait_quand_l_appelant_reprend_la_parole():
     s = session()
     s.ouvrir()
+    vider_l_annonce(s)
+    s._jouer("une phrase de l'agent")
     assert s.en_train_de_parler
     for _ in range(int(s.duree_minimale_interruption_ms / 20) + 1):
         s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
@@ -182,6 +190,8 @@ def test_un_bruit_bref_ne_coupe_pas_la_parole():
     réseau : rien de tout cela n'est une reprise de parole."""
     s = session()
     s.ouvrir()
+    vider_l_annonce(s)
+    s._jouer("une phrase de l'agent")
     s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))   # 20 ms
     assert s.en_train_de_parler
     assert s.interruptions == 0
@@ -190,6 +200,8 @@ def test_un_bruit_bref_ne_coupe_pas_la_parole():
 def test_ce_qui_restait_a_dire_est_jete_et_non_repris_plus_tard():
     s = session()
     s.ouvrir()
+    vider_l_annonce(s)
+    s._jouer("une phrase de l'agent")
     assert s.reste_a_emettre > 0
     for _ in range(int(s.duree_minimale_interruption_ms / 20) + 1):
         s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
@@ -200,6 +212,8 @@ def test_apres_l_interruption_le_tour_de_l_appelant_est_bien_pris():
     agent = AgentFactice()
     s = session(agent)
     s.ouvrir()
+    vider_l_annonce(s)
+    s._jouer("une phrase de l'agent")
     for _ in range(int(s.duree_minimale_interruption_ms / 20) + 2):
         s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
     for _ in range(int(s.silence_de_fin_ms / 20) + 1):
@@ -431,3 +445,28 @@ def test_le_seuil_de_bruit_se_regle():
     s = SessionTelephonique(agent=AgentFactice(), transcrire=lambda a, f: "x",
                             synthetiser=lambda t: [b""], seuil_bruite_db=40)
     assert s.seuil_bruite_db == 40
+
+
+def test_l_annonce_legale_ne_se_fait_pas_couper():
+    """Trouvé en jouant un vrai appel avec les vrais moteurs (19/09) : un
+    appelant qui parle en même temps que l'annonce la faisait interrompre, et
+    l'obligation d'information de l'AI Act tombait avec elle.
+
+    Après l'annonce, tout est interruptible : c'est la première phrase, et elle
+    seule, qui doit être entendue."""
+    s = session()
+    s.ouvrir()
+    for _ in range(int(s.duree_minimale_interruption_ms / 20) + 3):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    assert s.interruptions == 0, "l'annonce légale a été coupée"
+    assert s.reste_a_emettre > 0, "l'annonce a disparu de la file"
+
+
+def test_apres_l_annonce_l_agent_se_fait_couper_normalement():
+    s = session()
+    s.ouvrir()
+    vider_l_annonce(s)                  # l'annonce a ete dite en entier
+    s._jouer("une longue phrase de l'agent")
+    for _ in range(int(s.duree_minimale_interruption_ms / 20) + 2):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    assert s.interruptions >= 1, "l'agent ne se laisse plus interrompre du tout"

@@ -86,3 +86,57 @@ Ils étaient recopiés dans les trois — or la confirmation écrite est censée
 reprendre **exactement** la date que l'agent a prononcée (règle E1, mesure 19).
 Deux listes qui divergent d'un accent, et la promesse tombe.
 """
+
+
+LONGUEUR_MINIMALE_POUR_UN_PREFIXE = 4
+"""En deca, un prefixe ne designe plus rien : « mar » vaut mardi et mars."""
+
+
+def indice_dans(mot: str, vocabulaire, reserves=()) -> int | None:
+    """Retrouve un mot du calendrier **meme abime a la fin**.
+
+    Mesure du 19/09, cinq appels joues avec les vrais moteurs : « jeudi » revient
+    « JEUDI », « JEUDIS » ou « JEUDIRE » selon l'endroit ou le flux est coupe. La
+    fin d'un mot est ce que le canal telephonique abime le plus, et la refuser
+    coutait **un rendez-vous sur deux** sur ce banc.
+
+    On accepte donc le prefixe commun, et lui seul. Deux entrees qui
+    correspondent rendent `None` : on ne devine pas un jour, on redemande.
+    Les deux comparants sont supposes deja aplatis (minuscules, sans accents).
+
+    `reserves` protege les mots qui veulent deja dire quelque chose : « sept »
+    est un prefixe de « septembre », mais c'est d'abord un nombre — sans cette
+    garde, « le dix sept septembre » devenait le 10 septembre.
+    """
+    if mot in reserves:
+        return vocabulaire.index(mot) if mot in vocabulaire else None
+
+    trouves = [index for index, entree in enumerate(vocabulaire)
+               if _correspond(mot, entree)]
+    return trouves[0] if len(trouves) == 1 else None
+
+
+def _correspond(mot: str, entree: str) -> bool:
+    if mot == entree:
+        return True
+    if len(mot) < LONGUEUR_MINIMALE_POUR_UN_PREFIXE:
+        return False
+    if mot.startswith(entree) or entree.startswith(mot):
+        return True
+    # « JEDI » pour « jeudi » : le milieu du mot aussi se perd, pas seulement sa
+    # fin (banc du 19/09). Une lettre d'ecart, jamais deux : au-dela, on
+    # rapprocherait « mardi » de « mars ».
+    return _une_lettre_d_ecart(mot, entree)
+
+
+def _une_lettre_d_ecart(a: str, b: str) -> bool:
+    """Vrai si une seule insertion, suppression ou substitution les separe."""
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        return sum(x != y for x, y in zip(a, b)) == 1
+    court, long = (a, b) if len(a) < len(b) else (b, a)
+    for coupe in range(len(long)):
+        if long[:coupe] + long[coupe + 1:] == court:
+            return True
+    return False

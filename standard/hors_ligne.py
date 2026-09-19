@@ -21,6 +21,7 @@ from datetime import date, timedelta
 
 from standard.grammaire import SIMPLES, _valeur_composee, normaliser
 from standard.regles import JOURS as JOURS_ACCENTUES
+from standard.regles import indice_dans
 from standard.regles import MOIS as MOIS_ACCENTUES
 from standard.texte import sans_accents
 
@@ -96,10 +97,11 @@ class ModeleHorsLigne:
 
         # « le dix-sept septembre », « le 24 decembre »
         for index, mot in enumerate(mots):
-            if mot in MOIS:
+            rang = indice_dans(mot, MOIS, SIMPLES)
+            if rang is not None:
                 quantieme = self._quantieme_avant(mots, index)
                 if quantieme:
-                    mois = MOIS.index(mot) + 1
+                    mois = rang + 1
                     annee = self.aujourd_hui.year
                     candidat = date(annee, mois, quantieme)
                     if candidat < self.aujourd_hui:
@@ -107,8 +109,9 @@ class ModeleHorsLigne:
                     return candidat.isoformat()
 
         for mot in mots:
-            if mot in JOURS:
-                return self._prochain(JOURS.index(mot)).isoformat()
+            rang = indice_dans(mot, JOURS, SIMPLES)
+            if rang is not None:
+                return self._prochain(rang).isoformat()
         return None
 
     def _quantieme_avant(self, mots: list[str], index: int) -> int | None:

@@ -102,3 +102,42 @@ def test_il_expose_la_meme_interface_qu_un_fournisseur():
                              model="ignore", temperature=0)
     import json
     assert set(json.loads(rendu)) >= {"intention", "date", "heure", "confiance"}
+
+
+# --- ce que le telephone abime : la fin des mots -----------------------------
+# Mesure du 19/09 (bancs/appel_reel.py, cinq passages) : le moteur local rend
+# « jeudi » sous les formes JEUDI, JEUDIS, JEUDIRE selon la coupe du flux.
+
+@pytest.mark.parametrize("dit, attendu", [
+    ("je voudrais un rendez-vous jeudire à quinze heures trente", "2026-09-17"),
+    ("je voudrais un rendez-vous jeudis à quinze heures trente", "2026-09-17"),
+    ("un rendez-vous vendredi", "2026-09-18"),
+])
+def test_un_jour_abime_en_fin_de_mot_est_quand_meme_lu(dit, attendu):
+    assert analyser(dit)["date"] == attendu
+
+
+def test_un_mot_qui_ne_designe_aucun_jour_ne_devient_pas_un_jour():
+    assert analyser("je voudrais un rendez-vous selon vos horaires")["date"] is None
+
+
+def test_sept_reste_un_nombre_et_ne_devient_pas_septembre():
+    """« sept » prefixe « septembre » : sans garde, « le dix sept septembre »
+    tombait au 10 septembre."""
+    assert analyser("le dix sept septembre")["date"] == "2026-09-17"
+
+
+def test_un_jour_ampute_en_son_milieu_est_quand_meme_lu():
+    """« JEDI » pour « jeudi » : le moteur mange aussi des lettres au milieu."""
+    assert analyser("un rendez-vous jedi à quinze heures trente")["date"] == "2026-09-17"
+
+
+def test_deux_lettres_d_ecart_ne_suffisent_pas():
+    """Une lettre perdue se rattrape, deux ne se devinent pas : « jeudre » ne
+    devient pas « jeudi », et l'agent redemandera plutôt que d'inventer."""
+    assert analyser("un rendez-vous jeudre")["date"] is None
+
+
+def test_le_jour_le_plus_proche_est_choisi_et_un_seul():
+    """« marsi » n'a qu'un voisin dans la semaine : mardi."""
+    assert analyser("un rendez-vous marsi")["date"] == "2026-09-22"

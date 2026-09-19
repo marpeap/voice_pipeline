@@ -49,6 +49,7 @@ class ServeurAudioSocket:
         self.appels_total = 0
         self.paroles_perdues = 0
         self.pannes_pendant_appel = 0
+        self.interruptions_totales = 0
         self._prise: socket.socket | None = None
         self._fil: threading.Thread | None = None
         self._arret = threading.Event()
@@ -147,6 +148,7 @@ class ServeurAudioSocket:
             pass
         finally:
             fini.set()
+            self.interruptions_totales += session.interruptions
             emetteur.join(timeout=1)
             try:
                 connexion.close()
