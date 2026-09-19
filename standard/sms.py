@@ -22,7 +22,6 @@ caractères hors alphabet GSM.
 from __future__ import annotations
 
 import re
-import unicodedata
 from standard.regles import JOURS, MOIS
 from dataclasses import dataclass
 

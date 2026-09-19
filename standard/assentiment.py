@@ -17,8 +17,7 @@ demande, ce qui est le comportement sûr.
 
 from __future__ import annotations
 
-import re
-import unicodedata
+from standard.texte import aplatir
 
 OUI = (
     "oui", "ouais", "c'est parfait", "parfait", "d'accord", "daccord", "ok",
@@ -38,9 +37,7 @@ NEGATIONS = ("non", "pas", "jamais", "aucun")
 
 
 def _plat(texte: str) -> str:
-    plat = unicodedata.normalize("NFD", texte.lower())
-    plat = "".join(c for c in plat if unicodedata.category(c) != "Mn")
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z' ]", " ", plat)).strip()
+    return aplatir(texte, garder="a-z' ")
 
 
 def est_un_refus(transcription: str) -> bool:

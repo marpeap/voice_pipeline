@@ -16,15 +16,18 @@ from __future__ import annotations
 
 import json
 import re
-import unicodedata
 from dataclasses import dataclass
 from datetime import date, timedelta
 
 from standard.grammaire import SIMPLES, _valeur_composee, normaliser
+from standard.regles import JOURS as JOURS_ACCENTUES
+from standard.regles import MOIS as MOIS_ACCENTUES
+from standard.texte import sans_accents
 
-JOURS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
-MOIS = ("janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout",
-        "septembre", "octobre", "novembre", "decembre")
+# Les formes sans accents se DERIVENT du calendrier unique : « fevrier » recopie
+# a la main finit par ne plus correspondre a « février ».
+JOURS = tuple(sans_accents(jour) for jour in JOURS_ACCENTUES)
+MOIS = tuple(sans_accents(mois) for mois in MOIS_ACCENTUES)
 
 VERBES_ANNULATION = ("annuler", "annule", "supprimer", "je ne pourrai pas", "empechement")
 VERBES_REPORT = ("decaler", "deplacer", "reporter", "avancer", "changer")

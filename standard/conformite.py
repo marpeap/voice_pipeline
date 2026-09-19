@@ -19,7 +19,6 @@ Un registre tenu à part est un registre périmé.
 from __future__ import annotations
 
 import re
-import unicodedata
 from dataclasses import dataclass, field
 
 # Les formulations autorisées viennent des packs (question E3). On ne reconnaît
