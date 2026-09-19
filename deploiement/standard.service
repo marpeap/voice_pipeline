@@ -1,0 +1,31 @@
+[Unit]
+Description=Standard téléphonique automatique
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=standard
+WorkingDirectory=/opt/standard
+EnvironmentFile=/etc/standard/environnement
+ExecStartPre=/opt/standard/.venv/bin/python -m standard verifier
+ExecStart=/opt/standard/.venv/bin/python -m standard servir
+Restart=always
+RestartSec=2
+; Cinq démarrages en dix secondes suffisent à faire abandonner systemd :
+; un standard téléphonique doit réessayer plus longtemps que ça.
+StartLimitBurst=20
+StartLimitIntervalSec=300
+
+; Durcissement — volontairement partiel, et c'est explique :
+; MemoryDenyWriteExecute tue ONNX, donc le detecteur de parole et la detection
+; de tour ; RestrictRealtime introduit de la gigue audio. Les deux sont absents.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/standard
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target
