@@ -358,3 +358,46 @@ def test_un_creneau_pris_pendant_l_appel_ne_devient_pas_une_incertitude():
     assert "vient d'être pris" in reponse.phrase
     assert "Il me reste" in reponse.phrase
     assert "rappellera" not in reponse.phrase
+
+
+# --- le nom de l'appelant ---------------------------------------------------
+# Confrontation du 19/09 : tous les standards IA du marché capturent le nom ;
+# le nôtre écrivait des rendez-vous anonymes.
+
+def test_apres_l_accord_l_agent_demande_le_nom():
+    conversation = hors_ligne()
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    reponse = conversation.tour("oui c'est parfait")
+    assert reponse.genre == "question"
+    assert "nom" in reponse.phrase.lower()
+
+
+def test_le_nom_donne_est_ecrit_avec_le_rendez_vous():
+    base = BaseFactice()
+    conversation = appel(ModeleHorsLigne(aujourd_hui=MARDI), base=base)
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    conversation.tour("oui c'est parfait")
+    reponse = conversation.tour("c'est au nom de Dupont")
+    assert reponse.genre == "confirmation"
+    assert "Dupont" in reponse.phrase
+    assert list(base.lignes.values())[0]["nom"] == "Dupont"
+
+
+def test_un_nom_incomprehensible_est_redemande_puis_abandonne():
+    """Deux essais, puis on écrit sans nom : mieux vaut un rendez-vous anonyme
+    qu'un appelant qu'on fait répéter jusqu'à ce qu'il raccroche."""
+    conversation = hors_ligne()
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    conversation.tour("oui c'est parfait")
+    premier = conversation.tour("euh je ne sais pas trop comment vous dire cela")
+    assert premier.genre == "question"
+    second = conversation.tour("euh je ne sais pas trop comment vous dire cela")
+    assert second.genre == "confirmation"
+
+
+def test_le_salon_peut_decider_de_ne_pas_demander_le_nom():
+    """La question D5 du pack décide ; le code ne décide pas à sa place."""
+    conversation = appel(ModeleHorsLigne(aujourd_hui=MARDI))
+    conversation.fiche = {"reservation": {"nom": "non"}}
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    assert conversation.tour("oui c'est parfait").genre == "confirmation"

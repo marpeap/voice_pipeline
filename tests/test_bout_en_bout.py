@@ -74,7 +74,8 @@ def parler(prise, session_ms=900):
 def service(tmp_path):
     chemin = str(tmp_path / "essai.sqlite3")
     stt = STTScripte(["je voudrais un rendez-vous jeudi à quinze heures trente",
-                      "oui c'est parfait"])
+                      "oui c'est parfait",
+                      "c'est au nom de Dupont"])
     serveur = construire_serveur(environnement(chemin))
     serveur.transcrire = stt
     serveur.demarrer()
@@ -90,6 +91,7 @@ def test_un_rendez_vous_se_prend_a_travers_une_socket(service):
     try:
         parler(prise)      # la demande
         parler(prise)      # le « oui »
+        parler(prise)      # le nom
     finally:
         prise.close()
     time.sleep(0.4)

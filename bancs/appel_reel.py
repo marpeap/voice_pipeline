@@ -47,37 +47,43 @@ CLAVIER = "clavier:"     # une replique composee au clavier, pas dite
 SCENARIOS = {
     "creneau-explicite": (
         ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
-         "oui c'est parfait"],
+         "oui c'est parfait",
+         "c'est au nom de Dupont"],
         {"date": "2026-09-17", "heure": "15:30"},
     ),
     "demain-matin": (
         ["bonjour est-ce que vous auriez quelque chose demain à dix heures trente",
-         "très bien"],
+         "très bien",
+         "au nom de Lefevre"],
         {"date": "2026-09-16", "heure": "10:30"},
     ),
     "jour-seul-puis-heure": (
         ["bonjour je voudrais venir vendredi",
          "à quatorze heures",
-         "d'accord"],
+         "d'accord",
+         "monsieur Martin"],
         {"date": "2026-09-18", "heure": "14:00"},
     ),
     "refus-puis-accord": (
         ["bonjour un rendez-vous jeudi à quinze heures trente",
          "non pas à cette heure-là",
          "à dix-sept heures",
-         "c'est parfait"],
+         "c'est parfait",
+         "au nom de Nguyen"],
         {"date": "2026-09-17", "heure": "17:00"},
     ),
     "jour-ferme": (
         ["bonjour je voudrais un rendez-vous dimanche à quinze heures trente",
          "alors jeudi à quinze heures trente",
-         "oui c'est parfait"],
+         "oui c'est parfait",
+         "au nom de Dupont"],
         {"date": "2026-09-17", "heure": "15:30"},
     ),
     "heure-hors-creneaux": (
         ["bonjour je voudrais un rendez-vous jeudi à onze heures",
          "va pour dix heures trente",
-         "oui c'est parfait"],
+         "oui c'est parfait",
+         "au nom de Dupont"],
         {"date": "2026-09-17", "heure": "10:30"},
     ),
     # Un « oui » seul dure six dixiemes de seconde et revient vide du moteur
@@ -85,7 +91,8 @@ SCENARIOS = {
     "oui-trop-court": (
         ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
          "oui",
-         "oui c'est parfait"],
+         "oui c'est parfait",
+         "au nom de Dupont"],
         {"date": "2026-09-17", "heure": "15:30"},
     ),
     # Pendant que l'appelant confirme, quelqu'un d'autre prend la place. L'agent
@@ -93,8 +100,10 @@ SCENARIOS = {
     "creneau-pris-entre-temps": (
         ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
          "oui c'est parfait",
+         "au nom de Dupont",
          "alors dix heures trente",
-         "oui c'est parfait"],
+         "oui c'est parfait",
+         "au nom de Dupont"],
         {"date": "2026-09-17", "heure": "10:30"},
         None,
         (1, {"date": "2026-09-17", "heure": "15:30"}),
@@ -110,6 +119,7 @@ SCENARIOS = {
     "numero-et-sms": (
         ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
          "oui c'est parfait",
+         "au nom de Dupont",
          # Deux échecs à l'oral suffisent à armer le clavier (règle T7) : c'est
          # ce chemin-là qu'on veut voir marcher de bout en bout.
          "zéro six douze trente-quatre cinquante-six soixante-dix-huit",

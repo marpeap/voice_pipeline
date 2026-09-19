@@ -232,6 +232,7 @@ def test_poser_le_clavier_sur_l_appel_suivi_atteint_l_appel():
     appel.basculer_clavier = lambda: temoin.append(True)
     appel.tour("JE VOUDRAIS JEUDI A QUINZE HEURES TRENTE")
     appel.tour("oui")
+    appel.tour("Dupont")                     # l'agent demande le nom d'abord
     appel.tour("zéro six douze")
     appel.tour("je ne sais plus")
     assert temoin, "la bascule posée sur l'agent n'atteint pas l'appel"
@@ -248,8 +249,9 @@ def test_l_envoyeur_de_sms_est_transmis_quand_il_existe():
                 envoyeur_sms=envoyeur)
     s.demarrer()
     appel = s.nouvel_appel("appel-1")
-    reponse = appel.tour("JE VOUDRAIS JEUDI A QUINZE HEURES TRENTE")
-    reponse = appel.tour("oui")
+    appel.tour("JE VOUDRAIS JEUDI A QUINZE HEURES TRENTE")
+    appel.tour("oui")
+    reponse = appel.tour("Dupont")           # le nom vient avant le numéro
     assert "numéro" in reponse.phrase.lower(), \
         "sans envoyeur transmis, l'agent ne demande jamais le numéro"
 

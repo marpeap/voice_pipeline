@@ -28,6 +28,7 @@ from standard.decision import (
 from standard.assentiment import est_un_refus, est_un_oui
 from standard.fiche import repondre as repondre_depuis_la_fiche
 from standard.grammaire import enoncer_numero, lire_numero
+from standard.identite import lire_nom
 from standard.locataire import lire_memoire
 from standard.regles import (
     RELANCES_MUETTES_AVANT_TRANSFERT,
@@ -98,6 +99,9 @@ class Appel:
         self.nom_salon = nom_salon
         self.etat = Etat()
         self._relances_muettes = 0
+        self._demande_le_nom = False
+        self._echecs_nom = 0
+        self._nom_abandonne = False
         self.journal = Journal()
         self.numero_de_tour = 0
         self.envoyeur_sms = None                 # branché par le service, facultatif
@@ -133,6 +137,9 @@ class Appel:
                 self.etat.connu["telephone"] = numero
                 return self.confirmer()
             self._numero_propose = None          # il corrige : on reprend l'ecoute
+
+        if self._demande_le_nom:
+            return self._entendre_un_nom(transcription)
 
         if self._attend_un_numero:
             return self._entendre_un_numero(transcription)
@@ -188,13 +195,52 @@ class Appel:
     def _attend_un_numero(self) -> bool:
         return self._en_attente is not None and self._demande_le_numero
 
+    def _demande_du_nom(self) -> bool:
+        """Le pack decide (question D5), pas le code.
+
+        Un salon prend un nom ; un depanneur en urgence peut vouloir aller plus
+        vite. La valeur vit dans la fiche, comme toutes les autres.
+        """
+        return str((self.fiche.get("reservation") or {}).get("nom", "oui")) != "non"
+
+    def _entendre_un_nom(self, transcription: str) -> Reponse:
+        """Lit le nom, ou redemande une fois — puis abandonne le nom, pas l'appel.
+
+        Faire repeter un appelant jusqu'a ce qu'il raccroche coute plus cher
+        qu'un rendez-vous sans nom : le salon peut toujours rappeler le numero.
+        """
+        lecture = lire_nom(transcription)
+        if lecture.issue == "accepte":
+            self._demande_le_nom = False
+            self.etat.connu["nom"] = lecture.nom
+            return self._apres_accord()
+
+        self._echecs_nom += 1
+        if self._echecs_nom >= 2:
+            # On abandonne le nom, pas l'appel — et on ne le redemande plus,
+            # sans quoi la conversation tournerait en rond.
+            self._demande_le_nom = False
+            self._nom_abandonne = True
+            return self._apres_accord()
+        phrase = "Je n'ai pas saisi votre nom. Pouvez-vous me le redonner ?"
+        self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
+        return Reponse("question", phrase)
+
     def _apres_accord(self) -> Reponse:
-        """L'appelant a dit oui. Reste a savoir ou envoyer la confirmation.
+        """L'appelant a dit oui. Reste a savoir a quel nom, et ou confirmer.
 
         L'agent ne peut pas lire le numero sur son ecran : l'Arcep recommande aux
         operateurs de masquer l'identifiant d'appelant sur les renvois complexes
         (docs/19). Il le demande donc — mais seulement s'il en fera quelque chose.
         """
+        if (self._demande_du_nom() and not self.etat.connu.get("nom")
+                and not self._nom_abandonne):
+            self._demande_le_nom = True
+            phrase = "Très bien. C'est à quel nom ?"
+            self.journal.noter(transcription="[accord de l'appelant]", genre="question",
+                               phrase=phrase)
+            return Reponse("question", phrase)
+
         if self.envoyeur_sms is None or self.etat.connu.get("telephone"):
             return self.confirmer()
         self._demande_le_numero = True
@@ -307,6 +353,8 @@ class Appel:
 
         donnees = dict(self._en_attente)
         donnees.setdefault("prestation", self.etat.connu.get("prestation"))
+        if self.etat.connu.get("nom"):
+            donnees.setdefault("nom", self.etat.connu["nom"])
         telephone = donnees.get("telephone") or self.etat.connu.get("telephone")
         promet_sms = (self.envoyeur_sms is not None and bool(telephone)
                       and getattr(self.envoyeur_sms, "peut_promettre", True))

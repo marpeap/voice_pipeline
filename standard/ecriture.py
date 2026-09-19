@@ -76,6 +76,10 @@ def _phrase_de_confirmation(donnees: dict, promet_sms: bool = False) -> str:
     quand = f"{enoncer_date(donnees['date'])} à {enoncer_heure(donnees['heure'])}"
     prestation = donnees.get("prestation")
     quoi = f"votre {prestation}" if prestation else "votre rendez-vous"
+    # Le nom est redit a l'oral : c'est la seule occasion qu'a l'appelant de
+    # corriger ce que le moteur a compris avant que le salon ne le lise.
+    nom = donnees.get("nom")
+    quoi = f"{quoi} au nom de {nom}" if nom else quoi
     # Le verbe vient de la source unique : c'est la seule phrase du produit
     # autorisee a le porter, et elle ne peut pas diverger de la liste que les
     # tests interdisent partout ailleurs.

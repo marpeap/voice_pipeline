@@ -5,121 +5,344 @@
   "_lisez_moi": "Pack sectoriel — DONNEE livree avec le produit, jamais editee par le commercant. Format : docs/05. Chaque question porte un defaut, de sorte qu'un salon qui ne repond rien obtienne quand meme un agent qui fonctionne. Les questions critiques sont celles dont l'absence produit une erreur ENTENDUE PAR LE CLIENT.",
   "blocs": [
     {
-      "id": "A", "titre": "Identite et horaires", "palier": 0,
+      "id": "A",
+      "titre": "Identite et horaires",
+      "palier": 0,
       "questions": [
         {
-          "id": "A1", "type": "texte", "critique": true,
+          "id": "A1",
+          "type": "texte",
+          "critique": true,
           "libelle": "Quel nom l'agent doit-il prononcer en decrochant ?",
           "aide": "C'est le premier mot que le client entend. Le nom de l'enseigne, pas la raison sociale.",
-          "defaut": "", "ecrit": {"cible": "frontmatter", "chemin": "salon.nom"}
+          "defaut": "",
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "salon.nom"
+          }
         },
         {
-          "id": "A2", "type": "horaires_semaine", "critique": true,
+          "id": "A2",
+          "type": "horaires_semaine",
+          "critique": true,
           "libelle": "Vos jours et heures d'ouverture",
           "aide": "L'agent ne proposera jamais un creneau en dehors. S'il se trompe, c'est le client qui se deplace pour rien.",
-          "defaut": {"mardi": ["09:00-19:00"], "mercredi": ["09:00-19:00"], "jeudi": ["09:00-19:00"], "vendredi": ["09:00-19:00"], "samedi": ["09:00-18:00"]},
-          "ecrit": {"cible": "frontmatter", "chemin": "horaires.ouverture"}
+          "defaut": {
+            "mardi": [
+              "09:00-19:00"
+            ],
+            "mercredi": [
+              "09:00-19:00"
+            ],
+            "jeudi": [
+              "09:00-19:00"
+            ],
+            "vendredi": [
+              "09:00-19:00"
+            ],
+            "samedi": [
+              "09:00-18:00"
+            ]
+          },
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "horaires.ouverture"
+          }
         },
         {
-          "id": "A3", "type": "choix_unique", "critique": true,
+          "id": "A3",
+          "type": "choix_unique",
+          "critique": true,
           "libelle": "Fermez-vous entre midi et deux ?",
           "aide": "Si l'agent l'ignore, il proposera un creneau qui n'existe pas.",
           "options": [
-            {"valeur": "continu", "libelle": "Pas de coupure, service continu"},
-            {"valeur": "commune", "libelle": "Coupure commune au salon", "defaut": true,
-             "champs": [{"id": "debut", "type": "heure", "defaut": "12:30"},
-                        {"id": "fin", "type": "heure", "defaut": "13:30"}]},
-            {"valeur": "par_personne", "libelle": "Chaque coiffeur a sa pause", "ouvre": "B"}
+            {
+              "valeur": "continu",
+              "libelle": "Pas de coupure, service continu"
+            },
+            {
+              "valeur": "commune",
+              "libelle": "Coupure commune au salon",
+              "defaut": true,
+              "champs": [
+                {
+                  "id": "debut",
+                  "type": "heure",
+                  "defaut": "12:30"
+                },
+                {
+                  "id": "fin",
+                  "type": "heure",
+                  "defaut": "13:30"
+                }
+              ]
+            },
+            {
+              "valeur": "par_personne",
+              "libelle": "Chaque coiffeur a sa pause",
+              "ouvre": "B"
+            }
           ],
-          "ecrit": {"cible": "frontmatter", "chemin": "horaires.coupure"}
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "horaires.coupure"
+          }
         },
         {
-          "id": "A4", "type": "choix_unique",
+          "id": "A4",
+          "type": "choix_unique",
           "libelle": "Jusqu'a quand l'agenda est-il ouvert a la reservation ?",
           "aide": "Au-dela, l'agent dira qu'il ne prend pas encore les rendez-vous aussi loin — et non pas que vous etes fermes. Les deux reponses sont differentes.",
           "options": [
-            {"valeur": "14", "libelle": "Deux semaines", "defaut": true},
-            {"valeur": "30", "libelle": "Un mois"},
-            {"valeur": "60", "libelle": "Deux mois"}
+            {
+              "valeur": "14",
+              "libelle": "Deux semaines",
+              "defaut": true
+            },
+            {
+              "valeur": "30",
+              "libelle": "Un mois"
+            },
+            {
+              "valeur": "60",
+              "libelle": "Deux mois"
+            }
           ],
-          "ecrit": {"cible": "frontmatter", "chemin": "agenda.horizon_jours"}
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "agenda.horizon_jours"
+          }
         }
       ]
     },
     {
-      "id": "C", "titre": "Prestations", "palier": 0,
+      "id": "C",
+      "titre": "Prestations",
+      "palier": 0,
       "questions": [
         {
-          "id": "C1", "type": "choix_multiple", "critique": true,
+          "id": "C1",
+          "type": "choix_multiple",
+          "critique": true,
           "libelle": "Quelles prestations l'agent peut-il reserver ?",
           "aide": "Seul le vocabulaire des prestations cochees sera injecte. C'est ce qui evite de deverser tout le lexique du metier — et de faire confondre l'agent.",
           "options": [
-            {"valeur": "coupe", "libelle": "Coupe", "defaut": true, "champs": [{"id": "duree", "type": "minutes", "defaut": 30}]},
-            {"valeur": "brushing", "libelle": "Brushing", "defaut": true, "champs": [{"id": "duree", "type": "minutes", "defaut": 45}]},
-            {"valeur": "coloration", "libelle": "Coloration", "champs": [{"id": "duree", "type": "minutes", "defaut": 90}]},
-            {"valeur": "balayage", "libelle": "Balayage / meches", "champs": [{"id": "duree", "type": "minutes", "defaut": 135}]},
-            {"valeur": "soin", "libelle": "Soin", "champs": [{"id": "duree", "type": "minutes", "defaut": 30}]}
+            {
+              "valeur": "coupe",
+              "libelle": "Coupe",
+              "defaut": true,
+              "champs": [
+                {
+                  "id": "duree",
+                  "type": "minutes",
+                  "defaut": 30
+                }
+              ]
+            },
+            {
+              "valeur": "brushing",
+              "libelle": "Brushing",
+              "defaut": true,
+              "champs": [
+                {
+                  "id": "duree",
+                  "type": "minutes",
+                  "defaut": 45
+                }
+              ]
+            },
+            {
+              "valeur": "coloration",
+              "libelle": "Coloration",
+              "champs": [
+                {
+                  "id": "duree",
+                  "type": "minutes",
+                  "defaut": 90
+                }
+              ]
+            },
+            {
+              "valeur": "balayage",
+              "libelle": "Balayage / meches",
+              "champs": [
+                {
+                  "id": "duree",
+                  "type": "minutes",
+                  "defaut": 135
+                }
+              ]
+            },
+            {
+              "valeur": "soin",
+              "libelle": "Soin",
+              "champs": [
+                {
+                  "id": "duree",
+                  "type": "minutes",
+                  "defaut": 30
+                }
+              ]
+            }
           ],
-          "ecrit": {"cible": "frontmatter", "chemin": "prestations"}
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "prestations"
+          }
         },
         {
-          "id": "C2", "type": "choix_unique",
+          "id": "C2",
+          "type": "choix_unique",
           "libelle": "L'agent annonce-t-il les prix ?",
           "aide": "S'il ne les a pas, il doit dire qu'il ne les connait pas — jamais donner une fourchette.",
           "options": [
-            {"valeur": "oui", "libelle": "Oui, ceux que je saisis"},
-            {"valeur": "non", "libelle": "Non, il oriente vers le salon", "defaut": true}
+            {
+              "valeur": "oui",
+              "libelle": "Oui, ceux que je saisis"
+            },
+            {
+              "valeur": "non",
+              "libelle": "Non, il oriente vers le salon",
+              "defaut": true
+            }
           ],
-          "ecrit": {"cible": "frontmatter", "chemin": "prix.annonce"}
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "prix.annonce"
+          }
         }
       ]
     },
     {
-      "id": "D", "titre": "Ce que l'agent promet", "palier": 1,
+      "id": "D",
+      "titre": "Ce que l'agent promet",
+      "palier": 1,
       "questions": [
         {
-          "id": "D3", "type": "choix_unique", "critique": true,
+          "id": "D3",
+          "type": "choix_unique",
+          "critique": true,
           "libelle": "Quel mot employez-vous pour la somme versee a la reservation ?",
           "aide": "Le Code de la consommation presume des ARRHES, remboursables au double si le professionnel se desiste. Le mot engage juridiquement : l'agent prononcera exactement celui que vous choisissez.",
           "options": [
-            {"valeur": "aucun", "libelle": "Aucune somme demandee", "defaut": true},
-            {"valeur": "arrhes", "libelle": "Des arrhes"},
-            {"valeur": "acompte", "libelle": "Un acompte"}
+            {
+              "valeur": "aucun",
+              "libelle": "Aucune somme demandee",
+              "defaut": true
+            },
+            {
+              "valeur": "arrhes",
+              "libelle": "Des arrhes"
+            },
+            {
+              "valeur": "acompte",
+              "libelle": "Un acompte"
+            }
           ],
-          "ecrit": {"cible": "frontmatter", "chemin": "reservation.somme"}
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "reservation.somme"
+          }
         },
         {
-          "id": "D4", "type": "choix_unique",
+          "id": "D4",
+          "type": "choix_unique",
           "libelle": "Quand un client veut parler a quelqu'un",
           "aide": "Cette reponse ne se negocie pas : l'agent transfere ou prend un message, sans jamais insister.",
           "options": [
-            {"valeur": "transfert", "libelle": "Transferer vers le salon", "defaut": true,
-             "champs": [{"id": "numero", "type": "telephone"}]},
-            {"valeur": "message", "libelle": "Prendre un message et rappeler"}
+            {
+              "valeur": "transfert",
+              "libelle": "Transferer vers le salon",
+              "defaut": true,
+              "champs": [
+                {
+                  "id": "numero",
+                  "type": "telephone"
+                }
+              ]
+            },
+            {
+              "valeur": "message",
+              "libelle": "Prendre un message et rappeler"
+            }
           ],
-          "ecrit": {"cible": "frontmatter", "chemin": "escalade.humain"}
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "escalade.humain"
+          }
+        },
+        {
+          "id": "D5",
+          "type": "choix_unique",
+          "critique": false,
+          "libelle": "L'agent demande-t-il le nom du client ?",
+          "aide": "Sans nom, votre agenda affiche une heure et personne. L'agent le redit a voix haute avant de confirmer, pour que le client corrige s'il a ete mal compris.",
+          "options": [
+            {
+              "valeur": "oui",
+              "libelle": "Oui, demander le nom",
+              "defaut": true
+            },
+            {
+              "valeur": "non",
+              "libelle": "Non, aller au plus court"
+            }
+          ],
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "reservation.nom"
+          }
         }
       ]
     },
     {
-      "id": "E", "titre": "Ce que l'agent dit de lui-meme", "palier": 0,
+      "id": "E",
+      "titre": "Ce que l'agent dit de lui-meme",
+      "palier": 0,
       "questions": [
         {
-          "id": "E3", "type": "choix_unique", "critique": true, "obligatoire_non_desactivable": true,
+          "id": "E3",
+          "type": "choix_unique",
+          "critique": true,
+          "obligatoire_non_desactivable": true,
           "libelle": "Comment l'agent annonce qu'il est automatique",
           "aide": "L'annonce est obligatoire (AI Act art. 50, applicable depuis le 02/08/2026) et c'est aussi le premier levier de satisfaction mesure. Vous en choisissez la formulation, jamais l'existence. Mesure 19 : cette phrase survit au canal telephonique, a condition de rester courte.",
           "options": [
-            {"valeur": "assistant_automatique", "libelle": "« Je suis l'assistant automatique du salon »", "defaut": true},
-            {"valeur": "assistant_virtuel", "libelle": "« Je suis l'assistant virtuel de [nom] »"},
-            {"valeur": "personnalise", "libelle": "Formulation personnalisee", "champs": [{"id": "texte", "type": "texte"}]}
+            {
+              "valeur": "assistant_automatique",
+              "libelle": "« Je suis l'assistant automatique du salon »",
+              "defaut": true
+            },
+            {
+              "valeur": "assistant_virtuel",
+              "libelle": "« Je suis l'assistant virtuel de [nom] »"
+            },
+            {
+              "valeur": "personnalise",
+              "libelle": "Formulation personnalisee",
+              "champs": [
+                {
+                  "id": "texte",
+                  "type": "texte"
+                }
+              ]
+            }
           ],
-          "ecrit": {"cible": "frontmatter", "chemin": "annonce.formulation"}
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "annonce.formulation"
+          }
         },
         {
-          "id": "E4", "type": "texte_long", "palier": 2,
+          "id": "E4",
+          "type": "texte_long",
+          "palier": 2,
           "libelle": "Y a-t-il des choses que l'agent doit savoir, et que les questions n'ont pas couvertes ?",
           "aide": "Ecrit tel quel dans la memoire de l'agent, et jamais reecrit par le systeme.",
-          "ecrit": {"cible": "corps", "chemin": "particularites"}
+          "ecrit": {
+            "cible": "corps",
+            "chemin": "particularites"
+          }
         }
       ]
     }
@@ -131,22 +354,95 @@
     "Ne jamais negocier quand un client demande un humain."
   ],
   "keyterms": {
-    "groupe1": ["rendez-vous", "decaler", "annuler", "reporter", "creneau", "disponibilite"],
+    "groupe1": [
+      "rendez-vous",
+      "decaler",
+      "annuler",
+      "reporter",
+      "creneau",
+      "disponibilite"
+    ],
     "groupe3": {
-      "coupe": ["coupe", "coupe homme", "coupe enfant", "pointes"],
-      "brushing": ["brushing", "coiffage", "mise en plis"],
-      "coloration": ["coloration", "couleur", "racines", "patine"],
-      "balayage": ["balayage", "meches", "ombre", "tie and dye", "blond platine"],
-      "soin": ["soin", "masque", "botox capillaire", "keratine"]
+      "coupe": [
+        "coupe",
+        "coupe homme",
+        "coupe enfant",
+        "pointes"
+      ],
+      "brushing": [
+        "brushing",
+        "coiffage",
+        "mise en plis"
+      ],
+      "coloration": [
+        "coloration",
+        "couleur",
+        "racines",
+        "patine"
+      ],
+      "balayage": [
+        "balayage",
+        "meches",
+        "ombre",
+        "tie and dye",
+        "blond platine"
+      ],
+      "soin": [
+        "soin",
+        "masque",
+        "botox capillaire",
+        "keratine"
+      ]
     }
   },
   "collisions": [
-    {"termes": ["permanente", "semi-permanent", "maquillage permanent"], "desambiguisation": "demander la prestation, jamais deviner"},
-    {"termes": ["meches", "meche"], "desambiguisation": "le singulier designe souvent une retouche, le pluriel une prestation"},
-    {"termes": ["extension cils", "extension cheveux"], "desambiguisation": "demander laquelle"},
-    {"termes": ["patine", "platine"], "desambiguisation": "phonetiquement proches, demander confirmation"},
-    {"termes": ["soin capillaire", "soin visage", "soin corps"], "desambiguisation": "demander la zone"},
-    {"termes": ["remplissage ongles", "remplissage cils"], "desambiguisation": "demander laquelle"},
-    {"terme": "SIF", "desambiguisation": "sigle prononce tel quel, ne pas l'interpreter"}
+    {
+      "termes": [
+        "permanente",
+        "semi-permanent",
+        "maquillage permanent"
+      ],
+      "desambiguisation": "demander la prestation, jamais deviner"
+    },
+    {
+      "termes": [
+        "meches",
+        "meche"
+      ],
+      "desambiguisation": "le singulier designe souvent une retouche, le pluriel une prestation"
+    },
+    {
+      "termes": [
+        "extension cils",
+        "extension cheveux"
+      ],
+      "desambiguisation": "demander laquelle"
+    },
+    {
+      "termes": [
+        "patine",
+        "platine"
+      ],
+      "desambiguisation": "phonetiquement proches, demander confirmation"
+    },
+    {
+      "termes": [
+        "soin capillaire",
+        "soin visage",
+        "soin corps"
+      ],
+      "desambiguisation": "demander la zone"
+    },
+    {
+      "termes": [
+        "remplissage ongles",
+        "remplissage cils"
+      ],
+      "desambiguisation": "demander laquelle"
+    },
+    {
+      "terme": "SIF",
+      "desambiguisation": "sigle prononce tel quel, ne pas l'interpreter"
+    }
   ]
 }

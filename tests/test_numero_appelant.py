@@ -63,6 +63,9 @@ def conversation(base=None, envoyeur=None):
                   base=base or Base(), memoire="", consignes_communes="c",
                   tenant="salon-1", identifiant="appel-1")
     appel.envoyeur_sms = envoyeur
+    # Ces tests portent sur le numéro : la fiche désactive la demande du nom
+    # (question D5), qui a son propre fichier de tests.
+    appel.fiche = {"reservation": {"nom": "non"}}
     return appel
 
 
