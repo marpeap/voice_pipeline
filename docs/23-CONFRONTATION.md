@@ -40,3 +40,31 @@ Vérifié le 19/09 sur les textes et sur des synthèses à jour :
 ---
 
 **Ce document se relit à chaque fois que le produit semble fini.** La première confrontation a trouvé une fonction majeure absente — l'interruption — dans un produit que je croyais complet à 227 tests verts. C'est exactement ce qu'Adnan avait prévu en écrivant la règle.
+
+---
+
+# Deuxième passe — 19/09, après la construction du bord téléphonique
+
+## 4. Ce que la vérification d'avant-livraison a trouvé
+
+Le point le plus important de tout ce document, et il n'a été trouvé ni par un test ni par une recherche, mais en appliquant la règle « **aucune affirmation sans preuve fraîche** » :
+
+> **Le produit n'avait aucun point d'entrée.** Neuf modules, 260 tests verts, une porte de non-régression ouverte, une démonstration qui tourne — et **rien qui écoute**. Un standard téléphonique qui ne peut pas recevoir de connexion n'est pas livrable, quel que soit le nombre de tests.
+
+C'est l'angle mort classique : chaque pièce était vérifiée, l'assemblage était vérifié, et personne n'avait vérifié qu'on pouvait **brancher le tout**. Corrigé — le serveur existe, et ses tests ouvrent un vrai socket au lieu de simuler le protocole.
+
+## 5. Ce que la recherche sur Asterisk a changé
+
+| Ce qu'on a relevé | Ce qu'on en a fait |
+|---|---|
+| **Restreindre les codecs** (ulaw, alaw, slin16) évite les problèmes de négociation, **première cause d'appels qui aboutissent muets** | `deploiement/pjsip.conf` : `disallow=all` puis deux codecs, pas plus |
+| Le serveur reçoit des trames de **320 octets, 20 ms, 8 kHz** | c'est déjà ce que la session émet — confirmation, pas correction |
+| `direct_media` doit être désactivé | sans quoi l'audio contourne Asterisk et AudioSocket ne voit rien |
+| Asterisk **18 ou plus récent**, `app_audiosocket` chargé | écrit dans le plan de numérotation |
+| Objectif de bout en bout : **moins de deux secondes** entre la fin de la phrase de l'appelant et le début de la réponse | mesuré chez nous à **624 ms p50** (mesure 14) — trois fois mieux que la cible du marché |
+
+## 6. Ce qui reste, honnêtement
+
+1. **Aucun appel réel.** C'est toujours la limite principale. Tout le reste est prêt à la recevoir.
+2. **Le moteur de transcription n'est pas branché** au serveur : le service démarre, décroche et répond, mais `transcrire` rend une chaîne vide tant qu'un STT n'est pas configuré. C'est volontaire — cela permet de **vérifier un déploiement avant d'avoir un STT** — et c'est écrit ici pour que personne ne le découvre en production.
+3. **Le multilingue** reste une limitation assumée : détection prudente, puis transfert.
