@@ -90,6 +90,20 @@ def verifier_le_deploiement(environnement: Mapping[str, str] | None = None) -> d
                       base=Depot(":memory:").pour(config.tenant))
     manquantes = service.questions_manquantes()
     moteurs = inventaire(env)
+
+    # « pret: false » sans motif oblige a relire le code pour comprendre. Le
+    # creneau manquant est le cas le plus traitre : l'agent decroche, comprend,
+    # et n'a jamais rien a proposer — aucune erreur, aucun rendez-vous.
+    manque = []
+    if manquantes:
+        manque.append("questions critiques sans réponse : " + ", ".join(manquantes))
+    if not config.creneaux:
+        manque.append("aucun créneau proposable : poser STANDARD_CRENEAUX "
+                      "(par exemple « 09:00,10:30,14:00 »)")
+    for role, etat in moteurs.items():
+        if not etat["disponible"]:
+            manque.append(f"{role} : {etat['detail'] or 'indisponible'}")
+
     return {
         "tenant": config.tenant,
         "pack": config.pack["pack"],
@@ -104,8 +118,8 @@ def verifier_le_deploiement(environnement: Mapping[str, str] | None = None) -> d
         "moteurs": moteurs,
         # « Pret » veut dire capable de decrocher ET d'entendre : un service qui
         # repond sans comprendre est pire qu'un service qui refuse de demarrer.
-        "pret": (not manquantes and bool(config.creneaux)
-                 and all(m["disponible"] for m in moteurs.values())),
+        "manque": manque,
+        "pret": not manque,
     }
 
 

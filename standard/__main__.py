@@ -17,6 +17,25 @@ from standard.demarrage import construire_serveur, verifier_le_deploiement
 
 
 def main(arguments: list[str]) -> int:
+    """Le point d'entree, et le seul endroit qui traduit une erreur en message.
+
+    Une trace Python de neuf lignes n'aide personne a sept heures du matin
+    devant un service qui ne demarre pas : une configuration incomplete se dit
+    en une phrase, avec le nom des variables qui manquent.
+    """
+    try:
+        return _executer(arguments)
+    except ValueError as manque:
+        print(f"configuration incomplète : {manque}", file=sys.stderr)
+        print("voir `deploiement/standard.service` et docs/24-EXPLOITATION.md",
+              file=sys.stderr)
+        return 1
+    except FileNotFoundError as absent:
+        print(f"fichier introuvable : {absent}", file=sys.stderr)
+        return 1
+
+
+def _executer(arguments: list[str]) -> int:
     commande = arguments[0] if arguments else "verifier"
 
     if commande == "verifier":

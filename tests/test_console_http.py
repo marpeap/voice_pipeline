@@ -123,6 +123,8 @@ def test_la_commande_console_cable_l_audit_et_la_limitation(tmp_path, monkeypatc
 
     from standard import __main__ as commande
 
-    source = inspect.getsource(commande.main)
+    # Le module entier, pas `main` : le dispatch vit dans `_executer` depuis que
+    # les erreurs de configuration se disent en une phrase.
+    source = inspect.getsource(commande)
     assert "PisteDAudit" in source, "la console ne laisse aucune trace de qui corrige"
     assert "Limiteur" in source, "la console n'est pas protégée d'un matraquage"

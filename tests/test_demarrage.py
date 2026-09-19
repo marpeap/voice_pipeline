@@ -303,3 +303,64 @@ def test_le_client_choisi_suit_la_configuration():
     env = environnement(STANDARD_MODELE="un-modele", STANDARD_MODELE_CLE="secrete")
     config = configuration_depuis_environnement(env)
     assert isinstance(_client_modele(env, config), ClientModeleHttp)
+
+
+# --- ce que voit un exploitant qui se trompe --------------------------------
+
+def test_verifier_sans_configuration_dit_ce_qui_manque_sans_trace_d_appels(capsys):
+    """« dit si le service peut décrocher, et ce qui manque sinon » : il
+    crachait une trace Python de neuf lignes, ce qui n'aide personne à 7 h du
+    matin devant un service qui ne démarre pas."""
+    import os
+
+    from standard.__main__ import main
+
+    anciennes = {cle: os.environ.pop(cle, None)
+                 for cle in ("STANDARD_TENANT", "STANDARD_PACK")}
+    try:
+        code = main(["verifier"])
+    finally:
+        for cle, valeur in anciennes.items():
+            if valeur is not None:
+                os.environ[cle] = valeur
+    sortie = capsys.readouterr()
+    assert code == 1
+    assert "Traceback" not in sortie.out + sortie.err
+    assert "STANDARD_TENANT" in sortie.out + sortie.err
+
+
+def test_le_rapport_dit_pourquoi_il_n_est_pas_pret(tmp_path):
+    """« pret: false » sans motif oblige à relire le code pour comprendre. Le
+    créneau manquant est le cas le plus traître : l'agent décroche, comprend,
+    et n'a jamais rien à proposer."""
+    import os
+
+    from standard.demarrage import verifier_le_deploiement
+
+    rapport = verifier_le_deploiement({
+        "STANDARD_TENANT": "salon-1",
+        "STANDARD_PACK": os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "packs", "coiffure.json"),
+        "STANDARD_REPONSES": '{"A1": "Salon Elegance"}',
+        "STANDARD_STT": "muet", "STANDARD_TTS": "muet",
+    })
+    assert rapport["pret"] is False
+    motifs = " ".join(rapport["manque"])
+    assert "créneau" in motifs or "creneau" in motifs
+
+
+def test_un_service_complet_est_pret_et_ne_manque_de_rien(tmp_path):
+    import os
+
+    from standard.demarrage import verifier_le_deploiement
+
+    rapport = verifier_le_deploiement({
+        "STANDARD_TENANT": "salon-1",
+        "STANDARD_PACK": os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "packs", "coiffure.json"),
+        "STANDARD_REPONSES": '{"A1": "Salon Elegance"}',
+        "STANDARD_CRENEAUX": "09:00,10:30",
+        "STANDARD_STT": "muet", "STANDARD_TTS": "muet",
+    })
+    assert rapport["pret"] is True
+    assert rapport["manque"] == []
