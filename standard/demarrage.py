@@ -226,6 +226,41 @@ def _synthese_tolerante(env, fabrique=None):
     return synthese_bornee
 
 
+def _base_des_rendez_vous(env, depot, config):
+    """La base du service : celle du commercant, ou la notre.
+
+    C'est la moitie de la promesse du produit — « un greffon, pas une ile ». Le
+    connecteur existait, teste et documente, et n'etait branche nulle part : le
+    service ecrivait toujours chez lui, et `STANDARD_HOTE_BASE` ne servait a
+    rien. Un module non branche ne sert a rien.
+    """
+    hote = env.get("STANDARD_HOTE_BASE")
+    if not hote:
+        return depot.pour(config.tenant)
+
+    import json as _json
+    import urllib.request
+
+    from standard.connecteur import BaseViaConnecteur, ConnecteurHttp
+
+    def transport(methode, url, corps=None, entetes=None, delai=None):
+        donnees = _json.dumps(corps).encode() if corps is not None else None
+        requete = urllib.request.Request(url, data=donnees, headers=entetes or {},
+                                         method=methode)
+        try:
+            with urllib.request.urlopen(requete, timeout=delai) as reponse:
+                brut = reponse.read()
+                return reponse.status, (_json.loads(brut) if brut else {})
+        except urllib.error.HTTPError as refus:
+            # Un code de refus est une REPONSE, pas une panne : le connecteur
+            # doit pouvoir distinguer un 409 d'un reseau coupe.
+            brut = refus.read()
+            return refus.code, (_json.loads(brut) if brut else {})
+
+    return BaseViaConnecteur(ConnecteurHttp(transport, base=hote,
+                                            cle_api=env.get("STANDARD_HOTE_CLE", "")))
+
+
 def construire_serveur(environnement: Mapping[str, str] | None = None) -> ServeurAudioSocket:
     """Assemble le service complet, prêt à recevoir des appels."""
     env = dict(environnement if environnement is not None else os.environ)
@@ -241,10 +276,14 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
                 occupes.setdefault(ligne["date"], set()).add(ligne["heure"])
         return occupes
 
+    base_des_rendez_vous = _base_des_rendez_vous(env, depot, config)
+
     service = Service(config,
                       client_modele=_client_modele(env, config),
-                      base=depot.pour(config.tenant),
+                      base=base_des_rendez_vous,
                       creneaux_pris=creneaux_pris,
+                      libres_du_jour=getattr(base_des_rendez_vous,
+                                             "libres_du_jour", None),
                       envoyeur_sms=_envoyeur_sms(env, config),
                       corrections=RegistreDeCorrections(depot=depot,
                                                         tenant=config.tenant))

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-
+from typing import Any
 
 from standard.regles import (
     JOURS,
@@ -39,6 +39,9 @@ class Agenda:
     jours_fermes: tuple[int, ...] = (6,)
     creneaux: set[str] = field(default_factory=set)
     pris: dict[str, set[str]] = field(default_factory=dict)
+    # En mode greffon, c'est l'hote qui sait ce qui est libre : sa reponse fait
+    # foi, et son silence n'est jamais lu comme « tout est libre ».
+    libres_du_jour: Any = None
 
     def statut(self, jour_iso: str) -> str:
         """hors horizon · ferme · ouvert — trois reponses, jamais une seule.
@@ -59,6 +62,13 @@ class Agenda:
         return "ouvert"
 
     def libres(self, jour_iso: str) -> list[str]:
+        if self.libres_du_jour is not None:
+            # On garde l'intersection : l'hote peut proposer un creneau que le
+            # salon a ferme dans sa fiche, et c'est la fiche qui commande.
+            depuis_l_hote = list(self.libres_du_jour(jour_iso))
+            if self.creneaux:
+                return sorted(set(depuis_l_hote) & self.creneaux)
+            return sorted(depuis_l_hote)
         return sorted(self.creneaux - self.pris.get(jour_iso, set()))
 
 

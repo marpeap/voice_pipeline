@@ -160,3 +160,46 @@ class ConnecteurHttp:
             entetes["Idempotency-Key"] = idempotence
         return self._transport(methode, f"{self._base}{chemin}", corps=corps,
                                entetes=entetes, delai=self._delai)
+
+
+class BaseViaConnecteur:
+    """L'hôte, vu comme une base de rendez-vous — c'est ce qui branche le greffon.
+
+    `ecriture.ecrire_rendez_vous` ne connaît qu'un contrat : `inserer` puis
+    `relire`. Le connecteur, lui, parle `reserver` / `relire` / `disponibilites`.
+    Cet adaptateur est le seul endroit où les deux se rencontrent, et il traduit
+    surtout **les échecs**, qui n'ont pas le même sens :
+
+    - un refus de créneau devient `ChevauchementRefuse`, que l'agent sait dire
+      (« ce créneau vient d'être pris, il me reste… ») ;
+    - une indisponibilité de l'hôte remonte telle quelle, et l'écriture rend
+      « incertain » — l'agent dit qu'il ne peut pas vérifier, il ne promet rien.
+
+    Confondre les deux ferait annoncer « c'est pris » parce que le serveur de
+    l'hôte tousse : mentir au client avec aplomb, et sans qu'il puisse le savoir.
+    """
+
+    def __init__(self, connecteur: Connecteur, reessais: int = 1):
+        self._connecteur = connecteur
+        # Un seul reessai, avec LA MEME cle : un appel telephonique n'attend pas
+        # davantage, et une cle neuve fabriquerait le doublon qu'on evite.
+        self._reessais = reessais
+
+    def inserer(self, cle: str, donnees: dict) -> str:
+        from standard.depot import ChevauchementRefuse
+
+        try:
+            return self._connecteur.reserver(cle, donnees, reessais=self._reessais)
+        except Refus as refus:
+            if refus.code == "creneau_pris":
+                raise ChevauchementRefuse(
+                    f"{donnees.get('date')} {donnees.get('heure')} refusé par l'hôte"
+                ) from refus
+            raise
+
+    def relire(self, reference: str) -> dict | None:
+        return self._connecteur.relire(reference)
+
+    def libres_du_jour(self, jour_iso: str) -> list[str]:
+        """Les créneaux de l'hôte pour ce jour — jamais une liste devinée."""
+        return self._connecteur.disponibilites(jour_iso)

@@ -190,6 +190,7 @@ class Service:
                  base, fabrique_connexion: Callable[[], Any] | None = None,
                  maintenir: Callable[[Any], None] | None = None,
                  creneaux_pris: Callable[[], dict[str, set[str]]] | None = None,
+                 libres_du_jour: Callable[[str], list[str]] | None = None,
                  envoyeur_sms: Any = None,
                  corrections: Any = None):
         self.configuration = configuration
@@ -198,6 +199,9 @@ class Service:
         # Sans cette fonction, l'agenda ignore les rendez-vous deja pris et
         # propose au deuxieme appelant le creneau du premier.
         self.creneaux_pris = creneaux_pris or dict
+        # En mode greffon, les creneaux libres viennent de l'hote : lui seul
+        # sait ce qui a ete pris dans son logiciel depuis la derniere seconde.
+        self.libres_du_jour = libres_du_jour
         self.envoyeur_sms = envoyeur_sms
         self.corrections = corrections
         self.metriques = Supervision()
@@ -251,7 +255,8 @@ class Service:
                       horizon_jours=self.configuration.horizon_jours,
                       jours_fermes=tuple(self.configuration.jours_fermes),
                       creneaux=set(self.configuration.creneaux),
-                      pris=self.creneaux_pris())
+                      pris=self.creneaux_pris(),
+                      libres_du_jour=self.libres_du_jour)
 
     def _annonce(self) -> str:
         """La formulation choisie par le salon, jamais son existence."""
