@@ -10,6 +10,9 @@ WorkingDirectory=/opt/standard
 EnvironmentFile=/etc/standard/environnement
 ExecStartPre=/opt/standard/.venv/bin/python -m standard verifier
 ExecStart=/opt/standard/.venv/bin/python -m standard servir
+; Le point d'etat, sur la boucle locale : `curl -s localhost:8092/sante | jq`.
+; Ce qui doit sortir de la machine passe par un proxy, jamais par ce port.
+Environment=STANDARD_PORT_SANTE=8092
 Restart=always
 RestartSec=2
 ; Cinq démarrages en dix secondes suffisent à faire abandonner systemd :

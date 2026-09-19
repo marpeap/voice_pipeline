@@ -40,6 +40,9 @@ def main(arguments: list[str]) -> int:
         serveur = construire_serveur()
         serveur.demarrer()
         print(f"en écoute sur {serveur.hote}:{serveur.port}", flush=True)
+        sante = getattr(serveur, "sante", None)
+        if sante is not None:
+            print(f"état sur http://{sante.hote}:{sante.port}/sante", flush=True)
 
         arret = threading.Event()
         # Un arret propre : les appels en cours se terminent, aucun n'est coupe

@@ -29,6 +29,7 @@ from standard.depot import Depot
 from standard.correction import RegistreDeCorrections
 from standard.entretien import Entretien
 from standard.journal import JournalDAppels
+from standard.sante import ServeurDeSante
 from standard.hors_ligne import ModeleHorsLigne
 from standard.parole import FileDeSynthese
 from standard.regles import PARALLELISME_SYNTHESE
@@ -296,4 +297,9 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
     # La duree de conservation annoncee au registre n'est vraie que si quelqu'un
     # purge : c'est ce fil-la, demarre et arrete avec le serveur.
     serveur.entretien = Entretien(journal)
+    # Sans point d'etat, l'exploitant apprend la panne par un commercant qui
+    # telephone. Sur la boucle locale par defaut : ce qui doit sortir de la
+    # machine passe par un proxy, pas par ce port.
+    serveur.sante = ServeurDeSante(serveur, hote=env.get("STANDARD_HOTE_SANTE", "127.0.0.1"),
+                                   port=int(env.get("STANDARD_PORT_SANTE", "8092")))
     return serveur

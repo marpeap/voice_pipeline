@@ -155,3 +155,35 @@ def test_le_serveur_survit_a_une_panne_du_moteur():
     dit = b"".join(t.charge for t in trames).decode("utf-8", "replace")
     assert len(dit) > len("Bonjour, assistant automatique."), \
         "l'appelant n'a rien entendu après l'annonce : la panne l'a laissé seul"
+
+
+def test_un_archivage_qui_tombe_ne_fausse_pas_le_compteur_d_appels():
+    """Le journal peut échouer — base verrouillée, disque plein. L'appel est
+    fini : le compteur d'appels en cours doit revenir à zéro quand même, sinon
+    l'arrêt propre attend un appel qui n'existe plus."""
+    import socket
+    import time
+
+    from standard.serveur import ServeurAudioSocket
+
+    def archiver_qui_casse(session):
+        raise RuntimeError("base verrouillée")
+
+    serveur = ServeurAudioSocket(
+        fabrique_agent=lambda: AgentFactice(),
+        transcrire=lambda audio, frequence: "",
+        synthetiser=lambda texte: [b"\x00" * 320],
+        port=0, sur_fin=archiver_qui_casse)
+    serveur.demarrer()
+    try:
+        prise = socket.create_connection(("127.0.0.1", serveur.port), timeout=2)
+        time.sleep(0.2)
+        prise.close()
+        for _ in range(50):
+            if serveur.appels_en_cours == 0:
+                break
+            time.sleep(0.05)
+        assert serveur.appels_en_cours == 0, "un appel fantôme reste compté"
+        assert serveur.archivages_perdus == 1
+    finally:
+        serveur.arreter()

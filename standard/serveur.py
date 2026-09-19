@@ -44,6 +44,7 @@ class ServeurAudioSocket:
         self.seuil_bruite_db = seuil_bruite_db
         self.rythme = rythme          # respecter 20 ms entre paquets ; faux en test
         self.sur_fin = sur_fin
+        self.archivages_perdus = 0     # un appel fini dont le journal n'a pas voulu
 
         self.appels_en_cours = 0
         self.appels_total = 0
@@ -70,9 +71,10 @@ class ServeurAudioSocket:
         # Le menage tourne avec le service, ou il ne tourne pas du tout : un cron
         # pose a la main sur un VPS recree est la facon habituelle dont une duree
         # de conservation devient fausse.
-        entretien = getattr(self, "entretien", None)
-        if entretien is not None:
-            entretien.demarrer()
+        for accessoire in ("entretien", "sante"):
+            compagnon = getattr(self, accessoire, None)
+            if compagnon is not None:
+                compagnon.demarrer()
 
     def arreter(self, attente_s: float = 5.0) -> None:
         """Arret propre : on attend les appels en cours, on ne les coupe pas.
@@ -81,9 +83,10 @@ class ServeurAudioSocket:
         d'une phrase. La promesse etait dans `__main__` bien avant d'etre tenue.
         """
         self._arret.set()
-        entretien = getattr(self, "entretien", None)
-        if entretien is not None:
-            entretien.arreter()
+        for accessoire in ("entretien", "sante"):
+            compagnon = getattr(self, accessoire, None)
+            if compagnon is not None:
+                compagnon.arreter()
         if self._fil:
             self._fil.join(timeout=2)
         with self._verrou:
@@ -164,7 +167,14 @@ class ServeurAudioSocket:
             except OSError:
                 pass
             if self.sur_fin:
-                self.sur_fin(session)
+                try:
+                    self.sur_fin(session)
+                except Exception:
+                    # Le journal peut tomber — base verrouillee, disque plein.
+                    # L'appel, lui, est fini : si l'exception remontait, le
+                    # compteur ne redescendait pas et l'arret propre attendait
+                    # un appel qui n'existe plus.
+                    self.archivages_perdus += 1
             with self._verrou:
                 self.appels_en_cours -= 1
 
