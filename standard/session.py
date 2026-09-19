@@ -27,7 +27,8 @@ from standard.audiosocket import (
     Trame,
     encoder_audio,
 )
-from standard.regles import SEUIL_PAROLE
+from standard.ecoute import TamponDePreRoll, estimer_rsb_db
+from standard.regles import SEUIL_BRUITE_DB, SEUIL_PAROLE
 
 SILENCE_DE_FIN_MS = 700       # au-dela, on considere que l'appelant a fini de parler
 # Interruption (barge-in). Etat de l'art releve le 19/09/2026 : ecart de reprise
@@ -86,6 +87,7 @@ class SessionTelephonique:
 
     identifiant: str | None = None
     fermee: bool = False
+    rsb_db: float | None = None
     audio_recu: int = 0
     saisie_terminee: bool = False
     interruptions: int = 0
@@ -95,12 +97,15 @@ class SessionTelephonique:
 
     _decodeur: Decodeur = field(default_factory=Decodeur, repr=False)
     _audio: bytearray = field(default_factory=bytearray, repr=False)
+    _fond: bytearray = field(default_factory=bytearray, repr=False)
+    _tampon: TamponDePreRoll = field(default_factory=TamponDePreRoll, repr=False)
     _frequence_entrante: int = TYPE_AUDIO_8K and 8000
     _silence_ms: int = 0
     _a_parle: bool = False
     _chiffres: list[str] = field(default_factory=list, repr=False)
     _attend_un_numero: bool = False
     _a_dire: list[bytes] = field(default_factory=list, repr=False)
+    _source: object = None                      # synthese en cours, consommee au fil de l'eau
     _parole_continue_ms: int = 0
 
     # --- ouverture ----------------------------------------------------------
@@ -131,7 +136,7 @@ class SessionTelephonique:
 
     @property
     def en_train_de_parler(self) -> bool:
-        return bool(self._a_dire)
+        return bool(self._a_dire) or self._source is not None
 
     @property
     def reste_a_emettre(self) -> int:
@@ -140,12 +145,25 @@ class SessionTelephonique:
         return len(self._a_dire)
 
     def emettre(self) -> bytes | None:
-        """Le prochain paquet a envoyer, ou rien. C'est le serveur qui rythme."""
+        """Le prochain paquet a envoyer, ou rien. C'est le serveur qui rythme.
+
+        La synthese est consommee **au fil de l'eau** : le premier paquet part
+        avant que la phrase entiere ne soit fabriquee. Materialiser d'abord,
+        c'etait le defaut du binaire — 372 ms contre 162 (mesure 13).
+        """
+        if not self._a_dire and self._source is not None:
+            for fragment in self._source:
+                self._empiler(fragment)
+                if self._a_dire:
+                    break
+            else:
+                self._source = None
         return self._a_dire.pop(0) if self._a_dire else None
 
     def _interrompre(self) -> None:
         self.interruptions += 1
         self._a_dire.clear()
+        self._source = None          # ce qui restait a synthetiser ne sera pas dit
 
     # --- reception ----------------------------------------------------------
 
@@ -176,13 +194,26 @@ class SessionTelephonique:
         return []                                    # type inconnu : on l'ignore
 
     def _audio_entrant(self, trame: Trame) -> list[bytes]:
+        """Trie chaque paquet : parole, ou bruit de fond.
+
+        Les deux servent. La parole part au moteur ; le fond sert a mesurer le
+        rapport signal/bruit — et c'est lui, pas le texte, qui dit a l'agent
+        qu'il doit changer de strategie (mesure 10).
+        """
         self._frequence_entrante = trame.frequence() or self._frequence_entrante
-        self._audio.extend(trame.charge)
         self.audio_recu += len(trame.charge)
 
         if _amplitude(trame.charge) >= SEUIL_PAROLE:
+            if not self._a_parle:
+                # Le pre-roll part AVANT la premiere syllabe : mesure 9, un
+                # moteur streaming perd un premier mot sur quatre, et c'est celui
+                # qui porte le « zero » d'un numero ou le « non » d'un refus.
+                garde = self._tampon.vider()
+                if garde:
+                    self._audio.extend(garde)
             self._a_parle = True
             self._silence_ms = 0
+            self._audio.extend(trame.charge)
             self._parole_continue_ms += DUREE_PAQUET_MS
             # On ne coupe qu'apres une parole assez longue pour ne pas etre un
             # « mm », une porte qui claque, ou notre propre voix qui revient.
@@ -190,10 +221,14 @@ class SessionTelephonique:
                     self._parole_continue_ms >= self.duree_minimale_interruption_ms:
                 self._interrompre()
             return []
-        self._parole_continue_ms = 0
 
+        self._parole_continue_ms = 0
+        self._fond.extend(trame.charge)
         if not self._a_parle:
+            self._tampon.ajouter(trame.charge)
             return []                                # silence d'avant la parole
+
+        self._audio.extend(trame.charge)             # la fin de phrase compte aussi
         self._silence_ms += DUREE_PAQUET_MS
         if self._silence_ms < self.silence_de_fin_ms:
             return []
@@ -203,13 +238,19 @@ class SessionTelephonique:
         """L'appelant a fini de parler : on transcrit, on repond, on rejoue."""
         audio = reechantillonner(bytes(self._audio), self._frequence_entrante,
                                  self.frequence_moteur)
+        # Mesure 10 : a 10-15 dB le taux d'erreur double SUR LES ENTITES. L'agent
+        # doit le savoir pour changer de strategie — passer au clavier des le
+        # premier essai plutot qu'attendre deux echecs.
+        self.rsb_db = estimer_rsb_db(bytes(self._fond), bytes(self._audio))
+        bruite = self.rsb_db is not None and self.rsb_db < SEUIL_BRUITE_DB
         self._audio.clear()
+        self._fond.clear()
         self._a_parle = False
         self._silence_ms = 0
         texte = self.transcrire(audio, self.frequence_moteur)
         if not texte:
             return []
-        reponse = self.agent.tour(texte)
+        reponse = self.agent.tour(texte, bruite=bruite)
         morceaux = self._jouer(reponse.phrase)
         if getattr(reponse, "genre", "") == "transfert":
             # Le bord telephonique doit VRAIMENT passer la main : une phrase sans
@@ -259,10 +300,16 @@ class SessionTelephonique:
         C'est le rythme qu'attend un canal telephonique : 160 echantillons de
         16 bits a 8 kHz. Envoyer plus gros fait saccader, plus fin ne sert a rien.
         """
-        morceaux: list[bytes] = []
-        for fragment in self.synthetiser(texte):
-            audio = reechantillonner(fragment, self.frequence_moteur, 8000) \
-                if self.frequence_moteur != 8000 else fragment
-            morceaux += encoder_audio(audio, TYPE_AUDIO_8K, PAQUET_20MS_8K)
-        self._a_dire.extend(morceaux)
-        return morceaux
+        self._source = iter(self.synthetiser(texte))
+        # On amorce un premier paquet tout de suite : le reste suivra a la
+        # demande, pendant que l'agent parle deja.
+        premier = self.emettre()
+        if premier is None:
+            return []
+        self._a_dire.insert(0, premier)
+        return list(self._a_dire)
+
+    def _empiler(self, fragment: bytes) -> None:
+        audio = reechantillonner(fragment, self.frequence_moteur, 8000) \
+            if self.frequence_moteur != 8000 else fragment
+        self._a_dire.extend(encoder_audio(audio, TYPE_AUDIO_8K, PAQUET_20MS_8K))

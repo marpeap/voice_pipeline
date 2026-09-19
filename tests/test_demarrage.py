@@ -149,3 +149,33 @@ def test_avec_les_moteurs_muets_le_deploiement_est_pret():
     rapport = verifier_le_deploiement(environnement(STANDARD_STT="muet",
                                                     STANDARD_TTS="muet"))
     assert rapport["pret"] is True
+
+
+def test_les_syntheses_simultanees_sont_bornees():
+    """Mesure 13 : au-delà de quatre synthèses simultanées, le premier son passe
+    400 ms. Le plafond existait dans `parole.py` et n'était appliqué nulle part —
+    relevé par la revue du 19/09."""
+    import threading
+
+    from standard.demarrage import _synthese_tolerante
+
+    env = environnement(STANDARD_TTS="muet", STANDARD_SYNTHESES="2")
+    synthetiser = _synthese_tolerante(env)
+    simultanees, maximum, verrou = [], [0], threading.Lock()
+
+    def parler():
+        for _ in synthetiser("bonjour"):
+            with verrou:
+                simultanees.append(1)
+                maximum[0] = max(maximum[0], len(simultanees))
+            import time
+            time.sleep(0.03)
+            with verrou:
+                simultanees.pop()
+
+    fils = [threading.Thread(target=parler) for _ in range(6)]
+    for fil in fils:
+        fil.start()
+    for fil in fils:
+        fil.join()
+    assert maximum[0] <= 2, f"{maximum[0]} synthèses simultanées, le plafond est 2"

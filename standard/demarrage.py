@@ -28,6 +28,8 @@ from typing import Any, Mapping
 from standard.depot import Depot
 from standard.journal import JournalDAppels
 from standard.hors_ligne import ModeleHorsLigne
+from standard.parole import FileDeSynthese
+from standard.regles import PARALLELISME_SYNTHESE
 from standard.moteurs import (
     MoteurAbsent,
     choisir_synthese,
@@ -101,13 +103,26 @@ def verifier_le_deploiement(environnement: Mapping[str, str] | None = None) -> d
 
 
 def _synthese_tolerante(env):
-    """La synthese, ou un silence assume si elle manque — mais jamais un plantage
-    au milieu d'un appel."""
+    """La synthese, bornee, paresseuse, et tolerante a son absence.
+
+    **Bornee** : au-dela de quatre syntheses simultanees, le premier son depasse
+    400 ms sur une machine a quatre coeurs (mesure 13). Le plafond vivait dans
+    `standard/parole.py` et n'etait applique nulle part — une revue l'a releve.
+
+    **Paresseuse** : on rend le generateur tel quel, sans le materialiser. Le
+    premier paquet part avant que la phrase entiere ne soit fabriquee.
+    """
+    file = FileDeSynthese(int(env.get("STANDARD_SYNTHESES", PARALLELISME_SYNTHESE)))
     try:
         synthetiser = choisir_synthese(env)
     except MoteurAbsent:
-        return lambda texte: [b""]
-    return lambda texte: list(synthetiser(texte))
+        return lambda texte: iter([b""])
+
+    def synthese_bornee(texte):
+        with file.place():
+            yield from synthetiser(texte)
+
+    return synthese_bornee
 
 
 def construire_serveur(environnement: Mapping[str, str] | None = None) -> ServeurAudioSocket:

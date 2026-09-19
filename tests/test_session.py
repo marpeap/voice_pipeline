@@ -234,3 +234,69 @@ def test_l_annonce_est_prouvable_apres_coup():
     assert preuve["formulation"]
     assert preuve["horodatage"].endswith("+00:00") or "T" in preuve["horodatage"]
     assert preuve["conforme"] is True
+
+
+# --- ce que les mesures imposent, applique par le chemin reel ----------------
+#
+# La revue du 19/09 : `ecoute.py` et `parole.py` portent le pre-roll, le rapport
+# signal/bruit, le delai de garde et le plafond de syntheses — et ne sont
+# importes par personne. Les mesures etaient documentees, pas appliquees.
+
+def test_le_rapport_signal_bruit_remonte_jusqu_a_l_agent():
+    """Mesure 10 : a 10-15 dB le taux d'erreur double SUR LES ENTITES. L'agent
+    doit le savoir pour changer de strategie, pas le decouvrir."""
+    vus = []
+
+    class AgentQuiNote(AgentFactice):
+        def tour(self, transcription, bruite=False):
+            vus.append(bruite)
+            return super().tour(transcription, bruite=bruite)
+
+    s = session(AgentQuiNote())
+    s.ouvrir()
+    # De la parole a peine au-dessus du bruit de fond : ligne bruitee.
+    for _ in range(6):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160, amplitude=600)))
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160, amplitude=520)))
+    for _ in range(int(s.silence_de_fin_ms / 20) + 1):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160, amplitude=300)))
+    assert vus and vus[0] is True
+    assert s.rsb_db is not None
+
+
+def test_une_ligne_propre_n_est_pas_marquee_bruitee():
+    vus = []
+
+    class AgentQuiNote(AgentFactice):
+        def tour(self, transcription, bruite=False):
+            vus.append(bruite)
+            return super().tour(transcription, bruite=bruite)
+
+    s = session(AgentQuiNote())
+    s.ouvrir()
+    for _ in range(4):
+        s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))          # silence franc
+    for _ in range(6):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160, amplitude=9000)))
+    for _ in range(int(s.silence_de_fin_ms / 20) + 1):
+        s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
+    assert vus and vus[0] is False
+
+
+def test_la_synthese_est_consommee_paresseusement():
+    """Mesure 13 : le premier son doit partir avant que toute la phrase ne soit
+    synthetisee. Materialiser d'abord, c'est le defaut du binaire — 372 ms
+    contre 162."""
+    produits = []
+
+    def synthetiseur_lent(texte):
+        for index in range(5):
+            produits.append(index)
+            yield bytes(320)
+
+    s = SessionTelephonique(agent=AgentFactice(), transcrire=lambda a, f: "",
+                            synthetiser=synthetiseur_lent)
+    s.ouvrir()
+    premier = s.emettre()
+    assert premier is not None
+    assert len(produits) < 5, "toute la phrase a ete synthetisee avant le premier paquet"
