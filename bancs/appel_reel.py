@@ -190,6 +190,10 @@ def ecouter(prise: socket.socket, decodeur: Decodeur, duree_s: float) -> bytes:
             morceau = prise.recv(65536)
         except socket.timeout:
             continue
+        except ConnectionResetError:
+            # Le serveur a rendu la main au bord téléphonique (transfert) : côté
+            # Asterisk c'est une fin d'appel normale, pas une panne du banc.
+            break
         if not morceau:
             break
         for trame in decodeur.avaler(morceau):
@@ -299,6 +303,9 @@ def jouer(nom: str, repliques, attendu, supplement=None, intrusion=None) -> bool
         for rang, replique in enumerate(repliques_du_tour):
             if intrusion and intrusion[0] == rang:
                 intrus(base, intrusion[1])
+            if prise.fileno() == -1:
+                print("appel terminé par l'agent avant la fin du scénario")
+                break
             if replique.startswith(CLAVIER):
                 touches = replique[len(CLAVIER):]
                 print(f"appelant : [clavier] {touches}")
@@ -307,8 +314,12 @@ def jouer(nom: str, repliques, attendu, supplement=None, intrusion=None) -> bool
                     time.sleep(0.02)
             else:
                 print(f"appelant : « {replique} »")
-                envoyer(prise, voix(replique))
-                envoyer(prise, silence(900))    # de quoi clore le tour
+                try:
+                    envoyer(prise, voix(replique))
+                    envoyer(prise, silence(900))   # de quoi clore le tour
+                except (BrokenPipeError, ConnectionResetError):
+                    print("l'agent a raccroché ou transféré : fin de l'appel")
+                    break
             reponse = ecouter(prise, decodeur, 3.0)
             entendu.append(reponse)
             print(f"agent    : {len(reponse)} octets audio")

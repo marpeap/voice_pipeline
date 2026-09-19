@@ -27,6 +27,11 @@ AMORCES = (
     "c'est au nom de", "au nom de", "c'est de la part de", "de la part de",
     "je m'appelle", "mon nom c'est", "mon nom est", "mon nom", "c'est",
     "moi c'est", "je suis",
+    # Le moteur mange le « au » : « au nom de Nguyen » revient « NOM DE NGUYEN »,
+    # et l'agenda affichait « Nom De Nguyen ». Les amorces sont essayees de la
+    # plus longue a la plus courte, donc celle-ci ne prend jamais la place des
+    # precedentes.
+    "nom de",
 )
 CIVILITES = ("monsieur", "madame", "mademoiselle", "m", "mr", "mme", "mlle", "docteur")
 HESITATIONS = ("euh", "heu", "hum", "ben", "bah", "alors", "voila", "oui", "non")
@@ -36,11 +41,25 @@ HESITATIONS = ("euh", "heu", "hum", "ben", "bah", "alors", "voila", "oui", "non"
 POLITESSES = ("merci", "revoir", "bonjour", "bonsoir", "salut", "journee",
               "parfait", "accord", "bien", "pardon", "excusez")
 
+# Les mots de la langue qui ne sont jamais un nom de famille. Ils servent au
+# seul cas ou l'on accepte un nom SANS amorce : le tour qui suit la
+# confirmation. « non ce n'est pas ca » y devenait « Ce N'Est Pas Ca ».
+MOTS_VIDES = (
+    "ce", "c", "n", "ne", "est", "pas", "ca", "cela", "je", "tu", "il", "elle",
+    "on", "nous", "vous", "ils", "le", "la", "les", "un", "une", "des", "du",
+    "de", "et", "ou", "mais", "plus", "rien", "tout", "que", "qui", "quoi",
+    "moi", "toi", "lui", "mon", "ma", "mes", "votre", "vos", "son", "sa",
+    "plutot", "autre", "encore", "toujours", "jamais", "ai", "suis", "sais",
+)
+
+MOTS_MAX_SANS_AMORCE = 2
+"""Sans amorce, un nom tient en deux mots au plus : au-dela, c'est une phrase."""
+
 # Ce qui annonce explicitement un nom. Une correction ne se devine pas : on
 # n'accepte un nouveau nom que si l'appelant dit qu'il en donne un.
-AMORCES_EXPLICITES = ("c'est au nom de", "au nom de", "c'est de la part de",
-                      "de la part de", "je m'appelle", "mon nom c'est",
-                      "mon nom est", "mon nom", "moi c'est")
+AMORCES_EXPLICITES = ("c'est au nom de", "au nom de", "nom de",
+                      "c'est de la part de", "de la part de", "je m'appelle",
+                      "mon nom c'est", "mon nom est", "mon nom", "moi c'est")
 
 
 def _racine(mot: str) -> str:
@@ -76,7 +95,7 @@ def lire_nom(transcription: str) -> LectureNom:
         return LectureNom("refus")
 
     plat = texte.lower()
-    for amorce in AMORCES:                       # la plus longue d'abord
+    for amorce in sorted(AMORCES, key=len, reverse=True):
         if plat.startswith(amorce + " "):
             texte = texte[len(amorce):].strip()
             break
@@ -119,11 +138,32 @@ def lire_correction_de_nom(transcription: str) -> str | None:
             plat = plat[len(refus):]
             break
     plat = plat.strip()
-    for amorce in AMORCES_EXPLICITES:
+    for amorce in sorted(AMORCES_EXPLICITES, key=len, reverse=True):
         if plat.startswith(amorce):
             lecture = lire_nom(plat)
             return lecture.nom if lecture.issue == "accepte" else None
     if plat.startswith("c'est "):
-        lecture = lire_nom(plat)
+        # « c'est » tout seul annonce un nom comme il annonce n'importe quoi :
+        # « c'est tres aimable a vous » y devenait un nom. On exige donc la
+        # lecture stricte — deux mots au plus, aucun mot de la langue.
+        lecture = lire_nom_seul(plat)
         return lecture.nom if lecture.issue == "accepte" else None
     return None
+
+
+def lire_nom_seul(transcription: str) -> LectureNom:
+    """Un nom donne sans amorce — le cas du tour qui suit la confirmation.
+
+    Beaucoup plus strict que `lire_nom` : deux mots au plus, et aucun mot de la
+    langue. Sans cela, « non ce n'est pas ca » s'ecrivait « Ce N'Est Pas Ca »
+    sur l'agenda du salon.
+    """
+    lecture = lire_nom(transcription)
+    if lecture.issue != "accepte":
+        return lecture
+    mots = lecture.nom.split()
+    if len(mots) > MOTS_MAX_SANS_AMORCE:
+        return LectureNom("refus")
+    if any(_racine(mot) in MOTS_VIDES for mot in mots):
+        return LectureNom("refus")
+    return lecture

@@ -17,6 +17,10 @@ from standard.identite import lire_nom
     ("je m'appelle Karim Benali", "Karim Benali"),
     ("mon nom c'est Nguyen", "Nguyen"),
     ("monsieur Martin", "Martin"),
+    # Le moteur mange le « au » : « au nom de Nguyen » revient « NOM DE NGUYEN »,
+    # et l'agenda affichait « Nom De Nguyen » (banc du 19/09).
+    ("NOM DE NGUYEN", "Nguyen"),
+    ("nom de Lefevre", "Lefevre"),
 ])
 def test_le_nom_se_degage_de_la_phrase(dit, attendu):
     lecture = lire_nom(dit)
@@ -84,3 +88,32 @@ def test_ce_qui_n_est_pas_une_correction_de_nom_ne_l_est_pas(dit):
     from standard.identite import lire_correction_de_nom
 
     assert lire_correction_de_nom(dit) is None
+
+
+@pytest.mark.parametrize("dit", [
+    "non ce n'est pas ça",
+    "je ne sais pas",
+    "c'est plutôt autre chose",
+    "merci au revoir",
+])
+def test_sans_amorce_une_phrase_n_est_jamais_un_nom(dit):
+    """Le tour qui suit la confirmation accepte un nom seul : il doit refuser
+    tout le reste, sans quoi l'agenda affiche « Ce N'Est Pas Ça »."""
+    from standard.identite import lire_nom_seul
+
+    assert lire_nom_seul(dit).issue == "refus"
+
+
+def test_sans_amorce_un_nom_court_passe():
+    from standard.identite import lire_nom_seul
+
+    assert lire_nom_seul("Martin").nom == "Martin"
+    assert lire_nom_seul("Karim Benali").nom == "Karim Benali"
+
+
+def test_c_est_tout_seul_n_annonce_pas_n_importe_quoi():
+    """« c'est très aimable à vous » devenait un nom de famille."""
+    from standard.identite import lire_correction_de_nom
+
+    assert lire_correction_de_nom("c'est très aimable à vous") is None
+    assert lire_correction_de_nom("c'est Lefevre") == "Lefevre"

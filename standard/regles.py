@@ -67,6 +67,14 @@ PREROLL_MS = 300
 """Mesure 9 : un moteur streaming perd le premier mot d'un enonce sur quatre.
 Le flux garde ce qui precede le seuil de parole."""
 
+TOURS_FENETRE_CORRECTION_NOM = 2
+"""Combien de tours apres la confirmation un nom seul vaut encore correction.
+
+Banc du 19/09 : la phrase de correction est souvent abimee (« N'EN S'ÉTONNANT
+DE MARTIN » pour « non c'est au nom de Martin »), et l'appelant redit alors le
+nom seul au tour suivant. Un seul tour de fenetre ratait ce rattrapage ; deux le
+couvrent. La fenetre se ferme des qu'une nouvelle demande est comprise."""
+
 CONSERVATION_JOURS = 90
 """Duree de conservation des appels et de leurs transcriptions.
 

@@ -156,3 +156,44 @@ def test_un_au_revoir_ne_corrige_rien(tmp_path):
     appel = conversation_avec_rdv(base.pour("salon-1"))
     appel.tour("merci au revoir")
     assert base.lister("salon-1")[0]["nom"] == "Le Fora"
+
+
+def test_un_nom_seul_juste_apres_la_confirmation_corrige(tmp_path):
+    """Le moteur abîme souvent la phrase de correction (« JE VAIS FAIRE
+    AUTREMENT » pour « non c'est au nom de Martin ») mais rend le nom seul
+    correctement au tour suivant. Juste après la confirmation, un nom seul n'a
+    pas d'autre sens que celui-là."""
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation_avec_rdv(base.pour("salon-1"))
+    reponse = appel.tour("Martin")
+    assert reponse.genre == "correction"
+    assert base.lister("salon-1")[0]["nom"] == "Martin"
+
+
+def test_passe_la_fenetre_un_mot_isole_ne_reecrit_plus_la_fiche(tmp_path):
+    """La fenêtre vaut deux tours (`regles.TOURS_FENETRE_CORRECTION_NOM`) :
+    au-delà, « Martin » peut vouloir dire autre chose."""
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation_avec_rdv(base.pour("salon-1"))
+    appel.tour("merci beaucoup")
+    appel.tour("c'est très aimable à vous")
+    appel.tour("Martin")
+    assert base.lister("salon-1")[0]["nom"] == "Le Fora"
+
+
+def test_la_fenetre_survit_a_un_tour_incompris(tmp_path):
+    """La phrase de correction est souvent abîmée par le moteur ; l'appelant
+    redit alors le nom seul au tour suivant, et il doit encore être entendu."""
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation_avec_rdv(base.pour("salon-1"))
+    appel.tour("n'en s'étonnant de Martin")      # ce que le moteur a rendu
+    appel.tour("Martin")
+    assert base.lister("salon-1")[0]["nom"] == "Martin"
+
+
+def test_une_nouvelle_demande_ferme_la_fenetre(tmp_path):
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation_avec_rdv(base.pour("salon-1"))
+    appel.tour("je voudrais aussi un rendez-vous vendredi à quinze heures trente")
+    appel.tour("Martin")
+    assert base.lister("salon-1")[0]["nom"] == "Le Fora"

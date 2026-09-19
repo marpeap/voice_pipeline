@@ -28,10 +28,11 @@ from standard.decision import (
 from standard.assentiment import est_un_refus, est_un_oui
 from standard.fiche import repondre as repondre_depuis_la_fiche
 from standard.grammaire import enoncer_numero, lire_numero
-from standard.identite import lire_correction_de_nom, lire_nom
+from standard.identite import lire_correction_de_nom, lire_nom, lire_nom_seul
 from standard.locataire import lire_memoire
 from standard.regles import (
     RELANCES_MUETTES_AVANT_TRANSFERT,
+    TOURS_FENETRE_CORRECTION_NOM,
     contient_une_confirmation,
 )
 from standard.langue import FRANCAIS, detecter_langue, phrase_de_passage
@@ -106,6 +107,7 @@ class Appel:
         self._message_dicte = ""
         self._reference_ecrite: str | None = None
         self._corrige_le_nom = False
+        self._tours_depuis_ecriture = 0
         self.journal = Journal()
         self.numero_de_tour = 0
         self.envoyeur_sms = None                 # branché par le service, facultatif
@@ -197,6 +199,10 @@ class Appel:
                 return Reponse("question", depuis_la_fiche)
 
         sortie = decider(proposition, self.etat, self.agenda)
+        if sortie.genre == "proposition":
+            # L'appelant est passe a autre chose : la fenetre de correction du
+            # nom se ferme, sinon un mot isole reecrirait la fiche precedente.
+            self._reference_ecrite = None
         # Le salon a pu choisir « prendre un message » plutot que « transferer »
         # (question D4 des packs). Cette reponse n'etait lue nulle part : tout
         # finissait en transfert, y compris vers un telephone que personne ne
@@ -224,9 +230,17 @@ class Appel:
         `None` renvoie l'appel au chemin normal : la plupart des tours qui
         suivent une confirmation sont des remerciements, pas des corrections.
         """
+        dans_la_fenetre = self._tours_depuis_ecriture < TOURS_FENETRE_CORRECTION_NOM
+        self._tours_depuis_ecriture += 1
+
         nom = lire_correction_de_nom(transcription)
-        if nom is None and self._corrige_le_nom:
-            lecture = lire_nom(transcription)
+        if nom is None and (self._corrige_le_nom or dans_la_fenetre):
+            # Juste apres la confirmation, un nom seul n'a pas d'autre sens :
+            # le moteur abime souvent la phrase de correction mais rend le nom.
+            # La fenetre est d'UN tour — au-dela, « Martin » peut vouloir dire
+            # autre chose, et on ne reecrit pas la fiche a chaque mot isole.
+            lecture = (lire_nom(transcription) if self._corrige_le_nom
+                       else lire_nom_seul(transcription))
             nom = lecture.nom if lecture.issue == "accepte" else None
 
         if nom is None:
@@ -523,6 +537,7 @@ class Appel:
 
         if genre == "confirmation":
             self._reference_ecrite = ecriture.reference
+            self._tours_depuis_ecriture = 0
             self._en_attente = None
             self._demande_le_numero = False
             # Le SMS suit l'ecriture relue, jamais la proposition : promettre un
