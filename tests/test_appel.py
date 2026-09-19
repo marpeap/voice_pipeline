@@ -323,3 +323,20 @@ def test_un_tour_compris_remet_le_compteur_de_relances_a_zero():
     conversation.rien_entendu()
     conversation.tour("bonjour je voudrais un rendez-vous jeudi")
     assert conversation.rien_entendu().genre == "question"
+
+
+def test_sans_passerelle_l_agent_ne_promet_pas_de_sms():
+    """La phrase de confirmation ne promet un SMS que si un SMS peut partir."""
+    class EnvoyeurQuiConsigne:
+        peut_promettre = False
+
+        def confirmer(self, telephone, rendez_vous):
+            from standard.sms import Envoi
+            return Envoi(False, reserve="consigné, non envoyé")
+
+    conversation = hors_ligne()
+    conversation.envoyeur_sms = EnvoyeurQuiConsigne()
+    conversation.etat.connu["telephone"] = "0612345678"
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    phrase = conversation.confirmer().phrase
+    assert "SMS" not in phrase

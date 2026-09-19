@@ -171,6 +171,17 @@ class Envoyeur:
         self.expediteur = expediteur
         self.nom_commercial = nom_commercial
 
+    @property
+    def peut_promettre(self) -> bool:
+        """Un SMS ne se promet que s'il peut partir.
+
+        Le transporteur qui consigne sans envoyer disait deja, dans sa
+        documentation, que « l'agent ne promet pas de SMS » — le code, lui,
+        promettait quand meme. Un pilote sans passerelle annoncait donc a chaque
+        client un message qui ne partirait jamais.
+        """
+        return bool(getattr(self.transporteur, "peut_promettre", True))
+
     def confirmer(self, telephone: str, rendez_vous: dict) -> Envoi:
         from standard.grammaire import lire_numero
 
@@ -207,6 +218,8 @@ class TransporteurHttp:
     carte SIM).
     """
 
+    peut_promettre = True
+
     def __init__(self, transport, base: str, cle: str, delai_s: float = 5.0):
         self._transport = transport
         self._base = base.rstrip("/")
@@ -239,6 +252,8 @@ class TransporteurConsigne:
     remise, l'agent ne promet pas de SMS : la chaine entiere reste honnete sans
     qu'on ait a la debrancher.
     """
+
+    peut_promettre = False
 
     def __init__(self, consigner):
         self._consigner = consigner

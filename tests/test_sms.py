@@ -224,3 +224,24 @@ def test_le_transporteur_consigne_n_envoie_rien_et_le_dit():
     retour = transporteur.envoyer("0612345678", "Bonjour", "SalonEleg")
     assert retour["accuse_de_remise"] is False
     assert consignes[0]["destinataire"] == "0612345678"
+
+
+# --- ce qu'on promet à l'oral -----------------------------------------------
+
+def test_le_transporteur_qui_consigne_ne_laisse_rien_promettre():
+    """Un pilote sans passerelle annonçait « vous recevrez un SMS » à chaque
+    client, pour un message qui ne partait jamais."""
+    from standard.sms import Envoyeur, TransporteurConsigne
+
+    envoyeur = Envoyeur(TransporteurConsigne(lambda trace: None),
+                        expediteur="Elegance", nom_commercial="Elegance")
+    assert envoyeur.peut_promettre is False
+
+
+def test_une_passerelle_reelle_autorise_la_promesse():
+    from standard.sms import Envoyeur, TransporteurHttp
+
+    envoyeur = Envoyeur(TransporteurHttp(lambda *a, **k: (200, {}), base="https://x",
+                                         cle="k"),
+                        expediteur="Elegance", nom_commercial="Elegance")
+    assert envoyeur.peut_promettre is True

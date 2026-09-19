@@ -301,7 +301,8 @@ class Appel:
         donnees = dict(self._en_attente)
         donnees.setdefault("prestation", self.etat.connu.get("prestation"))
         telephone = donnees.get("telephone") or self.etat.connu.get("telephone")
-        promet_sms = self.envoyeur_sms is not None and bool(telephone)
+        promet_sms = (self.envoyeur_sms is not None and bool(telephone)
+                      and getattr(self.envoyeur_sms, "peut_promettre", True))
         cle = cle_idempotence(self.tenant, self.identifiant, self.numero_de_tour)
         ecriture: Ecriture = ecrire_rendez_vous(self.base, cle, donnees,
                                                 self.journal.ecriture, promet_sms)
