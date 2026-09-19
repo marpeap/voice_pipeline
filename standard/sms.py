@@ -141,3 +141,60 @@ def expediteur_valide(expediteur: str, nom_commercial: str) -> bool:
     reference = re.sub(r"[^a-z0-9]", "", _sans_accents(nom_commercial))
     candidat = _sans_accents(expediteur)
     return candidat in reference or reference.startswith(candidat[:6])
+
+
+# --- l'envoi -----------------------------------------------------------------
+
+@dataclass
+class Envoi:
+    """Ce qui s'est réellement passé — y compris quand rien n'est parti."""
+    envoye: bool
+    segments: int = 0
+    accuse_de_remise: bool = False
+    identifiant: str | None = None
+    reserve: str = ""
+
+
+class Envoyeur:
+    """Compose, vérifie, envoie — et **dit ce qui a échoué**.
+
+    L'agent a déjà annoncé « vous recevrez un SMS de confirmation » quand cette
+    classe entre en jeu. Un envoi qui échoue en silence transforme cette phrase
+    en mensonge, et personne ne le sait avant le jour du rendez-vous.
+    """
+
+    def __init__(self, transporteur, expediteur: str, nom_commercial: str):
+        if not expediteur_valide(expediteur, nom_commercial):
+            # Au démarrage, pas au premier client : un expéditeur refusé par
+            # l'opérateur fait tomber tous les messages, pas un seul.
+            raise MessageRefuse(
+                f"expéditeur « {expediteur} » invalide : il doit reprendre le nom "
+                f"commercial ({nom_commercial}), onze caractères au plus, "
+                f"sans accent ni espace")
+        self.transporteur = transporteur
+        self.expediteur = expediteur
+        self.nom_commercial = nom_commercial
+
+    def confirmer(self, telephone: str, rendez_vous: dict) -> Envoi:
+        from standard.grammaire import lire_numero
+
+        lecture = lire_numero(telephone)
+        if lecture.issue != "accepte":
+            # On ne tente pas : un numéro incomplet envoie la confirmation à
+            # quelqu'un d'autre, ou nulle part, et se paie quand même.
+            return Envoi(False, reserve=f"numéro inutilisable ({lecture.issue})")
+
+        message = composer_confirmation(rendez_vous)
+        verdict = verifier_message(message, exiger_conformite=True)
+
+        try:
+            retour = self.transporteur.envoyer(lecture.numero, message, self.expediteur)
+        except Exception as erreur:
+            return Envoi(False, segments=verdict.segments,
+                         reserve=f"envoi impossible : {erreur}")
+
+        accuse = bool(retour.get("accuse_de_remise"))
+        return Envoi(True, segments=verdict.segments, accuse_de_remise=accuse,
+                     identifiant=retour.get("identifiant"),
+                     reserve="" if accuse else
+                     "aucun accusé de remise : l'envoi n'est pas prouvé")

@@ -187,3 +187,58 @@ def test_une_demande_d_humain_transfere_sans_appeler_le_modele():
     reponse = conversation.tour("PASSEZ MOI QUELQU'UN S'IL VOUS PLAIT")
     assert reponse.genre == "transfert"
     assert modele.appels == 0
+
+
+# --- le SMS de confirmation, quand il est branché ----------------------------
+
+class EnvoyeurFactice:
+    def __init__(self, envoye=True, reserve=""):
+        self.appels = []
+        self.envoye = envoye
+        self.reserve = reserve
+
+    def confirmer(self, telephone, rendez_vous):
+        from standard.sms import Envoi
+        self.appels.append((telephone, rendez_vous))
+        return Envoi(self.envoye, segments=1, accuse_de_remise=self.envoye,
+                     reserve=self.reserve)
+
+
+def test_la_confirmation_ecrite_declenche_le_sms():
+    base = BaseFactice()
+    envoyeur = EnvoyeurFactice()
+    conversation = appel(ModeleQuiInvente([{"intention": "rdv", "date": "2026-09-17",
+                                            "heure": "15:30"}]), base)
+    conversation.envoyeur_sms = envoyeur
+    conversation.etat.connu["telephone"] = "0612345678"
+    conversation.tour("JEUDI QUINZE HEURES TRENTE")
+    conversation.confirmer()
+    assert envoyeur.appels, "aucun SMS n'a été demandé après une écriture relue"
+
+
+def test_aucun_sms_si_l_ecriture_n_a_pas_ete_relue():
+    """Pas de confirmation, pas de SMS : la promesse suit l'écriture."""
+    class BaseMuette(BaseFactice):
+        def relire(self, reference):
+            return None
+
+    envoyeur = EnvoyeurFactice()
+    conversation = appel(ModeleQuiInvente([{"intention": "rdv", "date": "2026-09-17",
+                                            "heure": "15:30"}]), BaseMuette())
+    conversation.envoyeur_sms = envoyeur
+    conversation.tour("JEUDI QUINZE HEURES TRENTE")
+    conversation.confirmer()
+    assert envoyeur.appels == []
+
+
+def test_un_sms_qui_echoue_se_voit_au_journal():
+    envoyeur = EnvoyeurFactice(envoye=False, reserve="passerelle injoignable")
+    conversation = appel(ModeleQuiInvente([{"intention": "rdv", "date": "2026-09-17",
+                                            "heure": "15:30"}]), BaseFactice())
+    conversation.envoyeur_sms = envoyeur
+    conversation.etat.connu["telephone"] = "0612345678"
+    conversation.tour("JEUDI QUINZE HEURES TRENTE")
+    conversation.confirmer()
+    dernier = conversation.journal.tours[-1]
+    assert dernier.get("sms") == "échec"
+    assert "passerelle" in dernier.get("sms_reserve", "")

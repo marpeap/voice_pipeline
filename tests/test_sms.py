@@ -115,3 +115,71 @@ def test_un_caractere_hors_alphabet_gsm_double_la_facture():
 def test_un_message_trop_long_est_compte_en_plusieurs_segments():
     assert compter_segments("a" * 161) == 2
     assert compter_segments("a" * 400) == 3
+
+
+# --- l'envoi ----------------------------------------------------------------
+
+class TransporteurFactice:
+    def __init__(self, accuse=True, echoue=False):
+        self.envois = []
+        self.accuse = accuse
+        self.echoue = echoue
+
+    def envoyer(self, destinataire, message, expediteur):
+        if self.echoue:
+            raise RuntimeError("passerelle injoignable")
+        self.envois.append((destinataire, message, expediteur))
+        return {"identifiant": "sms-1", "accuse_de_remise": self.accuse}
+
+
+def test_un_sms_part_avec_l_expediteur_du_salon():
+    from standard.sms import Envoyeur
+
+    transporteur = TransporteurFactice()
+    envoyeur = Envoyeur(transporteur, expediteur="SalonEleg", nom_commercial="Salon Élégance")
+    envoi = envoyeur.confirmer("0612345678", RDV)
+    assert envoi.envoye is True
+    assert transporteur.envois[0][2] == "SalonEleg"
+
+
+def test_un_expediteur_qui_ne_ressemble_pas_au_salon_est_refuse_au_demarrage():
+    from standard.sms import Envoyeur
+
+    with pytest.raises(MessageRefuse, match="expéditeur"):
+        Envoyeur(TransporteurFactice(), expediteur="PROMO2026",
+                 nom_commercial="Salon Élégance")
+
+
+def test_sans_accuse_de_remise_l_envoi_est_signale():
+    """Un SMS sans accusé de remise ne prouve rien — et c'est toute la valeur
+    qu'on lui prête (Arcep, sur les passerelles par carte SIM)."""
+    from standard.sms import Envoyeur
+
+    envoyeur = Envoyeur(TransporteurFactice(accuse=False), expediteur="SalonEleg",
+                        nom_commercial="Salon Élégance")
+    envoi = envoyeur.confirmer("0612345678", RDV)
+    assert envoi.envoye is True
+    assert envoi.accuse_de_remise is False
+    assert "accusé" in envoi.reserve.lower()
+
+
+def test_une_panne_de_passerelle_ne_fait_pas_mentir_l_agent():
+    """L'agent a déjà dit « vous recevrez un SMS ». Si l'envoi échoue, cela doit
+    se voir au journal, pas disparaître."""
+    from standard.sms import Envoyeur
+
+    envoyeur = Envoyeur(TransporteurFactice(echoue=True), expediteur="SalonEleg",
+                        nom_commercial="Salon Élégance")
+    envoi = envoyeur.confirmer("0612345678", RDV)
+    assert envoi.envoye is False
+    assert "passerelle" in envoi.reserve
+
+
+def test_aucun_sms_ne_part_vers_un_numero_invalide():
+    from standard.sms import Envoyeur
+
+    transporteur = TransporteurFactice()
+    envoyeur = Envoyeur(transporteur, expediteur="SalonEleg", nom_commercial="Salon Élégance")
+    envoi = envoyeur.confirmer("06123", RDV)
+    assert envoi.envoye is False
+    assert transporteur.envois == []

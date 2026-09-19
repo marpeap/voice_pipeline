@@ -60,6 +60,7 @@ class Appel:
     def __init__(self, client_modele, agenda: Agenda, base: BaseRendezVous,
                  memoire: str, consignes_communes: str,
                  tenant: str = "inconnu", identifiant: str = "appel",
+                 nom_salon: str = "le salon",
                  modele: str | None = None, parametres: dict | None = None):
         self.comprehension = Comprehension(
             client=client_modele, consignes_communes=consignes_communes,
@@ -70,9 +71,11 @@ class Appel:
         self.memoire = memoire
         self.tenant = tenant
         self.identifiant = identifiant
+        self.nom_salon = nom_salon
         self.etat = Etat()
         self.journal = Journal()
         self.numero_de_tour = 0
+        self.envoyeur_sms = None                 # branché par le service, facultatif
         self._en_attente: dict | None = None     # la proposition que l'appelant doit confirmer
 
     def _calendrier(self) -> dict:
@@ -134,8 +137,22 @@ class Appel:
         ecriture: Ecriture = ecrire_rendez_vous(self.base, cle, donnees, self.journal.ecriture)
 
         genre = "confirmation" if ecriture.statut in ("confirme", "rejoue") else "incertain"
+        trace = {"transcription": "[confirmation de l'appelant]", "genre": genre,
+                 "phrase": ecriture.phrase, "reference": ecriture.reference}
+
         if genre == "confirmation":
             self._en_attente = None
-        self.journal.noter(transcription="[confirmation de l'appelant]", genre=genre,
-                           phrase=ecriture.phrase, reference=ecriture.reference)
+            # Le SMS suit l'ecriture relue, jamais la proposition : promettre un
+            # message pour un rendez-vous qui n'existe pas serait doubler la faute.
+            telephone = donnees.get("telephone") or self.etat.connu.get("telephone")
+            if self.envoyeur_sms is not None and telephone:
+                envoi = self.envoyeur_sms.confirmer(telephone, {**donnees,
+                                                                "salon": self.nom_salon})
+                trace["sms"] = "envoyé" if envoi.envoye else "échec"
+                if envoi.reserve:
+                    # L'agent a deja dit « vous recevrez un SMS » : un echec muet
+                    # transforme cette phrase en mensonge.
+                    trace["sms_reserve"] = envoi.reserve
+
+        self.journal.noter(**trace)
         return Reponse(genre, ecriture.phrase, donnees)
