@@ -17,7 +17,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from standard.comprehension import Comprehension, ErreurFournisseur
-from standard.decision import Agenda, Etat, decider, enoncer_date, enoncer_heure
+from standard.decision import (
+    Agenda,
+    Etat,
+    decider,
+    enoncer_date,
+    enoncer_heure,
+    espacer,
+)
 from standard.assentiment import est_un_refus, est_un_oui
 from standard.fiche import repondre as repondre_depuis_la_fiche
 from standard.grammaire import enoncer_numero, lire_numero
@@ -306,6 +313,23 @@ class Appel:
         cle = cle_idempotence(self.tenant, self.identifiant, self.numero_de_tour)
         ecriture: Ecriture = ecrire_rendez_vous(self.base, cle, donnees,
                                                 self.journal.ecriture, promet_sms)
+
+        if ecriture.statut == "occupe":
+            # Quelqu'un a pris la place pendant la conversation. On ne laisse pas
+            # l'appelant sur un constat : on regarde ce qu'il reste le meme jour.
+            self._en_attente = None
+            self._demande_le_numero = False
+            libres = espacer(self.agenda.libres(donnees["date"]))
+            if libres:
+                reste = " ou ".join(enoncer_heure(heure) for heure in libres)
+                phrase = (f"{ecriture.phrase} Il me reste {reste}. "
+                          "Qu'est-ce qui vous va ?")
+            else:
+                phrase = (f"{ecriture.phrase} Il n'y a plus rien ce jour-là. "
+                          "Quel autre jour vous conviendrait ?")
+            self.journal.noter(transcription="[créneau perdu]", genre="question",
+                               phrase=phrase)
+            return Reponse("question", phrase)
 
         genre = "confirmation" if ecriture.statut in ("confirme", "rejoue") else "incertain"
         trace = {"transcription": "[confirmation de l'appelant]", "genre": genre,

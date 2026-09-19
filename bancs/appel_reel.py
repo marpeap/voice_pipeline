@@ -88,6 +88,17 @@ SCENARIOS = {
          "oui c'est parfait"],
         {"date": "2026-09-17", "heure": "15:30"},
     ),
+    # Pendant que l'appelant confirme, quelqu'un d'autre prend la place. L'agent
+    # doit le dire et proposer autre chose, pas promettre un rappel du salon.
+    "creneau-pris-entre-temps": (
+        ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
+         "oui c'est parfait",
+         "alors dix heures trente",
+         "oui c'est parfait"],
+        {"date": "2026-09-17", "heure": "10:30"},
+        None,
+        (1, {"date": "2026-09-17", "heure": "15:30"}),
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],
@@ -200,7 +211,19 @@ def passerelle_sms(recus: list):
     return serveur
 
 
-def jouer(nom: str, repliques, attendu, supplement=None) -> bool:
+def intrus(base: str, quand: dict) -> None:
+    """Un autre appelant prend la place, pendant que le premier hésite.
+
+    C'est la course que l'index unique de la base est là pour trancher : une
+    vérification applicative la perdrait.
+    """
+    from standard.depot import Depot
+
+    Depot(base).pour("salon-1").inserer("cle-intrus", quand)
+    print(f"intrus   : {quand['date']} {quand['heure']} vient d'être pris par un autre")
+
+
+def jouer(nom: str, repliques, attendu, supplement=None, intrusion=None) -> bool:
     """Un appel complet, du decrochage a la verification en base."""
     base = f"/tmp/appel_reel_{nom}.sqlite3"
     if os.path.exists(base):
@@ -241,7 +264,9 @@ def jouer(nom: str, repliques, attendu, supplement=None) -> bool:
         entendu.append(annonce)
         print(f"annonce  : {len(annonce)} octets reçus")
 
-        for replique in repliques_du_tour:
+        for rang, replique in enumerate(repliques_du_tour):
+            if intrusion and intrusion[0] == rang:
+                intrus(base, intrusion[1])
             if replique.startswith(CLAVIER):
                 touches = replique[len(CLAVIER):]
                 print(f"appelant : [clavier] {touches}")
@@ -294,11 +319,11 @@ def jouer(nom: str, repliques, attendu, supplement=None) -> bool:
         if attendu and enoncer_date(attendu["date"]).split()[0] not in texte.lower():
             print(f"ÉCHEC : le SMS ne porte pas la date confirmée ({quand}).")
             return False
-    pris = rendez_vous[0]
-    ecart = {champ: (valeur, pris.get(champ)) for champ, valeur in attendu.items()
-             if pris.get(champ) != valeur}
-    if ecart:
-        print(f"ÉCHEC : ce n'est pas le rendez-vous attendu — {ecart}")
+    # Un scenario peut avoir sema un rendez-vous intrus : on cherche le notre
+    # parmi les lignes, au lieu de supposer qu'il est arrive le premier.
+    if not any(all(ligne.get(champ) == valeur for champ, valeur in attendu.items())
+               for ligne in rendez_vous):
+        print(f"ÉCHEC : le rendez-vous attendu {attendu} n'est pas dans la base.")
         return False
     print("SUCCÈS : le rendez-vous attendu est en base.")
     return True
@@ -311,8 +336,9 @@ def main() -> int:
         scenario = SCENARIOS[nom]
         repliques, attendu = scenario[0], scenario[1]
         supplement = scenario[2] if len(scenario) > 2 else None
+        intrusion = scenario[3] if len(scenario) > 3 else None
         print(f"\n========== {nom} ==========")
-        resultats[nom] = jouer(nom, repliques, attendu, supplement)
+        resultats[nom] = jouer(nom, repliques, attendu, supplement, intrusion)
     print("\n---------- bilan ----------")
     for nom, reussi in resultats.items():
         print(f"  {'OK  ' if reussi else 'RATÉ'} {nom}")

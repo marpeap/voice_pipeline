@@ -14,6 +14,7 @@ import pytest
 
 from standard.appel import Appel, Journal
 from standard.decision import Agenda
+from standard.hors_ligne import ModeleHorsLigne
 
 MARDI = date(2026, 9, 15)
 
@@ -292,7 +293,6 @@ def test_aucune_seconde_affirmation_ne_se_glisse_dans_la_confirmation():
 
 def hors_ligne():
     """Le modele hors ligne suffit ici : ce qu'on teste, c'est le silence."""
-    from standard.hors_ligne import ModeleHorsLigne
     return appel(ModeleHorsLigne(aujourd_hui=MARDI))
 
 
@@ -340,3 +340,21 @@ def test_sans_passerelle_l_agent_ne_promet_pas_de_sms():
     conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
     phrase = conversation.confirmer().phrase
     assert "SMS" not in phrase
+
+
+def test_un_creneau_pris_pendant_l_appel_ne_devient_pas_une_incertitude():
+    """Deux appels simultanés sur la même place : la base tranche, et l'agent
+    dit ce qui s'est passé au lieu d'un « le salon vous rappellera » trompeur."""
+    from standard.depot import ChevauchementRefuse
+
+    class BaseQuiRefuse(BaseFactice):
+        def inserer(self, cle, donnees):
+            raise ChevauchementRefuse("déjà pris")
+
+    conversation = appel(ModeleHorsLigne(aujourd_hui=MARDI), base=BaseQuiRefuse())
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    reponse = conversation.confirmer()
+    assert reponse.genre == "question"
+    assert "vient d'être pris" in reponse.phrase
+    assert "Il me reste" in reponse.phrase
+    assert "rappellera" not in reponse.phrase

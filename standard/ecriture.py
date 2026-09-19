@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from standard.decision import enoncer_date, enoncer_heure
+from standard.depot import ChevauchementRefuse
 from standard.regles import VERBES_DE_CONFIRMATION
 
 
@@ -48,6 +49,7 @@ class JournalEcriture:
     incidents: list[dict[str, Any]] = field(default_factory=list)
     ecritures: int = 0
     relectures_muettes: int = 0
+    creneaux_perdus: int = 0        # pris par quelqu'un d'autre pendant l'appel
 
     @property
     def orphelines(self) -> int:
@@ -84,6 +86,16 @@ def _phrase_de_confirmation(donnees: dict, promet_sms: bool = False) -> str:
     return f"{VERBES_DE_CONFIRMATION[1].capitalize()} : {quoi}, {quand}.{suite}"
 
 
+def _phrase_de_creneau_pris(donnees: dict) -> str:
+    """Quelqu'un a pris la place pendant la conversation. On ne promet rien.
+
+    Le cas existe des deux appels simultanes, et l'index unique de la base est
+    ce qui l'empeche — pas une verification applicative, qui perd la course.
+    """
+    quand = f"{enoncer_date(donnees['date'])} à {enoncer_heure(donnees['heure'])}"
+    return f"Le {quand} vient d'être pris à l'instant."
+
+
 def _phrase_d_incertitude() -> str:
     """Quand on ne peut pas relire, on ne promet rien — et on le dit sans mentir."""
     return ("Je n'arrive pas à vérifier que votre rendez-vous est bien enregistré. "
@@ -106,6 +118,11 @@ def ecrire_rendez_vous(base: BaseRendezVous, cle: str, donnees: dict,
 
     try:
         reference = base.inserer(cle, donnees)
+    except ChevauchementRefuse:
+        # Rien d'incertain ici : la place est prise, et le dire est plus utile
+        # que « le salon vous rappellera ». La base a tranche, pas le reseau.
+        journal.creneaux_perdus += 1
+        return Ecriture("occupe", _phrase_de_creneau_pris(donnees))
     except Exception:
         # Une base qui ne repond pas ne se traduit jamais par une promesse.
         return Ecriture("incertain", _phrase_d_incertitude())
