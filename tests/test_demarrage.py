@@ -151,31 +151,93 @@ def test_avec_les_moteurs_muets_le_deploiement_est_pret():
     assert rapport["pret"] is True
 
 
-def test_les_syntheses_simultanees_sont_bornees():
+def test_les_fabrications_simultanees_sont_bornees():
     """Mesure 13 : au-delà de quatre synthèses simultanées, le premier son passe
-    400 ms. Le plafond existait dans `parole.py` et n'était appliqué nulle part —
-    relevé par la revue du 19/09."""
+    400 ms sur une machine à quatre cœurs.
+
+    Ce test mesurait auparavant la concurrence pendant la **lecture** — et il
+    passait, parce que le jeton était gardé jusqu'à la fin de la phrase. C'était
+    le mauvais invariant : borner la lecture fait attendre le cinquième appelant
+    en silence. Ce qu'il faut borner, c'est la fabrication.
+    """
     import threading
+    import time
 
     from standard.demarrage import _synthese_tolerante
 
-    env = environnement(STANDARD_TTS="muet", STANDARD_SYNTHESES="2")
-    synthetiser = _synthese_tolerante(env)
-    simultanees, maximum, verrou = [], [0], threading.Lock()
+    en_cours, maximum, verrou = [], [0], threading.Lock()
 
-    def parler():
-        for _ in synthetiser("bonjour"):
+    def fabrique(texte):
+        for _ in range(2):
             with verrou:
-                simultanees.append(1)
-                maximum[0] = max(maximum[0], len(simultanees))
-            import time
-            time.sleep(0.03)
+                en_cours.append(1)
+                maximum[0] = max(maximum[0], len(en_cours))
+            time.sleep(0.02)
             with verrou:
-                simultanees.pop()
+                en_cours.pop()
+            yield b"x"
 
-    fils = [threading.Thread(target=parler) for _ in range(6)]
+    synthetiser = _synthese_tolerante(environnement(STANDARD_TTS="muet",
+                                                    STANDARD_SYNTHESES="2"),
+                                      fabrique=lambda: fabrique)
+
+    fils = [threading.Thread(target=lambda: list(synthetiser("bonjour")))
+            for _ in range(6)]
     for fil in fils:
         fil.start()
     for fil in fils:
         fil.join()
-    assert maximum[0] <= 2, f"{maximum[0]} synthèses simultanées, le plafond est 2"
+    assert maximum[0] <= 2, f"{maximum[0]} fabrications simultanées, le plafond est 2"
+
+
+def test_le_jeton_de_synthese_est_rendu_entre_deux_fragments():
+    """Seconde revue (19/09) : le jeton était pris au premier fragment et rendu
+    à l'épuisement du générateur — c'est-à-dire à la fin de la **lecture** de la
+    phrase, puisque les paquets sont consommés au rythme de 20 ms. Le plafond de
+    synthèses devenait un plafond d'appels qui parlent, et le cinquième appelant
+    décrochait sur plusieurs secondes de silence.
+
+    Ce qui doit être borné, c'est la **fabrication** — elle seule coûte du
+    processeur (mesure 13)."""
+    import threading
+    import time
+
+    from standard.demarrage import _synthese_tolerante
+
+    en_fabrication, maximum, verrou = [], [0], threading.Lock()
+
+    def fabrique_lente(texte):
+        for _ in range(3):
+            with verrou:
+                en_fabrication.append(1)
+                maximum[0] = max(maximum[0], len(en_fabrication))
+            time.sleep(0.02)                  # fabrication
+            with verrou:
+                en_fabrication.pop()
+            yield b"x"
+
+    env = environnement(STANDARD_TTS="muet", STANDARD_SYNTHESES="2")
+    synthetiser = _synthese_tolerante(env, fabrique=lambda: fabrique_lente)
+
+    debuts = {}
+
+    def lire(index):
+        source = synthetiser("bonjour")
+        debut = time.perf_counter()
+        premier = next(source)
+        debuts[index] = time.perf_counter() - debut
+        for _ in source:
+            time.sleep(0.05)                  # lecture, au rythme du canal
+        assert premier == b"x"
+
+    fils = [threading.Thread(target=lire, args=(i,)) for i in range(6)]
+    for fil in fils:
+        fil.start()
+    for fil in fils:
+        fil.join()
+
+    assert maximum[0] <= 2, f"{maximum[0]} fabrications simultanées, le plafond est 2"
+    # Et surtout : personne n'attend la LECTURE des autres pour commencer à parler.
+    assert max(debuts.values()) < 0.25, (
+        f"le dernier appelant a attendu {max(debuts.values()):.2f} s "
+        "avant le premier son : le plafond borne la lecture, pas la fabrication")

@@ -102,7 +102,7 @@ def verifier_le_deploiement(environnement: Mapping[str, str] | None = None) -> d
     }
 
 
-def _synthese_tolerante(env):
+def _synthese_tolerante(env, fabrique=None):
     """La synthese, bornee, paresseuse, et tolerante a son absence.
 
     **Bornee** : au-dela de quatre syntheses simultanees, le premier son depasse
@@ -114,13 +114,28 @@ def _synthese_tolerante(env):
     """
     file = FileDeSynthese(int(env.get("STANDARD_SYNTHESES", PARALLELISME_SYNTHESE)))
     try:
-        synthetiser = choisir_synthese(env)
+        synthetiser = fabrique() if fabrique else choisir_synthese(env)
     except MoteurAbsent:
         return lambda texte: iter([b""])
 
     def synthese_bornee(texte):
-        with file.place():
-            yield from synthetiser(texte)
+        """Le jeton est pris **le temps de fabriquer un fragment**, et rendu aussitot.
+
+        Le garder jusqu'a l'epuisement du generateur revenait a le garder pendant
+        toute la LECTURE de la phrase — les paquets partant au rythme de vingt
+        millisecondes. Le plafond de syntheses devenait alors un plafond d'appels
+        qui parlent, et le cinquieme appelant decrochait sur plusieurs secondes de
+        silence. Ce qui coute du processeur, c'est la fabrication ; c'est donc
+        elle, et elle seule, qu'on borne.
+        """
+        source = synthetiser(texte)
+        while True:
+            with file.place():
+                try:
+                    fragment = next(source)
+                except StopIteration:
+                    return
+            yield fragment
 
     return synthese_bornee
 
