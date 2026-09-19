@@ -64,3 +64,14 @@ def test_le_registre_se_rend_en_texte_lisible():
     assert "Registre des traitements" in texte
     assert str(CONSERVATION_JOURS) in texte
     assert "art. 30" in texte
+
+
+def test_le_registre_dit_que_le_service_n_appelle_jamais():
+    """La loi du 11 août 2026 impose un consentement préalable pour prospecter.
+    Le service ne prospecte pas : il faut que le registre le dise, parce que
+    c'est la première question qu'on lui posera."""
+    appels = next(t for t in registre_des_traitements(local())["traitements"]
+                  if t["nom"] == "appels")
+    mesures = " ".join(appels["mesures_de_securite"])
+    assert "aucun appel sortant" in mesures
+    assert "11 août 2026" in mesures

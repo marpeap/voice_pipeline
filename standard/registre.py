@@ -68,6 +68,11 @@ def registre_des_traitements(environnement: Mapping[str, str] | None = None) -> 
             "transferts_hors_ue": hors_ue,
             "responsable": responsable,
             "mesures_de_securite": [
+                "aucun appel sortant : le service répond, il ne prospecte jamais — "
+                "il est hors du régime de consentement préalable de la loi du "
+                "11 août 2026 sur le démarchage téléphonique",
+                "les appels de prospection reçus sont refusés en une phrase, "
+                "sans qu'aucune donnée ne soit écrite",
                 "aucun enregistrement audio conservé : seule la transcription l'est",
                 "cloisonnement par locataire dans la base (RLS ENABLE et FORCE)",
                 "purge automatique au-delà de la durée annoncée (standard.entretien)",
