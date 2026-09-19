@@ -27,8 +27,9 @@ scénarios montrent ce qui compte vraiment :
 ## Vérifier
 
 ```bash
-.venv/bin/python -m pytest tests/ -q          # la suite complète (634 tests)
+.venv/bin/python -m pytest tests/ -q          # la suite complète (647 tests)
 .venv/bin/python bancs/porte.py --passages 2  # la porte de non-régression
+.venv/bin/python bancs/porte.py --base salon.sqlite3   # + les corrections du salon
 .venv/bin/python bancs/appel_reel.py          # douze appels joués avec les vrais moteurs
 ```
 
@@ -45,7 +46,10 @@ correctifs du 19.
 
 **La porte rejoue les fautes mesurées contre le produit**, en `pass^5` : un
 scénario réussi quatre fois sur cinq est un scénario **échoué**. Le lot n'est fini
-que si elle passe deux fois d'affilée.
+que si elle passe deux fois d'affilée. Avec `--base`, **chaque correction posée
+par le commerçant devient une famille rejouée** : c'est ce qui transforme un
+correctif ponctuel en garantie, au lieu d'un réglage qui tient jusqu'au prochain
+changement de modèle.
 
 ## Ce que le produit garantit, et pourquoi
 
