@@ -77,8 +77,16 @@ SCENARIOS = {
     "heure-hors-creneaux": (
         ["bonjour je voudrais un rendez-vous jeudi à onze heures",
          "va pour dix heures trente",
-         "oui"],
+         "oui c'est parfait"],
         {"date": "2026-09-17", "heure": "10:30"},
+    ),
+    # Un « oui » seul dure six dixiemes de seconde et revient vide du moteur
+    # local. L'agent doit relancer, et l'appel doit aboutir quand meme.
+    "oui-trop-court": (
+        ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
+         "oui",
+         "oui c'est parfait"],
+        {"date": "2026-09-17", "heure": "15:30"},
     ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
