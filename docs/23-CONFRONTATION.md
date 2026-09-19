@@ -84,3 +84,19 @@ Recherche : ce qu'un service multi-locataire professionnel porte en 2026. Trois 
 | Isolation par `tenant_id` + RLS | ✅ déjà fait | migration `ENABLE` + `FORCE`, et l'accès passe par `depot.pour(tenant)` |
 
 **Ce que cette passe apprend sur la méthode** : les deux premières confrontations portaient sur la fonction (interruption, transfert) et la conformité. Celle-ci porte sur ce qu'on ne voit qu'en exploitation — et qu'on découvre d'habitude le jour d'un incident. Aucun test fonctionnel ne l'aurait signalé.
+
+---
+
+# Quatrième passe — 19/09, le SMS de confirmation
+
+Le produit promettait un SMS de confirmation depuis le premier jour de conception, et **aucune ligne ne l'écrivait**. Recherche faite avant de coder, parce que le sujet est réglementaire autant que technique.
+
+| Ce qu'on a relevé | Ce qu'on en a fait |
+|---|---|
+| Une confirmation ou un rappel de rendez-vous est **transactionnel** : ni opt-in marketing, ni mention STOP, ni restriction d'horaire | c'est ce qui rend le produit possible — un rendez-vous pris à 22 h se confirme à 22 h |
+| **Une seule phrase promotionnelle fait basculer** le message en régime commercial | `verifier_message` cherche **ce qui ferait basculer**, au lieu de chercher à prouver la conformité |
+| Le manquement coûte **750 € par message** (CPCE), jusqu'à 4 % du chiffre d'affaires (RGPD) | un message commercial sans STOP est **refusé**, pas envoyé avec un avertissement |
+| L'expéditeur alphanumérique doit correspondre au **nom commercial**, onze caractères au plus (charte AF2M, 1er mars 2026) | `expediteur_valide` refuse « PROMO2026 » comme un numéro court |
+| Le SMS est le **premier poste de coût** du produit, devant l'IA | les segments sont comptés, et un caractère hors alphabet GSM — un simple « œ » — **double la facture** d'un message ordinaire |
+
+**Ce que la passe a coûté en amour-propre** : mon premier test sur l'encodage ne prouvait rien — il comparait un message de 64 signes, qui tient de toute façon dans les 70 caractères de l'UCS-2. C'est la **longueur ordinaire** d'un message qui rend le piège visible. Le test a été réécrit, et la raison est notée dedans.
