@@ -248,6 +248,10 @@ class Service:
                 self.corrections.actives(), reponses, corps)
         texte = composer_memoire(self.configuration.pack, reponses, corps)
         self._memoire = (texte, lire_memoire(texte))
+        # `empreinte` est facultative : un registre fige (banc, test) n'en a
+        # pas, et il n'a rien a relire non plus.
+        empreinte = getattr(self.corrections, "empreinte", None)
+        self._empreinte_des_corrections = empreinte() if callable(empreinte) else ""
 
         # Mesure 4 : 2 040 ms pour une connexion neuve, 378 ms pour une gardee.
         # On chauffe donc la connexion QUI SERT — celle du modele — au lieu de
@@ -319,9 +323,27 @@ class Service:
         dernier devant rester a zero."""
         return self.metriques.etat()
 
+    def _relire_les_corrections(self) -> None:
+        """Une fois par appel, jamais par tour.
+
+        Recomposer la memoire coute : c'est elle qui porte le prefixe cachable
+        du prompt (4 096 tokens, mesure 23). On ne la refabrique donc que si la
+        base a bouge — la console tourne dans un autre processus, et sa promesse
+        « elle s'applique des maintenant » ne tient qu'a cette relecture.
+        """
+        empreinte = getattr(self.corrections, "empreinte", None)
+        recharger = getattr(self.corrections, "recharger", None)
+        if not callable(empreinte) or not callable(recharger):
+            return
+        recharger()
+        if empreinte() == getattr(self, "_empreinte_des_corrections", ""):
+            return
+        self.demarrer()
+
     def nouvel_appel(self, identifiant: str) -> AppelSuivi:
         if not self._demarre:
             raise RuntimeError("le service doit etre demarre avant de prendre un appel")
+        self._relire_les_corrections()
         texte, _ = self._memoire
         _, memoire_lue = self._memoire
         nom_salon = (memoire_lue.frontmatter.get("salon", {}).get("nom")

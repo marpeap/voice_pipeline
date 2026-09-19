@@ -219,6 +219,34 @@ class RegistreDeCorrections:
                 return correction
         raise KeyError(identifiant)
 
+    def empreinte(self) -> str:
+        """Ce qui change quand une correction est posee, tranchee ou revoquee.
+
+        La console tourne dans un AUTRE processus que le standard : ils ne
+        partagent que la base. Sans cette empreinte, le service composait sa
+        memoire une fois au demarrage et la correction n'arrivait jamais — alors
+        que la console promet « elle s'applique des maintenant ».
+        """
+        if self._depot is None:
+            return str(sorted((c.identifiant, c.etat) for c in self._corrections))
+        import hashlib
+        import json
+
+        with self._depot._verrou:
+            lignes = self._depot._connexion.execute(
+                "SELECT identifiant, donnees FROM corrections WHERE tenant_id = ? "
+                "ORDER BY identifiant", (self._tenant,)).fetchall()
+        brut = json.dumps([[l["identifiant"], l["donnees"]] for l in lignes],
+                          ensure_ascii=False)
+        return hashlib.sha256(brut.encode()).hexdigest()
+
+    def recharger(self) -> None:
+        """Relit la base : ce qu'un autre processus a pose devient visible ici."""
+        if self._depot is None:
+            return
+        self._corrections = []
+        self._relire()
+
     def actives(self) -> list[Correction]:
         return [c for c in self._corrections if c.etat in ETATS_ACTIFS]
 
