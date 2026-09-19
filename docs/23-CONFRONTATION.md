@@ -68,3 +68,19 @@ C'est l'angle mort classique : chaque pièce était vérifiée, l'assemblage ét
 1. **Aucun appel réel.** C'est toujours la limite principale. Tout le reste est prêt à la recevoir.
 2. **Le moteur de transcription n'est pas branché** au serveur : le service démarre, décroche et répond, mais `transcrire` rend une chaîne vide tant qu'un STT n'est pas configuré. C'est volontaire — cela permet de **vérifier un déploiement avant d'avoir un STT** — et c'est écrit ici pour que personne ne le découvre en production.
 3. **Le multilingue** reste une limitation assumée : détection prudente, puis transfert.
+
+---
+
+# Troisième passe — 19/09, sécurité et exploitation multi-locataire
+
+Recherche : ce qu'un service multi-locataire professionnel porte en 2026. Trois manques, tous réels.
+
+| Attendu | Chez nous avant | Décision |
+|---|---|---|
+| **Clés d'API par locataire**, secret jamais stocké en clair | ❌ rien | ✅ `standard/acces.py` — empreinte seulement, portées, révocation unitaire |
+| **Rotation à fenêtre de recouvrement** | ❌ rien | ✅ les deux clés valides pendant la fenêtre : sans cela, la rotation coupe les requêtes en vol, et c'est la panne classique de la rotation « bien faite » |
+| **Limitation d'usage par locataire *et* par adresse** | ❌ rien | ✅ fenêtre glissante ; une adresse qui essaie tous les locataires n'est pas un usage, c'est une attaque. Le refus dit **quand réessayer** |
+| **Piste d'audit en ajout seul**, avec acteur et corrélation | ❌ rien | ✅ `standard/audit.py` — aucune méthode pour corriger un événement, et l'écriture d'un secret est **refusée** plutôt que filtrée |
+| Isolation par `tenant_id` + RLS | ✅ déjà fait | migration `ENABLE` + `FORCE`, et l'accès passe par `depot.pour(tenant)` |
+
+**Ce que cette passe apprend sur la méthode** : les deux premières confrontations portaient sur la fonction (interruption, transfert) et la conformité. Celle-ci porte sur ce qu'on ne voit qu'en exploitation — et qu'on découvre d'habitude le jour d'un incident. Aucun test fonctionnel ne l'aurait signalé.
