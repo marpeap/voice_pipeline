@@ -12,8 +12,7 @@ n'est pas une langue étrangère, c'est du charabia français.
 
 from __future__ import annotations
 
-import re
-import unicodedata
+from standard.texte import aplatir
 
 FRANCAIS = "fr"
 MOTS_MINIMUM = 4        # en dessous, une detection se trompe plus qu'elle n'aide
@@ -40,9 +39,7 @@ PASSAGE_PAR_DEFAUT = ("Je vous passe quelqu'un du salon. "
 
 
 def _mots(texte: str) -> list[str]:
-    plat = unicodedata.normalize("NFD", texte.lower())
-    plat = "".join(c for c in plat if unicodedata.category(c) != "Mn")
-    return re.sub(r"[^a-z ]", " ", plat).split()
+    return aplatir(texte, garder="a-z ").split()
 
 
 def detecter_langue(transcription: str) -> str:

@@ -24,7 +24,9 @@ JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
         "septembre", "octobre", "novembre", "décembre"]
 
-from standard.regles import (          # une seule source pour les seuils
+from standard.regles import (
+    JOURS,
+    MOIS,          # une seule source pour les seuils
     ECART_MINIMAL_ENTRE_HORAIRES_MIN,
     REFUS_AVANT_OUBLI,
     SEUIL_CONFIANCE,

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+from secrets import compare_digest
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -78,7 +79,9 @@ class Cles:
         empreinte = _empreinte(secret)
         maintenant = self.horloge()
         for cle in self._cles:
-            if cle.empreinte != empreinte:
+            # A temps constant : c'est la seule primitive d'authentification du
+            # depot, et une comparaison naive fuit par le temps de reponse.
+            if not compare_digest(cle.empreinte, empreinte):
                 continue
             if cle.revoquee:
                 raise CleRefusee("clé révoquée")
@@ -133,8 +136,16 @@ class Limiteur:
         self._verifier(self._par_adresse, adresse, self.par_minute_adresse, maintenant,
                        f"adresse {adresse}")
 
+    def _oublier_les_inactifs(self, table: dict, maintenant: float) -> None:
+        """Une entree par adresse jamais purgee, sur un service expose, c'est une
+        fuite de memoire lente. On oublie ce qui est sorti de la fenetre."""
+        for cle in [c for c, passages in table.items()
+                    if not passages or maintenant - passages[-1] >= FENETRE_S]:
+            del table[cle]
+
     def _verifier(self, table: dict, cle: str, plafond: int, maintenant: float,
                   motif: str) -> None:
+        self._oublier_les_inactifs(table, maintenant)
         passages = table.setdefault(cle, deque())
         while passages and maintenant - passages[0] >= FENETRE_S:
             passages.popleft()

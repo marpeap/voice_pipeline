@@ -46,6 +46,10 @@ class PisteDAudit:
 
     def noter(self, tenant: str, acteur: str, action: str, cible: str,
               detail: dict | None = None, correlation: str | None = None) -> None:
+        if not tenant:
+            # Une trace sans locataire est invisible de toute lecture cloisonnee :
+            # elle donne l'illusion d'exister et ne prouve rien.
+            raise ValueError("écrire dans la piste d'audit sans locataire : refusé")
         detail = detail or {}
         fuites = [champ for champ in detail if champ.lower() in CHAMPS_SECRETS]
         if fuites:
@@ -60,6 +64,8 @@ class PisteDAudit:
                  json.dumps(detail, ensure_ascii=False)))
 
     def lister(self, tenant: str, limite: int = 200) -> list[dict[str, Any]]:
+        if not tenant:
+            raise ValueError("lire la piste d'audit sans locataire : refusé")
         return [{"horodatage": ligne["horodatage"], "acteur": ligne["acteur"],
                  "action": ligne["action"], "cible": ligne["cible"],
                  "correlation": ligne["correlation"],

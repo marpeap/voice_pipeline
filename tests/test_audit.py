@@ -56,3 +56,17 @@ def test_les_evenements_sortent_du_plus_recent_au_plus_ancien(piste):
         piste.noter("salon-1", acteur="a", action=f"action-{index}", cible=str(index))
     actions = [e["action"] for e in piste.lister("salon-1")]
     assert actions == ["action-2", "action-1", "action-0"]
+
+
+def test_ecrire_sans_locataire_est_refuse(piste):
+    """La règle « pas de locataire, pas de données » était appliquée à deux
+    endroits sur trois : une écriture d'audit sans locataire devenait invisible
+    de toute lecture cloisonnée — donc perdue, tout en donnant l'illusion d'une
+    trace. Relevé par la revue du 19/09."""
+    with pytest.raises(ValueError, match="locataire"):
+        piste.noter("", acteur="a", action="x", cible="1")
+
+
+def test_lire_sans_locataire_est_refuse(piste):
+    with pytest.raises(ValueError, match="locataire"):
+        piste.lister("")

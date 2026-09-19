@@ -33,9 +33,7 @@ MARQUEURS_ANNONCE = ("assistant automatique", "assistante automatique",
 MOTS_AROBASE = ("arobase", "arrobase", " at ", "@")
 
 
-def _plat(texte: str) -> str:
-    texte = unicodedata.normalize("NFD", texte.lower())
-    return "".join(c for c in texte if unicodedata.category(c) != "Mn")
+from standard.texte import sans_accents as _plat
 
 
 @dataclass

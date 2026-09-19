@@ -122,3 +122,26 @@ def test_le_refus_dit_quand_reessayer():
     with pytest.raises(TropDeDemandes) as erreur:
         limiteur.autoriser("salon-1", "10.0.0.1")
     assert erreur.value.reessayer_dans_s > 0
+
+
+def test_les_compteurs_d_adresses_ne_grossissent_pas_indefiniment():
+    """Une entrée par adresse jamais purgée, sur un service exposé, c'est une
+    fuite de mémoire lente — relevée par la revue du 19/09."""
+    maintenant = [0.0]
+    # Plafond large cote locataire : ce test porte sur la memoire, pas sur le debit.
+    limiteur = Limiteur(par_minute=1000, par_minute_adresse=100,
+                        horloge=lambda: maintenant[0])
+    for index in range(200):
+        limiteur.autoriser("salon-1", f"10.0.{index // 256}.{index % 256}")
+    maintenant[0] = 3600.0
+    limiteur.autoriser("salon-1", "10.9.9.9")
+    assert len(limiteur._par_adresse) <= 2, "les adresses anciennes ne sont jamais oubliées"
+
+
+def test_la_comparaison_de_cle_ne_fuit_pas_par_le_temps():
+    """Seule primitive d'authentification du dépôt : elle se compare à temps
+    constant, comme un mot de passe."""
+    import inspect
+
+    from standard import acces
+    assert "compare_digest" in inspect.getsource(acces.Cles.verifier)

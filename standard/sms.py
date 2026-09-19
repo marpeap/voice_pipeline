@@ -23,11 +23,10 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from standard.regles import JOURS, MOIS
 from dataclasses import dataclass
 
-JOURS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
-MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
-        "septembre", "octobre", "novembre", "décembre")
+
 
 # Alphabet GSM 03.38 (jeu de base). Tout caractère absent force l'UCS-2, et fait
 # tomber la capacité de 160 à 70 caractères.
@@ -62,9 +61,7 @@ class Verdict:
     motifs: list[str]
 
 
-def _sans_accents(texte: str) -> str:
-    plat = unicodedata.normalize("NFD", texte.lower())
-    return "".join(c for c in plat if unicodedata.category(c) != "Mn")
+from standard.texte import sans_accents as _sans_accents
 
 
 def compter_segments(message: str) -> int:

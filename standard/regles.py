@@ -49,6 +49,14 @@ SEUIL_GARDE_MS = 700
 """Au-dela, l'agent parle plutot que de laisser le silence : 935 ms au p90 et
 8 751 ms au pire chez le fournisseur."""
 
+SILENCE_DE_FIN_MS = 700
+"""Au-dela, on considere que l'appelant a fini de parler.
+
+Meme valeur que le delai de garde, et ce n'est pas un hasard : c'est la duree
+au-dela de laquelle un silence cesse d'etre une respiration. Les deux constantes
+existent separement parce qu'elles peuvent diverger — l'une se regle sur la
+patience de l'appelant, l'autre sur celle du fournisseur."""
+
 PARALLELISME_SYNTHESE = 4
 """Mesure 13 : au-dela de quatre syntheses simultanees, le premier son passe
 400 ms sur une machine a quatre coeurs."""
@@ -65,3 +73,16 @@ les entites. En dessous de ce seuil, la strategie de capture change."""
 
 SEUIL_PAROLE = 500
 """Amplitude moyenne au-dela de laquelle on considere que l'appelant parle."""
+
+
+# --- le calendrier, ecrit une seule fois -------------------------------------
+
+JOURS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
+MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
+        "septembre", "octobre", "novembre", "décembre")
+"""`decision` les prononce, `sms` les écrit, `hors_ligne` les lit.
+
+Ils étaient recopiés dans les trois — or la confirmation écrite est censée
+reprendre **exactement** la date que l'agent a prononcée (règle E1, mesure 19).
+Deux listes qui divergent d'un accent, et la promesse tombe.
+"""

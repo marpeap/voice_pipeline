@@ -28,9 +28,8 @@ from standard.audiosocket import (
     encoder_audio,
 )
 from standard.ecoute import TamponDePreRoll, estimer_rsb_db
-from standard.regles import SEUIL_BRUITE_DB, SEUIL_PAROLE
+from standard.regles import SEUIL_BRUITE_DB, SEUIL_PAROLE, SILENCE_DE_FIN_MS
 
-SILENCE_DE_FIN_MS = 700       # au-dela, on considere que l'appelant a fini de parler
 # Interruption (barge-in). Etat de l'art releve le 19/09/2026 : ecart de reprise
 # de parole de 200 a 400 ms, moins de 2 % d'interruptions a tort, coupure de la
 # synthese en moins de 60 ms. Le garde-fou le plus efficace est une DUREE

@@ -44,10 +44,7 @@ class ClientModele(Protocol):
     def completer(self, messages: list[dict], **parametres: Any) -> str: ...
 
 
-def _sans_accents(texte: str) -> str:
-    texte = unicodedata.normalize("NFD", texte.lower()).replace("'", " ")
-    texte = "".join(c for c in texte if unicodedata.category(c) != "Mn")
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", texte)).strip()
+from standard.texte import aplatir as _sans_accents
 
 
 def demande_un_humain(transcription: str) -> bool:
