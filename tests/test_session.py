@@ -5,6 +5,8 @@ sans qu'aucun processus externe ne soit lance, sans qu'une trame coupee ne casse
 quoi que ce soit, et sans qu'un chiffre compose au clavier ne se perde.
 """
 
+import time
+
 import pytest
 
 from standard.audiosocket import (
@@ -325,3 +327,75 @@ def test_le_clavier_est_branche_sur_l_agent():
     for chiffre in "0612345678":
         s.recevoir(encoder(TYPE_DTMF, chiffre.encode()))
     assert agent.numeros == ["0612345678"]
+
+
+# --- la course que les doublures instantanees cachaient ---------------------
+
+def test_une_synthese_lente_ne_casse_pas_l_emission_concurrente():
+    """Regression trouvee par la seconde revue (19/09), invisible aux 424 tests.
+
+    Toutes nos doublures synthetisaient en zero milliseconde, donc les deux fils
+    ne se croisaient jamais. Avec les 162 ms que le projet a lui-meme mesures,
+    le fil de lecture et le fil d'emission entraient ensemble dans le meme
+    generateur : « generator already executing », le fil d'emission mourait, et
+    l'appel restait ouvert **en silence pour toujours**.
+    """
+    import threading
+
+    def synthese_lente(texte):
+        for _ in range(4):
+            time.sleep(0.05)
+            yield bytes(320)
+
+    incidents = []
+    s = SessionTelephonique(agent=AgentFactice(), transcrire=lambda a, f: "x",
+                            synthetiser=synthese_lente)
+
+    def emetteur():
+        for _ in range(80):
+            try:
+                s.emettre()
+            except Exception as erreur:      # noqa: BLE001 — c'est ce qu'on teste
+                incidents.append(f"{type(erreur).__name__}: {erreur}")
+                return
+            time.sleep(0.005)
+
+    fil = threading.Thread(target=emetteur, daemon=True)
+    fil.start()
+    s.ouvrir()
+    time.sleep(0.35)
+    assert incidents == [], f"course entre les deux fils : {incidents[0]}"
+
+
+def test_l_emission_et_la_lecture_ne_se_marchent_pas_dessus():
+    """Deux fils, deux tours de parole, et rien qui casse."""
+    import threading
+
+    def synthese_lente(texte):
+        for _ in range(3):
+            time.sleep(0.03)
+            yield bytes(320)
+
+    s = SessionTelephonique(agent=AgentFactice(), transcrire=lambda a, f: "une phrase",
+                            synthetiser=synthese_lente)
+    erreurs = []
+
+    def emetteur():
+        fin = time.time() + 1.0
+        while time.time() < fin:
+            try:
+                s.emettre()
+            except Exception as erreur:      # noqa: BLE001
+                erreurs.append(erreur)
+                return
+            time.sleep(0.004)
+
+    fil = threading.Thread(target=emetteur, daemon=True)
+    fil.start()
+    s.ouvrir()
+    for _ in range(6):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    for _ in range(int(s.silence_de_fin_ms / 20) + 2):
+        s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
+    time.sleep(0.3)
+    assert erreurs == []

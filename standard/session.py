@@ -16,6 +16,7 @@ Deux regles mesurees s'y appliquent sans discussion :
 from __future__ import annotations
 
 import array
+import threading
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -105,6 +106,13 @@ class SessionTelephonique:
     _attend_un_numero: bool = False
     _a_dire: list[bytes] = field(default_factory=list, repr=False)
     _source: object = None                      # synthese en cours, consommee au fil de l'eau
+    # Un verrou, parce que DEUX fils touchent a la parole : celui qui lit la
+    # socket (et qui declenche une nouvelle phrase) et celui qui emet. Sans lui,
+    # les deux entrent ensemble dans le meme generateur et Python leve
+    # « generator already executing » — le fil d'emission meurt, et l'appel reste
+    # ouvert en silence. Trouve par une seconde revue, invisible a 424 tests
+    # parce que toutes les doublures synthetisaient en zero milliseconde.
+    _parole_verrou: threading.RLock = field(default_factory=threading.RLock, repr=False)
     _parole_continue_ms: int = 0
 
     # --- ouverture ----------------------------------------------------------
@@ -146,7 +154,8 @@ class SessionTelephonique:
 
     @property
     def en_train_de_parler(self) -> bool:
-        return bool(self._a_dire) or self._source is not None
+        with self._parole_verrou:
+            return bool(self._a_dire) or self._source is not None
 
     @property
     def reste_a_emettre(self) -> int:
@@ -161,19 +170,23 @@ class SessionTelephonique:
         avant que la phrase entiere ne soit fabriquee. Materialiser d'abord,
         c'etait le defaut du binaire — 372 ms contre 162 (mesure 13).
         """
-        if not self._a_dire and self._source is not None:
-            for fragment in self._source:
-                self._empiler(fragment)
-                if self._a_dire:
-                    break
-            else:
-                self._source = None
-        return self._a_dire.pop(0) if self._a_dire else None
+        with self._parole_verrou:
+            if not self._a_dire and self._source is not None:
+                source = self._source
+                for fragment in source:
+                    self._empiler(fragment)
+                    if self._a_dire:
+                        break
+                else:
+                    if self._source is source:
+                        self._source = None
+            return self._a_dire.pop(0) if self._a_dire else None
 
     def _interrompre(self) -> None:
-        self.interruptions += 1
-        self._a_dire.clear()
-        self._source = None          # ce qui restait a synthetiser ne sera pas dit
+        with self._parole_verrou:
+            self.interruptions += 1
+            self._a_dire.clear()
+            self._source = None      # ce qui restait a synthetiser ne sera pas dit
 
     # --- reception ----------------------------------------------------------
 
@@ -319,16 +332,18 @@ class SessionTelephonique:
         C'est le rythme qu'attend un canal telephonique : 160 echantillons de
         16 bits a 8 kHz. Envoyer plus gros fait saccader, plus fin ne sert a rien.
         """
-        self._source = iter(self.synthetiser(texte))
-        # On amorce un premier paquet tout de suite : le reste suivra a la
-        # demande, pendant que l'agent parle deja.
-        premier = self.emettre()
-        if premier is None:
-            return []
-        self._a_dire.insert(0, premier)
-        return list(self._a_dire)
+        with self._parole_verrou:
+            self._source = iter(self.synthetiser(texte))
+            # On amorce un premier paquet tout de suite : le reste suivra a la
+            # demande, pendant que l'agent parle deja.
+            premier = self.emettre()
+            if premier is None:
+                return []
+            self._a_dire.insert(0, premier)
+            return list(self._a_dire)
 
     def _empiler(self, fragment: bytes) -> None:
+        # Toujours appele sous `_parole_verrou`.
         audio = reechantillonner(fragment, self.frequence_moteur, 8000) \
             if self.frequence_moteur != 8000 else fragment
         self._a_dire.extend(encoder_audio(audio, TYPE_AUDIO_8K, PAQUET_20MS_8K))

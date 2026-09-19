@@ -45,6 +45,7 @@ class ServeurAudioSocket:
 
         self.appels_en_cours = 0
         self.appels_total = 0
+        self.paroles_perdues = 0
         self._prise: socket.socket | None = None
         self._fil: threading.Thread | None = None
         self._arret = threading.Event()
@@ -142,7 +143,14 @@ class ServeurAudioSocket:
         rejoué par-dessus lui.
         """
         while not fini.is_set() and not self._arret.is_set():
-            paquet = session.emettre()
+            try:
+                paquet = session.emettre()
+            except Exception:
+                # Un fil d'emission qui meurt laisse l'appel ouvert et MUET : on
+                # abandonne la phrase en cours, on ne quitte pas le fil.
+                self.paroles_perdues += 1
+                time.sleep(0.02)
+                continue
             if paquet is None:
                 time.sleep(0.005)       # rien à dire : on rend la main
                 continue
