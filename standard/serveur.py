@@ -90,20 +90,26 @@ class ServeurAudioSocket:
         session = SessionTelephonique(agent=self.fabrique_agent(),
                                       transcrire=self.transcrire,
                                       synthetiser=self.synthetiser)
+        fini = threading.Event()
+        # L'emission vit dans SON PROPRE FIL. Tant qu'elle partageait celui de la
+        # lecture, le serveur n'ecoutait pas pendant qu'il parlait : l'appelant
+        # pouvait crier, l'interruption n'etait detectee qu'une fois la phrase
+        # terminee. Une revue independante a mesure six secondes de parole
+        # par-dessus l'appelant.
+        emetteur = threading.Thread(target=self._emettre_en_continu,
+                                    args=(connexion, session, fini), daemon=True)
         try:
             connexion.settimeout(0.2)
             session.ouvrir()
-            self._vider(connexion, session)
+            emetteur.start()
             while not self._arret.is_set() and not session.fermee:
                 try:
                     morceau = connexion.recv(TAILLE_LECTURE)
                 except socket.timeout:
-                    self._vider(connexion, session)
                     continue
                 if not morceau:
                     break                     # l'appelant a raccroche
                 session.recevoir(morceau)
-                self._vider(connexion, session)
                 if session.transfert_demande:
                     # Le bord telephonique reprend la main : on lui rend l'appel
                     # plutot que de raccrocher au nez de l'appelant.
@@ -113,6 +119,8 @@ class ServeurAudioSocket:
             # seul appel rate ne doit jamais emporter les autres.
             pass
         finally:
+            fini.set()
+            emetteur.join(timeout=1)
             try:
                 connexion.close()
             except OSError:
@@ -122,18 +130,25 @@ class ServeurAudioSocket:
             with self._verrou:
                 self.appels_en_cours -= 1
 
-    def _vider(self, connexion: socket.socket, session: SessionTelephonique) -> None:
-        """Envoie ce que l'agent a à dire, **au rythme du canal**.
+    def _emettre_en_continu(self, connexion: socket.socket,
+                            session: SessionTelephonique,
+                            fini: threading.Event) -> None:
+        """Envoie ce que l'agent a à dire, **au rythme du canal**, sans bloquer la lecture.
 
         Vingt millisecondes entre les paquets : plus vite, le canal saccade ;
         plus lentement, l'appelant entend des trous. Et si l'appelant reprend la
-        parole, la file est vidée par la session — ce qui restait n'est jamais
+        parole, la session vide la file — ce fil s'en aperçoit au paquet suivant,
+        donc en moins de vingt millisecondes, et ce qui restait n'est jamais
         rejoué par-dessus lui.
         """
-        while True:
+        while not fini.is_set() and not self._arret.is_set():
             paquet = session.emettre()
             if paquet is None:
-                return
-            connexion.sendall(paquet)
+                time.sleep(0.005)       # rien à dire : on rend la main
+                continue
+            try:
+                connexion.sendall(paquet)
+            except OSError:
+                return                  # l'appelant a raccroché pendant qu'on parlait
             if self.rythme:
                 time.sleep(DUREE_PAQUET_MS / 1000)

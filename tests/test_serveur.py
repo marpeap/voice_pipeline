@@ -149,3 +149,75 @@ def test_le_serveur_compte_ses_appels(serveur):
     time.sleep(0.3)
     assert serveur.appels_en_cours == 0
     assert serveur.appels_total == 1
+
+
+# --- l'interruption, à travers le serveur réel -------------------------------
+#
+# Une revue indépendante a mesuré le 19/09 six secondes de parole d'agent
+# par-dessus l'appelant : le test d'interruption passait parce qu'il appelait la
+# session directement, sans serveur. Or le serveur émettait dans le fil qui lit
+# la socket — tant qu'il parlait, il n'écoutait pas, et l'interruption ne pouvait
+# pas être détectée.
+
+class AgentBavard:
+    def salutation(self):
+        return "b" * 40          # ~40 paquets de 20 ms, soit près d'une seconde
+
+    def tour(self, transcription, bruite=False):
+        from standard.appel import Reponse
+        return Reponse("question", "b" * 40)
+
+
+def test_l_agent_se_tait_quand_on_lui_coupe_la_parole_a_travers_le_serveur():
+    """Le test que la revue réclamait : à travers une vraie socket."""
+    s = ServeurAudioSocket(fabrique_agent=AgentBavard,
+                           transcrire=lambda audio, frequence: "",
+                           # un paquet de synthèse par caractère, pour durer
+                           synthetiser=lambda texte: [bytes(320) for _ in texte],
+                           hote="127.0.0.1", port=0, rythme=True)
+    s.demarrer()
+    try:
+        prise = socket.create_connection(("127.0.0.1", s.port), timeout=3)
+        prise.settimeout(0.3)
+        recu = 0
+        depart = time.time()
+        # L'appelant parle sans discontinuer dès la première seconde.
+        while time.time() - depart < 1.2:
+            prise.sendall(encoder(TYPE_AUDIO_8K, parole(160)))
+            try:
+                morceau = prise.recv(65536)
+                recu += len(morceau)
+            except socket.timeout:
+                pass
+            time.sleep(0.02)
+
+        # On laisse retomber : plus rien ne doit arriver après l'interruption.
+        time.sleep(0.4)
+        apres = 0
+        try:
+            while True:
+                morceau = prise.recv(65536)
+                if not morceau:
+                    break
+                apres += len(morceau)
+        except socket.timeout:
+            pass
+        prise.close()
+    finally:
+        s.arreter()
+
+    assert recu > 0, "l'agent n'a rien dit du tout"
+    assert apres < 3200, (
+        f"{apres} octets emis apres l'interruption : l'agent parle encore "
+        "par-dessus l'appelant")
+
+
+def test_le_serveur_lit_pendant_qu_il_parle():
+    """La cause racine : émettre dans le fil qui lit la socket rend toute
+    interruption impossible."""
+    import inspect
+
+    from standard import serveur as module
+    source = inspect.getsource(module.ServeurAudioSocket)
+    assert "_emettre_en_continu" in source, \
+        "l'emission doit vivre dans son propre fil, sinon le serveur n'ecoute pas"
