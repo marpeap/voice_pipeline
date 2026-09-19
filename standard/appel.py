@@ -79,7 +79,8 @@ class Appel:
                  tenant: str = "inconnu", identifiant: str = "appel",
                  nom_salon: str = "le salon",
                  prestations: tuple[str, ...] = (),
-                 modele: str | None = None, parametres: dict | None = None):
+                 modele: str | None = None, parametres: dict | None = None,
+                 secours=None):
         self.comprehension = Comprehension(
             client=client_modele, consignes_communes=consignes_communes,
             prestations=prestations,
@@ -87,6 +88,10 @@ class Appel:
             **({"parametres": parametres} if parametres else {}))
         self.agenda = agenda
         self.base = base
+        # Le filet : quand l'ecriture n'aboutit pas, l'agent dit « le salon vous
+        # rappellera ». Encore faut-il que le salon SACHE qu'il doit rappeler —
+        # sinon la phrase honnete devient une promesse en l'air.
+        self.secours = secours
         self.memoire = memoire
         # La fiche du salon, lue une fois : l'agent y prend ses reponses de fait
         # (horaires), au lieu de repondre « Que puis-je faire pour vous ? » a une
@@ -551,5 +556,33 @@ class Appel:
                     # transforme cette phrase en mensonge.
                     trace["sms_reserve"] = envoi.reserve
 
+        if genre == "incertain":
+            self._laisser_a_rattraper(donnees)
+
         self.journal.noter(**trace)
         return Reponse(genre, ecriture.phrase, donnees)
+
+    def _laisser_a_rattraper(self, donnees: dict) -> None:
+        """Consigne le rendez-vous que l'hote (ou la base) n'a pas confirme.
+
+        Il n'y a rien a promettre ici, et rien a redire a l'appelant : on ecrit
+        ce qu'il faudra rappeler, la ou le commercant le lira — la console
+        montre ces lignes avant le fil des appels.
+        """
+        deposer = getattr(self.secours, "enregistrer_message", None)
+        if not callable(deposer):
+            return
+        try:
+            quand = f"{enoncer_date(donnees['date'])} à {enoncer_heure(donnees['heure'])}"
+            deposer({
+                "type": "rendez_vous_a_rattraper",
+                "texte": f"Rendez-vous à confirmer : {quand}. "
+                         "L'agenda n'a pas confirmé l'écriture pendant l'appel.",
+                "nom": donnees.get("nom") or self.etat.connu.get("nom"),
+                "telephone": donnees.get("telephone") or self.etat.connu.get("telephone"),
+                "appel": self.identifiant,
+            })
+        except Exception as erreur:
+            # Le filet qui tombe ne doit pas emporter la fin de l'appel.
+            self.journal.noter(transcription="[rattrapage]", genre="incertain",
+                               phrase="", erreur=str(erreur))

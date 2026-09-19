@@ -175,6 +175,19 @@ class Console:
         messages = self.depot.messages(self.tenant)
         if not messages:
             return ""
+        # Un rendez-vous que l'agenda n'a pas confirme n'est pas un message de
+        # rappel : c'est une action a faire AVANT que le client ne se deplace.
+        # Il passe donc en tete, et porte son propre titre (B6 : une seule
+        # emphase, mais deux natures qu'on ne melange pas).
+        a_rattraper = [m for m in messages if m.get("type") == "rendez_vous_a_rattraper"]
+        rappels = [m for m in messages if m.get("type") != "rendez_vous_a_rattraper"]
+        return (self._liste_de_messages("À confirmer — l'agenda n'a pas répondu",
+                                        a_rattraper)
+                + self._liste_de_messages("À rappeler — messages", rappels))
+
+    def _liste_de_messages(self, titre: str, messages: list) -> str:
+        if not messages:
+            return ""
         lignes = []
         for message in messages[:5]:
             qui = _texte(message.get("nom") or "Appelant")
@@ -184,8 +197,7 @@ class Console:
                      "<span class=legende>pas de numéro</span>"
             lignes.append(f"<li class=message><strong>{qui}</strong> {rappel}"
                           f"<p>{_texte(message.get('texte', ''))}</p></li>")
-        return ("<h2>À rappeler — messages</h2>"
-                f"<ul class=fil>{''.join(lignes)}</ul>")
+        return f"<h2>{_texte(titre)}</h2><ul class=fil>{''.join(lignes)}</ul>"
 
     # --- le détail ----------------------------------------------------------
 

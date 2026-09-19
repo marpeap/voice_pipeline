@@ -257,3 +257,18 @@ def test_la_console_lancee_en_ligne_de_commande_recoit_le_depot():
 
     source = inspect.getsource(principal)
     assert "depot=depot" in source
+
+
+def test_un_rendez_vous_a_rattraper_se_distingue_d_un_message():
+    """Un rendez-vous que l'agenda n'a pas confirmé n'est pas un message de
+    rappel : c'est une action à faire avant que le client ne se déplace."""
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", APPEL)
+    depot.pour("salon-1").enregistrer_message({
+        "type": "rendez_vous_a_rattraper",
+        "texte": "Rendez-vous à confirmer : jeudi 17 septembre à 15 h 30.",
+        "nom": "Dupont", "telephone": "0612345678"})
+    _, contenu = page(Console(journal=journal, tenant="salon-1", depot=depot))
+    assert "À confirmer" in contenu
+    assert contenu.index("À confirmer") < contenu.index("Fil des appels")

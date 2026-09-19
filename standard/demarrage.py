@@ -286,7 +286,8 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
                                              "libres_du_jour", None),
                       envoyeur_sms=_envoyeur_sms(env, config),
                       corrections=RegistreDeCorrections(depot=depot,
-                                                        tenant=config.tenant))
+                                                        tenant=config.tenant),
+                      secours=depot.pour(config.tenant))
     service.demarrer()
 
     journal = JournalDAppels(depot)

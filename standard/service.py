@@ -192,7 +192,8 @@ class Service:
                  creneaux_pris: Callable[[], dict[str, set[str]]] | None = None,
                  libres_du_jour: Callable[[str], list[str]] | None = None,
                  envoyeur_sms: Any = None,
-                 corrections: Any = None):
+                 corrections: Any = None,
+                 secours: Any = None):
         self.configuration = configuration
         self.client_modele = client_modele
         self.base = base
@@ -204,6 +205,9 @@ class Service:
         self.libres_du_jour = libres_du_jour
         self.envoyeur_sms = envoyeur_sms
         self.corrections = corrections
+        # Toujours local, meme en mode greffon : c'est le filet qui garde la
+        # trace d'un rendez-vous que l'hote n'a pas confirme.
+        self.secours = secours
         self.metriques = Supervision()
         self._memoire = None
         self._demarre = False
@@ -293,6 +297,7 @@ class Service:
                       consignes_communes=self.configuration.consignes_communes,
                       tenant=self.configuration.tenant, identifiant=identifiant,
                       modele=self.configuration.modele,
-                      parametres=self.configuration.parametres or None)
+                      parametres=self.configuration.parametres or None,
+                      secours=self.secours)
         appel.envoyeur_sms = self.envoyeur_sms
         return AppelSuivi(appel, self._annonce(), self.metriques)

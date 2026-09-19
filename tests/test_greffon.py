@@ -130,3 +130,64 @@ def test_un_hote_muet_ne_fait_jamais_promettre(tmp_path):
     # ce qu'on vérifie, c'est qu'elle n'AFFIRME rien — la règle du produit.
     assert "n'arrive pas à vérifier" in reponse.phrase
     assert "rappellera" in reponse.phrase
+
+
+# --- ce qui reste quand l'écriture n'a pas abouti ---------------------------
+# L'agent dit honnêtement « le salon vous rappellera ». Encore faut-il que le
+# salon SACHE qu'il doit rappeler : sinon la phrase est une promesse en l'air.
+
+def test_une_ecriture_incertaine_laisse_une_trace_a_rattraper(tmp_path):
+    from standard.appel import Appel
+    from standard.decision import Agenda
+    from standard.depot import Depot
+    from standard.hors_ligne import ModeleHorsLigne
+
+    local = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = Appel(client_modele=ModeleHorsLigne(aujourd_hui=MARDI),
+                  agenda=Agenda(aujourd_hui=MARDI, creneaux={"15:30"}, jours_fermes=(6, 0)),
+                  base=base(HoteFactice(statut_reservation=503)),
+                  memoire="", consignes_communes="c",
+                  tenant="salon-1", identifiant="appel-1",
+                  secours=local.pour("salon-1"))
+    appel.fiche = {"reservation": {"nom": "non"}}
+    appel.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    reponse = appel.confirmer()
+
+    assert reponse.genre == "incertain"
+    a_rattraper = local.messages("salon-1")
+    assert len(a_rattraper) == 1
+    assert "17 septembre" in a_rattraper[0]["texte"]
+    assert a_rattraper[0]["type"] == "rendez_vous_a_rattraper"
+
+
+def test_sans_secours_l_appel_se_termine_quand_meme(tmp_path):
+    """Le rattrapage est un filet, pas une dépendance : sans dépôt local, la
+    phrase honnête reste dite."""
+    from standard.appel import Appel
+    from standard.decision import Agenda
+    from standard.hors_ligne import ModeleHorsLigne
+
+    appel = Appel(client_modele=ModeleHorsLigne(aujourd_hui=MARDI),
+                  agenda=Agenda(aujourd_hui=MARDI, creneaux={"15:30"}, jours_fermes=(6, 0)),
+                  base=base(HoteFactice(statut_reservation=503)),
+                  memoire="", consignes_communes="c",
+                  tenant="salon-1", identifiant="appel-1")
+    appel.fiche = {"reservation": {"nom": "non"}}
+    appel.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    assert appel.confirmer().genre == "incertain"
+
+
+def test_le_service_pose_toujours_le_filet_local(tmp_path):
+    """Même branché sur un hôte, le service garde un dépôt local pour ce qui
+    n'a pas abouti : sinon la trace se perdrait avec la panne qui l'a causée."""
+    serveur = construire_serveur({
+        "STANDARD_TENANT": "salon-1",
+        "STANDARD_PACK": os.path.join(RACINE, "packs", "coiffure.json"),
+        "STANDARD_REPONSES": '{"A1": "Salon Elegance"}',
+        "STANDARD_PORT": "0", "STANDARD_PORT_SANTE": "0",
+        "STANDARD_BASE": str(tmp_path / "essai.sqlite3"),
+        "STANDARD_HOTE_BASE": "https://hote.exemple.fr",
+        "STANDARD_STT": "muet", "STANDARD_TTS": "muet",
+    })
+    assert serveur.service.secours is not None
+    assert hasattr(serveur.service.secours, "enregistrer_message")
