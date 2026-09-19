@@ -66,7 +66,8 @@ def test_le_modele_et_ses_parametres_viennent_aussi_de_l_environnement():
 # --- la vérification de déploiement -----------------------------------------
 
 def test_la_verification_dit_ce_qui_va_et_ce_qui_ne_va_pas():
-    rapport = verifier_le_deploiement(environnement())
+    rapport = verifier_le_deploiement(environnement(STANDARD_STT="muet",
+                                                    STANDARD_TTS="muet"))
     assert rapport["pack_valide"] is True
     assert rapport["questions_manquantes"] == []
     assert rapport["pret"] is True
@@ -130,3 +131,21 @@ def test_les_durcissements_qui_cassent_l_audio_ne_sont_pas_actifs(durcissement, 
     lignes = (RACINE / "deploiement" / "standard.service").read_text().splitlines()
     actives = [l.strip() for l in lignes if not l.strip().startswith((";", "#"))]
     assert not any(l.startswith(f"{durcissement}=") for l in actives), degat
+
+
+def test_pret_veut_dire_capable_de_decrocher_et_d_entendre():
+    """Trouvé en lisant la sortie réelle : le rapport disait « prêt » alors
+    qu'aucun moteur de transcription n'était configuré. Un déploiement « prêt »
+    qui décroche sans entendre est exactement le piège que ce rapport doit
+    éviter."""
+    sans_moteur = environnement()
+    sans_moteur.pop("STANDARD_STT", None)
+    rapport = verifier_le_deploiement(sans_moteur)
+    assert rapport["pret"] is False
+    assert rapport["questions_manquantes"] == [], "ce n'est pas le pack qui manque"
+
+
+def test_avec_les_moteurs_muets_le_deploiement_est_pret():
+    rapport = verifier_le_deploiement(environnement(STANDARD_STT="muet",
+                                                    STANDARD_TTS="muet"))
+    assert rapport["pret"] is True

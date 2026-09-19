@@ -24,6 +24,12 @@ from typing import Any, Mapping
 
 from standard.depot import Depot
 from standard.hors_ligne import ModeleHorsLigne
+from standard.moteurs import (
+    MoteurAbsent,
+    choisir_synthese,
+    choisir_transcription,
+    inventaire,
+)
 from standard.serveur import ServeurAudioSocket
 from standard.service import Configuration, Service
 
@@ -69,10 +75,12 @@ def verifier_le_deploiement(environnement: Mapping[str, str] | None = None) -> d
     À lancer avant de brancher un numéro : il vaut mieux découvrir un pack
     incomplet ici que sur le premier appelant.
     """
-    config = configuration_depuis_environnement(environnement)
+    env = dict(environnement if environnement is not None else os.environ)
+    config = configuration_depuis_environnement(env)
     service = Service(config, client_modele=ModeleHorsLigne(aujourd_hui=config.aujourd_hui),
                       base=Depot(":memory:").pour(config.tenant))
     manquantes = service.questions_manquantes()
+    moteurs = inventaire(env)
     return {
         "tenant": config.tenant,
         "pack": config.pack["pack"],
@@ -80,8 +88,22 @@ def verifier_le_deploiement(environnement: Mapping[str, str] | None = None) -> d
         "creneaux": len(config.creneaux),
         "questions_manquantes": manquantes,
         "modele": config.modele or "hors ligne",
-        "pret": not manquantes and bool(config.creneaux),
+        "moteurs": moteurs,
+        # « Pret » veut dire capable de decrocher ET d'entendre : un service qui
+        # repond sans comprendre est pire qu'un service qui refuse de demarrer.
+        "pret": (not manquantes and bool(config.creneaux)
+                 and all(m["disponible"] for m in moteurs.values())),
     }
+
+
+def _synthese_tolerante(env):
+    """La synthese, ou un silence assume si elle manque — mais jamais un plantage
+    au milieu d'un appel."""
+    try:
+        synthetiser = choisir_synthese(env)
+    except MoteurAbsent:
+        return lambda texte: [b""]
+    return lambda texte: list(synthetiser(texte))
 
 
 def construire_serveur(environnement: Mapping[str, str] | None = None) -> ServeurAudioSocket:
@@ -101,11 +123,19 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
         compteur["appels"] += 1
         return service.nouvel_appel(f"appel-{compteur['appels']}")
 
+    try:
+        transcrire = choisir_transcription(env)
+    except MoteurAbsent:
+        # On demarre quand meme, mais l'agent le DIRA au lieu de faire semblant
+        # d'ecouter : c'est la seule facon d'essayer un deploiement incomplet
+        # sans se mentir.
+        def transcrire(audio, frequence):
+            raise MoteurAbsent("aucun moteur de transcription : l'appel ne peut pas "
+                               "etre compris")
+
     return ServeurAudioSocket(
         fabrique_agent=fabrique_agent,
-        # Sans moteur de transcription branche, le service tourne et repond :
-        # c'est ce qui permet de verifier un deploiement avant d'avoir un STT.
-        transcrire=lambda audio, frequence: "",
-        synthetiser=lambda texte: [texte.encode()],
+        transcrire=transcrire,
+        synthetiser=_synthese_tolerante(env),
         hote=env.get("STANDARD_HOTE", "0.0.0.0"),
         port=int(env.get("STANDARD_PORT", "8090")))
