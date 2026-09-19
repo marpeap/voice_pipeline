@@ -221,3 +221,18 @@ def test_le_serveur_lit_pendant_qu_il_parle():
     source = inspect.getsource(module.ServeurAudioSocket)
     assert "_emettre_en_continu" in source, \
         "l'emission doit vivre dans son propre fil, sinon le serveur n'ecoute pas"
+
+
+def test_l_arret_attend_les_appels_en_cours():
+    """`__main__` promet « les appels en cours se terminent, aucun n'est coupé au
+    milieu d'une phrase ». Les fils étaient daemon et mouraient avec le processus."""
+    s = ServeurAudioSocket(fabrique_agent=AgentFactice,
+                           transcrire=lambda a, f: "", synthetiser=lambda t: [b""],
+                           hote="127.0.0.1", port=0, rythme=False)
+    s.demarrer()
+    prise = socket.create_connection(("127.0.0.1", s.port), timeout=2)
+    time.sleep(0.2)
+    assert s.appels_en_cours == 1
+    s.arreter()
+    assert s.appels_en_cours == 0, "l'arrêt n'a pas attendu l'appel en cours"
+    prise.close()

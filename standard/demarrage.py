@@ -282,6 +282,7 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
                                "etre compris")
 
     serveur = ServeurAudioSocket(
+        seuil_bruite_db=config.seuil_bruite_db,
         fabrique_agent=fabrique_agent,
         transcrire=transcrire,
         synthetiser=_synthese_tolerante(env),

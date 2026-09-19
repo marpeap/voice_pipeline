@@ -33,6 +33,7 @@ class ServeurAudioSocket:
                  transcrire: Callable[[bytes, int], str],
                  synthetiser: Callable[[str], list[bytes]],
                  hote: str = "0.0.0.0", port: int = 8090,
+                 seuil_bruite_db: int | None = None,
                  rythme: bool = True,
                  sur_fin: Callable[[SessionTelephonique], None] | None = None):
         self.fabrique_agent = fabrique_agent
@@ -40,6 +41,7 @@ class ServeurAudioSocket:
         self.synthetiser = synthetiser
         self.hote = hote
         self.port = port
+        self.seuil_bruite_db = seuil_bruite_db
         self.rythme = rythme          # respecter 20 ms entre paquets ; faux en test
         self.sur_fin = sur_fin
 
@@ -51,6 +53,7 @@ class ServeurAudioSocket:
         self._fil: threading.Thread | None = None
         self._arret = threading.Event()
         self._verrou = threading.Lock()
+        self._fils_d_appel: list[threading.Thread] = []
 
     # --- cycle de vie -------------------------------------------------------
 
@@ -64,10 +67,19 @@ class ServeurAudioSocket:
         self._fil = threading.Thread(target=self._accepter, daemon=True)
         self._fil.start()
 
-    def arreter(self) -> None:
+    def arreter(self, attente_s: float = 5.0) -> None:
+        """Arret propre : on attend les appels en cours, on ne les coupe pas.
+
+        Les fils sont `daemon` — ils mourraient avec le processus, au milieu
+        d'une phrase. La promesse etait dans `__main__` bien avant d'etre tenue.
+        """
         self._arret.set()
         if self._fil:
             self._fil.join(timeout=2)
+        with self._verrou:
+            fils = list(self._fils_d_appel)
+        for fil in fils:
+            fil.join(timeout=attente_s)
         if self._prise:
             self._prise.close()
 
@@ -81,7 +93,11 @@ class ServeurAudioSocket:
                 continue
             except OSError:
                 break
-            threading.Thread(target=self._servir, args=(connexion,), daemon=True).start()
+            fil = threading.Thread(target=self._servir, args=(connexion,), daemon=True)
+            with self._verrou:
+                self._fils_d_appel = [f for f in self._fils_d_appel if f.is_alive()]
+                self._fils_d_appel.append(fil)
+            fil.start()
 
     # --- un appel -----------------------------------------------------------
 
@@ -89,9 +105,11 @@ class ServeurAudioSocket:
         with self._verrou:
             self.appels_en_cours += 1
             self.appels_total += 1
-        session = SessionTelephonique(agent=self.fabrique_agent(),
-                                      transcrire=self.transcrire,
-                                      synthetiser=self.synthetiser)
+        session = SessionTelephonique(
+            agent=self.fabrique_agent(), transcrire=self.transcrire,
+            synthetiser=self.synthetiser,
+            **({"seuil_bruite_db": self.seuil_bruite_db}
+               if self.seuil_bruite_db is not None else {}))
         fini = threading.Event()
         # L'emission vit dans SON PROPRE FIL. Tant qu'elle partageait celui de la
         # lecture, le serveur n'ecoutait pas pendant qu'il parlait : l'appelant

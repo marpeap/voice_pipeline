@@ -66,7 +66,8 @@ class PisteDAudit:
     def lister(self, tenant: str, limite: int = 200) -> list[dict[str, Any]]:
         if not tenant:
             raise ValueError("lire la piste d'audit sans locataire : refusé")
-        return [{"horodatage": ligne["horodatage"], "acteur": ligne["acteur"],
+        with self.depot._verrou:
+            return [{"horodatage": ligne["horodatage"], "acteur": ligne["acteur"],
                  "action": ligne["action"], "cible": ligne["cible"],
                  "correlation": ligne["correlation"],
                  "detail": json.loads(ligne["detail"])}

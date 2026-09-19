@@ -87,6 +87,7 @@ class SessionTelephonique:
     frequence_moteur: int = 16000
     silence_de_fin_ms: int = SILENCE_DE_FIN_MS
     duree_minimale_interruption_ms: int = DUREE_MINIMALE_INTERRUPTION_MS
+    seuil_bruite_db: int = SEUIL_BRUITE_DB
 
     identifiant: str | None = None
     fermee: bool = False
@@ -202,6 +203,11 @@ class SessionTelephonique:
             raise RuntimeError("session fermee : l'appelant a raccroche")
         sortant: list[bytes] = []
         for trame in self._decodeur.avaler(morceau):
+            if self.fermee:
+                # Ce qui suit un raccrochage dans le meme paquet TCP appartient a
+                # un appel qui n'existe plus.
+                self.trames_ignorees += 1
+                continue
             sortant += self._traiter(trame)
         return sortant
 
@@ -283,7 +289,7 @@ class SessionTelephonique:
         # doit le savoir pour changer de strategie — passer au clavier des le
         # premier essai plutot qu'attendre deux echecs.
         self.rsb_db = estimer_rsb_db(bytes(self._fond), bytes(self._audio))
-        bruite = self.rsb_db is not None and self.rsb_db < SEUIL_BRUITE_DB
+        bruite = self.rsb_db is not None and self.rsb_db < self.seuil_bruite_db
         self._audio.clear()
         self._fond.clear()
         self._a_parle = False

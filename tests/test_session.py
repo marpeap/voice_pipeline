@@ -414,3 +414,20 @@ def test_le_delai_avant_premier_fragment_est_mesure_a_chaque_tour():
     s.ouvrir()
     assert s.premiers_fragments_ms, "l'annonce n'a pas été mesurée"
     assert s.premiers_fragments_ms[0] >= 25
+
+
+def test_apres_le_raccrochage_les_trames_suivantes_sont_ignorees():
+    """Une trame FIN est terminale : ce qui la suit dans le même paquet TCP
+    appartient à un appel qui n'existe plus."""
+    s = session()
+    s.ouvrir()
+    s.recevoir(encoder(TYPE_FIN) + encoder(TYPE_UUID, bytes(range(16))))
+    assert s.fermee is True
+    assert s.identifiant is None, "une trame reçue après le raccrochage a été traitée"
+
+
+def test_le_seuil_de_bruit_se_regle():
+    """`Configuration.seuil_bruite_db` existait et n'atteignait jamais l'appel."""
+    s = SessionTelephonique(agent=AgentFactice(), transcrire=lambda a, f: "x",
+                            synthetiser=lambda t: [b""], seuil_bruite_db=40)
+    assert s.seuil_bruite_db == 40

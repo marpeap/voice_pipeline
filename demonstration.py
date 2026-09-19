@@ -75,9 +75,6 @@ SCENARIOS = {
     ],
 }
 
-CONFIRMATIONS = ("oui", "c'est parfait", "d'accord", "ca me va", "parfait")
-
-
 def configuration(pack: str) -> Configuration:
     return Configuration.depuis({
         "tenant": "demonstration",
@@ -104,10 +101,10 @@ def jouer(scenario: str, pack: str, base_muette: bool) -> int:
     print(f"— Agent   : {appel.salutation()}")
     for dit in SCENARIOS[scenario]:
         print(f"— Appelant: {dit}")
-        if any(mot in dit.lower() for mot in CONFIRMATIONS) and len(dit) < 25:
-            reponse = appel.confirmer()
-        else:
-            reponse = appel.tour(dit)
+        # Tout passe par `tour()`, y compris le « oui » : c'est le produit qui
+        # reconnait un accord, pas la demonstration. Court-circuiter ici revenait
+        # a montrer un chemin que l'appelant reel n'emprunte jamais.
+        reponse = appel.tour(dit)
         print(f"— Agent   : {reponse.phrase}   [{reponse.genre}]")
 
     print("\nJournal de l'appel, tel que le salon le verrait :")

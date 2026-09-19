@@ -64,9 +64,10 @@ class JournalDAppels:
     def lister(self, tenant: str | None, limite: int = 100) -> list[dict]:
         if not tenant:
             raise ValueError("lister sans locataire : refusé, pour ne pas tout rendre")
-        return [json.loads(ligne["donnees"]) for ligne in self.depot._connexion.execute(
-            "SELECT donnees FROM appels WHERE tenant_id = ? ORDER BY debut DESC LIMIT ?",
-            (tenant, limite))]
+        with self.depot._verrou:
+            return [json.loads(ligne["donnees"]) for ligne in self.depot._connexion.execute(
+                "SELECT donnees FROM appels WHERE tenant_id = ? ORDER BY debut DESC LIMIT ?",
+                (tenant, limite))]
 
     def incidents(self, tenant: str) -> list[dict]:
         """Ce qui doit remonter tout de suite, et non figurer dans une moyenne.
@@ -111,11 +112,11 @@ class JournalDAppels:
         fausse : c'est cette fonction qui rend la ligne du registre vraie.
         """
         limite = (date.today() - timedelta(days=conservation_jours)).isoformat()
-        if tenant:
-            curseur = self.depot._connexion.execute(
-                "DELETE FROM appels WHERE tenant_id = ? AND debut < ?", (tenant, limite))
-        else:
-            curseur = self.depot._connexion.execute(
-                "DELETE FROM appels WHERE debut < ?", (limite,))
-        self.depot._connexion.commit()
-        return curseur.rowcount
+        with self.depot._verrou:
+            if tenant:
+                curseur = self.depot._connexion.execute(
+                    "DELETE FROM appels WHERE tenant_id = ? AND debut < ?", (tenant, limite))
+            else:
+                curseur = self.depot._connexion.execute(
+                    "DELETE FROM appels WHERE debut < ?", (limite,))
+            return curseur.rowcount
