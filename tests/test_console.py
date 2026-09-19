@@ -157,3 +157,36 @@ def test_le_mouvement_respecte_le_reglage_systeme(console):
     système exprès."""
     contenu = page(console)[1]
     assert "prefers-reduced-motion" in contenu
+
+
+# --- ce que la console laisse comme trace ------------------------------------
+
+def test_une_correction_laisse_une_trace_d_audit():
+    """Sinon « l'agent s'est mis à refuser tout le monde » n'a pas d'explication,
+    et on cherche dans le code un défaut qui est un réglage."""
+    from standard.audit import PisteDAudit
+    from standard.journal import JournalDAppels
+
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", APPEL)
+    piste = PisteDAudit(depot)
+    console = Console(journal=journal, tenant="salon-1", audit=piste, acteur="gérant")
+
+    console.repondre("POST", "/correction", {
+        "appel": APPEL["uuid"], "faute": "duree", "empan": "une coupe",
+        "prestation": "coupe", "duree_minutes": "45"})
+
+    [evenement] = piste.lister("salon-1")
+    assert evenement["action"] == "correction.posee"
+    assert evenement["acteur"] == "gérant"
+    assert evenement["correlation"] == APPEL["uuid"]
+
+
+def test_sans_piste_d_audit_la_console_fonctionne_quand_meme(console):
+    """Une console qui refuserait de corriger faute de journal serait pire que le
+    manque de trace."""
+    statut, _ = page(console, "/correction", "POST", {
+        "appel": APPEL["uuid"], "faute": "duree", "empan": "x",
+        "prestation": "coupe", "duree_minutes": "30"})
+    assert statut == 303

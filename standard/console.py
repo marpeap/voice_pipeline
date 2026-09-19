@@ -94,6 +94,8 @@ class Console:
     journal: Any
     tenant: str
     registre: RegistreDeCorrections = field(default_factory=RegistreDeCorrections)
+    audit: Any = None
+    acteur: str = "console"
     _message: str | None = None
 
     # --- routage ------------------------------------------------------------
@@ -207,8 +209,17 @@ class Console:
         if "duree_minutes" in valeur:
             valeur["duree_minutes"] = int(valeur["duree_minutes"])
 
-        self.registre.ajouter(Correction(faute=faute, appel=corps.get("appel", ""),
-                                         empan=corps.get("empan", ""), valeur=valeur))
+        correction = self.registre.ajouter(Correction(
+            faute=faute, appel=corps.get("appel", ""),
+            empan=corps.get("empan", ""), valeur=valeur))
+
+        if self.audit is not None:
+            # Qui a change quoi, et sur quel appel. Sans cette ligne, un reglage
+            # pose un mardi devient un « bug » cherche le jeudi.
+            self.audit.noter(self.tenant, acteur=self.acteur, action="correction.posee",
+                             cible=correction.identifiant,
+                             detail={"faute": faute, "etat": correction.etat},
+                             correlation=corps.get("appel", ""))
         # B10 : la fin promet la suite au lieu de se refermer.
         self._message = ("Correction enregistrée. Elle s'applique dès maintenant, "
                          "et elle sera rejouée à chaque changement — cinq fois de suite — "

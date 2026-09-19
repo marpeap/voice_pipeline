@@ -15,13 +15,17 @@ import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from standard.acces import TropDeDemandes
+
 HOTE_PAR_DEFAUT = "127.0.0.1"
 PORT_PAR_DEFAUT = 8091
 
 
 class ServeurConsole:
-    def __init__(self, console, hote: str = HOTE_PAR_DEFAUT, port: int = PORT_PAR_DEFAUT):
+    def __init__(self, console, hote: str = HOTE_PAR_DEFAUT, port: int = PORT_PAR_DEFAUT,
+                 limiteur=None):
         self.console = console
+        self.limiteur = limiteur
         self.hote = hote
         self.port = port
         self._serveur: ThreadingHTTPServer | None = None
@@ -29,9 +33,25 @@ class ServeurConsole:
 
     def demarrer(self) -> None:
         console = self.console
+        limiteur = self.limiteur
 
         class Poignee(BaseHTTPRequestHandler):
             def _repondre(self, methode, corps=None):
+                if limiteur is not None:
+                    try:
+                        limiteur.autoriser(console.tenant, self.client_address[0])
+                    except TropDeDemandes as refus:
+                        # On refuse poliment, et on dit quand revenir : un service
+                        # qui tombe parce qu'on rafraichit trop vite n'est pas
+                        # exploitable.
+                        self.send_response(429)
+                        self.send_header("Retry-After", str(int(refus.reessayer_dans_s) + 1))
+                        self.send_header("Content-Type", "text/plain; charset=utf-8")
+                        message = str(refus).encode()
+                        self.send_header("Content-Length", str(len(message)))
+                        self.end_headers()
+                        self.wfile.write(message)
+                        return
                 statut, entetes, contenu = console.repondre(methode, self.path, corps)
                 self.send_response(statut)
                 for cle, valeur in entetes.items():
