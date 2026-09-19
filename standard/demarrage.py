@@ -27,6 +27,7 @@ from typing import Any, Mapping
 
 from standard.depot import Depot
 from standard.correction import RegistreDeCorrections
+from standard.echecs import detecter_l_echec
 from standard.entretien import Entretien
 from standard.journal import JournalDAppels
 from standard.sante import ServeurDeSante
@@ -318,13 +319,22 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
         journal.enregistrer(config.tenant, {
             "uuid": session.identifiant or f"sans-uuid-{uuid4().hex[:8]}",
             "debut": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "duree_s": 0,
+            # Elle valait zero pour tous les appels : la console affichait
+            # « 0 s » partout, et la premiere regle de detection d'echec —
+            # raccroche avant dix secondes — ne pouvait pas exister.
+            "duree_s": getattr(session, "duree_s", 0),
             "issue": {"confirmation": "rendez-vous"}.get(issue, issue),
             "bruite": any(t.get("bruite") for t in tours),
             "interruptions": getattr(session, "interruptions", 0),
             "preuve_annonce": session.preuve_d_annonce or {"conforme": False},
             "confirmations_orphelines": journal_appel.confirmations_orphelines,
             "tours": tours,
+            # T6 : une ligne par tour, avec ses latences et son identifiant.
+            "mesures": list(getattr(session, "mesures", [])),
+            # Et le motif d'echec, s'il y en a un : un appel « reussi » se
+            # reconnait mal, un appel rate se reconnait a quatre signes.
+            "echec": detecter_l_echec({
+                "duree_s": getattr(session, "duree_s", 0), "tours": tours}),
         })
 
     try:

@@ -102,6 +102,11 @@ class SessionTelephonique:
     interruptions: int = 0
     trames_ignorees: int = 0
     premiers_fragments_ms: list = field(default_factory=list)
+    # T6 de docs/17 : une ligne par tour. Sans elles, « l'agent est lent » n'est
+    # pas diagnosticable — et la mesure 13 dit que c'est le delai avant premier
+    # fragment qui signale une machine pleine, pas la charge processeur.
+    mesures: list = field(default_factory=list)
+    debut: float = field(default_factory=time.monotonic)
     annonce_delivree: bool = False
     fin_demandee: bool = False      # l'agent a rendu la ligne (demarchage filtre)
     pannes: int = 0
@@ -306,8 +311,25 @@ class SessionTelephonique:
             return []
         return self._fin_de_tour()
 
+    @property
+    def duree_s(self) -> float:
+        """Depuis le decrochage. Elle valait zero pour tous les appels."""
+        return round(time.monotonic() - self.debut, 1)
+
     def _fin_de_tour(self) -> list[bytes]:
         """L'appelant a fini de parler : on transcrit, on repond, on rejoue."""
+        import uuid
+
+        depart = time.perf_counter()
+        mesure = {
+            "speech_id": uuid.uuid4().hex[:12],
+            # Le temps qu'il a fallu pour decider que l'appelant avait fini :
+            # c'est un choix de reglage, et il se relit ici.
+            "fin_de_parole_ms": self.silence_de_fin_ms,
+            "transcription_ms": 0.0, "agent_ms": 0.0,
+            "premier_fragment_ms": 0.0, "total_ms": 0.0,
+        }
+        self.mesures.append(mesure)
         audio = reechantillonner(bytes(self._audio), self._frequence_entrante,
                                  self.frequence_moteur)
         # Mesure 10 : a 10-15 dB le taux d'erreur double SUR LES ENTITES. L'agent
@@ -321,6 +343,7 @@ class SessionTelephonique:
         self._silence_ms = 0
         try:
             texte = self.transcrire(audio, self.frequence_moteur)
+            mesure["transcription_ms"] = (time.perf_counter() - depart) * 1000
         except Exception:
             # Une panne du moteur — reseau coupe, 429, moteur absent — ne doit
             # jamais se traduire par un silence : c'est le pire etat d'un
@@ -338,13 +361,19 @@ class SessionTelephonique:
                 return self._dire(relancer())
             return []
 
+        avant_l_agent = time.perf_counter()
         try:
             reponse = self.agent.tour(texte, bruite=bruite)
         except Exception:
             return self._panne("Je rencontre un problème technique, un instant.")
+        mesure["agent_ms"] = (time.perf_counter() - avant_l_agent) * 1000
 
         self.pannes = 0
-        return self._dire(reponse)
+        morceaux = self._dire(reponse)
+        if self.premiers_fragments_ms:
+            mesure["premier_fragment_ms"] = self.premiers_fragments_ms[-1]
+        mesure["total_ms"] = (time.perf_counter() - depart) * 1000
+        return morceaux
 
     def _dire(self, reponse) -> list[bytes]:
         """Joue une reponse d'agent — et honore ce qu'elle demande ensuite."""

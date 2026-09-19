@@ -67,6 +67,14 @@ PREROLL_MS = 300
 """Mesure 9 : un moteur streaming perd le premier mot d'un enonce sur quatre.
 Le flux garde ce qui precede le seuil de parole."""
 
+DUREE_MINIMALE_D_UN_VRAI_APPEL_S = 10
+"""En dessous, l'appel n'a pas eu lieu : personne ne prend un rendez-vous en six
+secondes. C'est la premiere des quatre regles de detection d'echec (docs/17 T6)."""
+
+REFORMULATIONS_AVANT_ECHEC = 3
+"""Trois fois « je vais faire autrement » : l'agent tourne, et l'appelant le
+sait avant nous."""
+
 TOURS_OU_LE_DEMARCHAGE_SE_COUPE = 2
 """Passe les premiers mots, une phrase commerciale peut venir d'un client qui
 explique son metier : on ne coupe pas une conversation deja engagee. Le faux
