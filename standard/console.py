@@ -22,6 +22,7 @@ import html
 from dataclasses import dataclass, field
 from typing import Any
 
+from standard.echecs import libelle as libelle_d_echec
 from standard.grammaire import ecrire_numero
 from standard.correction import FAUTES, Correction, RegistreDeCorrections
 
@@ -261,9 +262,15 @@ class Console:
                     f"{int(appel.get('duree_s', 0))} s · "
                     f"{'ligne bruitée' if appel.get('bruite') else 'ligne correcte'}"
                     f"{f' ({rsb} dB)' if rsb is not None else ''}</p>")
+        # Le motif d'echec est ce qu'on cherche en ouvrant un appel : sans lui,
+        # il faut relire toute la transcription pour deviner. En gris, jamais en
+        # rouge — un gerant qui a peur d'ouvrir sa console ne la corrige pas.
+        motif = libelle_d_echec(appel.get("echec"))
+        bandeau = f"<p class=legende><strong>Ce qui a manqué :</strong> {_texte(motif)}.</p>" \
+            if motif else ""
         return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
             "Appel", f"<h1>Appel de {html.escape(appel['debut'][11:16])}</h1>"
-                     f"{contexte}{tours}{formulaire}")
+                     f"{contexte}{bandeau}{tours}{formulaire}")
 
     # --- la correction ------------------------------------------------------
 

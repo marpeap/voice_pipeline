@@ -284,3 +284,24 @@ def test_le_fil_dit_combien_de_demarchages_ont_ete_filtres():
     journal.enregistrer("salon-1", APPEL)
     _, contenu = page(Console(journal=journal, tenant="salon-1"))
     assert "1 démarchage filtré" in contenu
+
+
+def test_le_detail_d_un_appel_dit_pourquoi_il_a_raté():
+    """Le motif d'échec est ce qu'on cherche en ouvrant un appel : sans lui, il
+    faut relire toute la transcription pour deviner."""
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", {**APPEL, "echec": "reformulations",
+                                    "duree_s": 82.0})
+    _, contenu = page(Console(journal=journal, tenant="salon-1"),
+                      f"/appel/{APPEL['uuid']}")
+    assert "tourné en rond" in contenu
+
+
+def test_un_appel_sans_echec_n_affiche_aucun_motif():
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", APPEL)
+    _, contenu = page(Console(journal=journal, tenant="salon-1"),
+                      f"/appel/{APPEL['uuid']}")
+    assert "tourné en rond" not in contenu

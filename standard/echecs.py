@@ -36,3 +36,17 @@ def detecter_l_echec(appel: dict) -> str | None:
         return "demande_humain"
 
     return None
+
+
+# Ce que le commercant lit — jamais le nom technique du motif.
+LIBELLES = {
+    "raccroche_tot": "l'appelant a raccroché tout de suite",
+    "reformulations": "l'agent a tourné en rond",
+    "silence": "l'agent n'a rien entendu de l'appelant",
+    "demande_humain": "l'appelant a demandé quelqu'un du salon",
+}
+
+
+def libelle(motif: str | None) -> str:
+    """Le motif en francais courant, ou une chaine vide s'il n'y en a pas."""
+    return LIBELLES.get(motif or "", "")
