@@ -180,10 +180,91 @@ FAMILLES = {
 }
 
 
-def un_passage(repetitions: int = 5, bavard: bool = True):
+def familles_de_corrections(registre):
+    """Chaque correction active devient une famille de la porte.
+
+    `docs/06` : « toute correction alimente automatiquement le corpus de
+    regression ». Le registre savait rendre ces scenarios, la porte ne les
+    jouait pas — la console promettait donc au gerant une garantie qui n'existait
+    pas : sans rejeu, une correction tient jusqu'au prochain changement de
+    modele, et personne ne voit la rechute.
+    """
+    from datetime import date as _date
+
+    from standard.correction import appliquer
+    from standard.hors_ligne import ModeleHorsLigne
+    from standard.service import Configuration, Service
+
+    familles = {}
+    for scenario in registre.scenarios_de_regression():
+        corrections = [registre.par_identifiant(scenario["identifiant"])]
+
+        def executer(scenario=scenario, corrections=corrections):
+            attendu = scenario["attendu"] or {}
+            if scenario["faute"] == "creneau_inexistant":
+                heure = attendu.get("heure")
+                if not heure:
+                    return False, "correction sans creneau : rien a verifier"
+                service = _service_avec(corrections, heure)
+                jour = "2026-09-17"
+                libres = service._agenda().libres(jour)
+                return (heure not in libres,
+                        f"le creneau {heure} est encore propose : {libres}")
+
+            if scenario["faute"] == "promesse_interdite":
+                interdit = attendu.get("interdit")
+                if not interdit:
+                    return False, "correction sans interdit : rien a verifier"
+                service = _service_avec(corrections, "15:30")
+                appel = service.nouvel_appel("regression")
+                dite = appel._appel._garde_de_sortie(f"Je peux vous {interdit}.")
+                return (interdit not in dite.lower(),
+                        f"la phrase interdite est sortie : {dite!r}")
+
+            # Les autres fautes agissent sur la memoire : on verifie qu'elles y
+            # sont bien appliquees, ce qui est ce qu'elles promettent.
+            reponses, corps, _ = appliquer(corrections, {}, "")
+            trace = json.dumps({"reponses": reponses, "corps": corps}, ensure_ascii=False)
+            valeurs = [str(v) for v in attendu.values() if v]
+            if not valeurs:
+                return False, "correction sans valeur : rien a verifier"
+            manquantes = [v for v in valeurs if v not in trace]
+            return (not manquantes, f"non applique : {manquantes}")
+
+        familles[f"correction {scenario['identifiant']} ({scenario['faute']})"] = executer
+    return familles
+
+
+def _service_avec(corrections, heure):
+    """Un service minimal portant ces corrections — assez pour les verifier."""
+    from standard.correction import RegistreDeCorrections
+    from standard.depot import Depot
+    from standard.hors_ligne import ModeleHorsLigne
+    from standard.service import Configuration, Service
+
+    pack = json.load(open(os.path.join(RACINE, "packs", "coiffure.json")))
+    depot = Depot(":memory:")
+
+    class RegistreFige:
+        def actives(self_inner):
+            return corrections
+
+    config = Configuration(tenant="regression", pack=pack,
+                           reponses={"A1": "Salon"}, aujourd_hui=MARDI,
+                           creneaux=(heure, "15:30", "17:00"))
+    service = Service(config, client_modele=ModeleHorsLigne(aujourd_hui=MARDI),
+                      base=depot.pour("regression"), corrections=RegistreFige())
+    service.demarrer()
+    return service
+
+
+def un_passage(repetitions: int = 5, bavard: bool = True, registre=None):
     """Rejoue chaque famille `repetitions` fois. Le succes doit etre integral."""
     resultats = []
-    for nom, executer in FAMILLES.items():
+    familles = dict(FAMILLES)
+    if registre is not None:
+        familles.update(familles_de_corrections(registre))
+    for nom, executer in familles.items():
         succes, echecs = 0, []
         for _ in range(repetitions):
             ok, detail = executer()
@@ -206,7 +287,18 @@ def main():
     ap.add_argument("--repetitions", type=int, default=5, help="pass^k, cinq par defaut")
     ap.add_argument("--passages", type=int, default=1,
                     help="le lot n'est fini que si la porte passe deux fois d'affilee")
+    ap.add_argument("--base", default=None,
+                    help="la base d'un salon : ses corrections deviennent des familles")
+    ap.add_argument("--tenant", default="salon-1")
     args = ap.parse_args()
+
+    registre = None
+    if args.base:
+        from standard.correction import RegistreDeCorrections
+        from standard.depot import Depot
+
+        registre = RegistreDeCorrections(depot=Depot(args.base), tenant=args.tenant)
+        print(f"{len(registre.actives())} correction(s) rejouee(s) depuis {args.base}")
 
     definition = json.load(open(os.path.join(os.path.dirname(__file__), "porte.json")))
     declarees = {f["nom"] for f in definition["familles"]}
@@ -217,7 +309,7 @@ def main():
     tous = []
     for passage in range(1, args.passages + 1):
         print(f"Passage {passage} sur {args.passages} — pass^{args.repetitions}")
-        tous.append(un_passage(args.repetitions))
+        tous.append(un_passage(args.repetitions, registre=registre))
 
     echecs = [r for passage in tous for r in passage if not r["integral"]]
     json.dump({"passages": tous}, open(os.path.join(os.path.dirname(__file__),
