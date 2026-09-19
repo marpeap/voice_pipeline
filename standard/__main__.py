@@ -35,6 +35,18 @@ def main(arguments: list[str]) -> int:
         return 1
 
 
+def _cle_fournie(trousseau, tenant: str, secret: str):
+    """Inscrit une cle choisie par l'exploitant, sans jamais la reafficher."""
+    import time
+
+    from standard.acces import Cle, _empreinte
+
+    trousseau._compteur += 1
+    return Cle(identifiant=f"cle-{trousseau._compteur:04d}", tenant=tenant,
+               empreinte=_empreinte(secret), portees=("console",),
+               emise_le=time.time())
+
+
 def _executer(arguments: list[str]) -> int:
     commande = arguments[0] if arguments else "verifier"
 
@@ -82,7 +94,7 @@ def _executer(arguments: list[str]) -> int:
 
         import os
 
-        from standard.acces import Limiteur
+        from standard.acces import Cles, Limiteur
         from standard.audit import PisteDAudit
 
         config = configuration_depuis_environnement()
@@ -94,10 +106,34 @@ def _executer(arguments: list[str]) -> int:
                           depot=depot,          # sans lui, les messages pris
                           audit=PisteDAudit(depot),
                           acteur=os.environ.get("STANDARD_ACTEUR", "console"))
-        serveur = ServeurConsole(console, limiteur=Limiteur(),
+        # La console montre des transcriptions, des noms et des numeros de
+        # clients. Des qu'elle sort de la boucle locale, elle exige une cle ;
+        # sur 127.0.0.1 on laisse le mode d'essai ouvert, sans quoi personne ne
+        # l'essaie et elle finit exposee sans cle du tout.
+        hote = os.environ.get("STANDARD_HOTE_CONSOLE", "127.0.0.1")
+        trousseau, secret = None, None
+        if hote not in ("127.0.0.1", "localhost", "::1"):
+            trousseau = Cles()
+            secret = os.environ.get("STANDARD_CONSOLE_CLE")
+            if secret:
+                # Une cle fournie par l'exploitant : on l'inscrit telle quelle,
+                # sans jamais la reafficher.
+                trousseau._cles.append(_cle_fournie(trousseau, config.tenant, secret))
+            else:
+                secret = trousseau.emettre(config.tenant, ["console"])
+
+        serveur = ServeurConsole(console, hote=hote, limiteur=Limiteur(),
+                                 trousseau=trousseau, portee="console",
                                  port=int(os.environ.get("STANDARD_PORT_CONSOLE", "8091")))
         serveur.demarrer()
-        print(f"console sur http://{serveur.hote}:{serveur.port}", flush=True)
+        adresse = f"http://{serveur.hote}:{serveur.port}"
+        if trousseau is not None and not os.environ.get("STANDARD_CONSOLE_CLE"):
+            # Affichee UNE fois, au demarrage : elle n'est stockee qu'en
+            # empreinte, personne ne pourra la relire.
+            print(f"console sur {adresse}/?cle={secret}", flush=True)
+            print("cette clé ne sera plus affichée", flush=True)
+        else:
+            print(f"console sur {adresse}", flush=True)
         arret = threading.Event()
         for signal_recu in (signal.SIGINT, signal.SIGTERM):
             signal.signal(signal_recu, lambda *_: arret.set())

@@ -128,3 +128,115 @@ def test_la_commande_console_cable_l_audit_et_la_limitation(tmp_path, monkeypatc
     source = inspect.getsource(commande)
     assert "PisteDAudit" in source, "la console ne laisse aucune trace de qui corrige"
     assert "Limiteur" in source, "la console n'est pas protégée d'un matraquage"
+
+
+# --- la console ne s'ouvre pas à qui passe par là ---------------------------
+# Elle montre des transcriptions, des noms et des numéros de clients. Un
+# garde-fou existait (`acces.Cles`, clés hachées, portées, rotation) et n'était
+# branché nulle part : la console répondait à quiconque atteignait le port.
+
+def serveur_protege(tmp_path):
+    from standard.acces import Cles
+    from standard.console import Console
+    from standard.console_http import ServeurConsole
+    from standard.depot import Depot
+    from standard.journal import JournalDAppels
+
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", APPEL)
+    trousseau = Cles()
+    secret = trousseau.emettre("salon-1", ["console"])
+    serveur = ServeurConsole(Console(journal=journal, tenant="salon-1"),
+                             port=0, trousseau=trousseau, portee="console")
+    serveur.demarrer()
+    return serveur, secret
+
+
+def lire_protege(serveur, chemin="/", entetes=None):
+    import urllib.error
+    import urllib.request
+
+    requete = urllib.request.Request(f"http://127.0.0.1:{serveur.port}{chemin}",
+                                     headers=entetes or {})
+    try:
+        with urllib.request.urlopen(requete, timeout=3) as reponse:
+            return reponse.status, reponse.read().decode(), reponse.headers
+    except urllib.error.HTTPError as refus:
+        return refus.code, refus.read().decode(), refus.headers
+
+
+def test_sans_cle_la_console_refuse_et_ne_montre_rien(tmp_path):
+    serveur, _ = serveur_protege(tmp_path)
+    try:
+        statut, contenu, _ = lire_protege(serveur)
+        assert statut == 401
+        assert "permanente" not in contenu, "une transcription a fuité dans le refus"
+    finally:
+        serveur.arreter()
+
+
+def test_avec_la_cle_en_entete_la_console_repond(tmp_path):
+    serveur, secret = serveur_protege(tmp_path)
+    try:
+        statut, contenu, _ = lire_protege(serveur, entetes={"Authorization": f"Bearer {secret}"})
+        assert statut == 200
+        assert "Vos appels" in contenu
+    finally:
+        serveur.arreter()
+
+
+def test_une_cle_fausse_est_refusee(tmp_path):
+    serveur, _ = serveur_protege(tmp_path)
+    try:
+        statut, _, _ = lire_protege(serveur, entetes={"Authorization": "Bearer stdk_faux"})
+        assert statut == 401
+    finally:
+        serveur.arreter()
+
+
+def test_le_lien_porte_la_cle_une_fois_puis_un_cookie_prend_le_relais(tmp_path):
+    """Un gérant ne colle pas un en-tête HTTP : il ouvre un lien. La clé n'y
+    passe qu'une fois, et le cookie évite qu'elle reste dans l'historique."""
+    serveur, secret = serveur_protege(tmp_path)
+    try:
+        statut, _, entetes = lire_protege(serveur, f"/?cle={secret}")
+        assert statut == 200
+        cookie = entetes.get("Set-Cookie", "")
+        assert "HttpOnly" in cookie and "SameSite=Strict" in cookie
+        statut, contenu, _ = lire_protege(serveur, entetes={"Cookie": cookie.split(";")[0]})
+        assert statut == 200 and "Vos appels" in contenu
+    finally:
+        serveur.arreter()
+
+
+def test_sans_trousseau_la_console_reste_ouverte_sur_la_boucle_locale(tmp_path):
+    """Le mode d'essai ne doit pas demander une clé : il n'écoute que 127.0.0.1."""
+    from standard.console import Console
+    from standard.console_http import ServeurConsole
+    from standard.depot import Depot
+    from standard.journal import JournalDAppels
+
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", APPEL)
+    serveur = ServeurConsole(Console(journal=journal, tenant="salon-1"), port=0)
+    serveur.demarrer()
+    try:
+        assert lire_protege(serveur)[0] == 200
+    finally:
+        serveur.arreter()
+
+
+def test_la_commande_console_exige_une_cle_des_qu_elle_sort_de_la_boucle_locale():
+    """Sur 127.0.0.1 le mode d'essai reste ouvert — sinon personne ne l'essaie,
+    et il finit exposé sans clé du tout. Dès qu'on change d'hôte, la clé devient
+    obligatoire."""
+    import inspect
+
+    from standard import __main__ as commande
+
+    source = inspect.getsource(commande)
+    assert "STANDARD_HOTE_CONSOLE" in source
+    assert "trousseau=trousseau" in source
+    assert "cette clé ne sera plus affichée" in source
