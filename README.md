@@ -27,9 +27,20 @@ scénarios montrent ce qui compte vraiment :
 ## Vérifier
 
 ```bash
-.venv/bin/python -m pytest tests/ -q          # la suite complète
+.venv/bin/python -m pytest tests/ -q          # la suite complète (583 tests)
 .venv/bin/python bancs/porte.py --passages 2  # la porte de non-régression
+.venv/bin/python bancs/appel_reel.py          # douze appels joués avec les vrais moteurs
 ```
+
+**`bancs/appel_reel.py` est le banc qui a trouvé ce qu'aucun test ne voyait.**
+Rien n'y est simulé sauf la ligne : la voix de l'appelant est synthétisée puis
+dégradée en 8 kHz comme le ferait le réseau, envoyée en trames AudioSocket sur
+une vraie socket, transcrite par le moteur local, et le rendez-vous est relu en
+base. Douze scénarios : créneau explicite, jour fermé, heure hors créneaux,
+refus puis accord, « oui » trop court pour le moteur, créneau pris par un autre
+pendant l'appel, question d'horaires, prise de message, correction du nom,
+numéro dicté puis composé au clavier avec SMS. **Douze sur douze au 20/09** —
+deux sur cinq avant les correctifs du 19.
 
 **La porte rejoue les fautes mesurées contre le produit**, en `pass^5` : un
 scénario réussi quatre fois sur cinq est un scénario **échoué**. Le lot n'est fini
@@ -55,7 +66,15 @@ que si elle passe deux fois d'affilée.
 python -m standard verifier   # dit si le service peut décrocher, et ce qui manque sinon
 python -m standard servir     # écoute les appels d'Asterisk (AudioSocket)
 python -m standard console    # la console du commerçant, sur la boucle locale
+python -m standard registre   # le registre des traitements (RGPD art. 30)
 ```
+
+En service, `GET http://127.0.0.1:8092/sante` rend les chiffres qui disent si ça
+va : appels, part bruitée, **confirmations orphelines** (cible zéro), délai avant
+premier fragment — c'est lui qui signale une machine pleine, bien avant la charge
+processeur —, appels en cours, paroles perdues, pannes, état du ménage. Il est
+joignable sans jeton, donc il ne porte que des compteurs : jamais un nom, un
+numéro ou une transcription.
 
 ## Les pièces
 
@@ -82,6 +101,12 @@ python -m standard console    # la console du commerçant, sur la boucle locale
 | `audit` | qui a changé quoi | permettre de corriger un événement |
 | `depot` | rendez-vous cloisonnés | rendre des lignes sans locataire |
 | `langue` | détection prudente | servir à moitié un appelant qu'on ne comprend pas |
+| `identite` | le nom de l'appelant, et sa correction | écrire un nom deviné, ou une formule de politesse |
+| `fiche` | répondre aux horaires depuis le frontmatter | inventer une information absente de la fiche |
+| `entretien` | purge à la durée annoncée | laisser une durée de conservation devenir fausse |
+| `registre` | le registre RGPD, dérivé de la configuration | publier une clé de fournisseur |
+| `sante` | le point d'état, lisible par une machine | publier une donnée d'appelant |
+| `sms` | la confirmation écrite, transactionnelle | promettre un SMS qui ne peut pas partir |
 
 ## Configurer un salon
 
@@ -95,12 +120,18 @@ python3 bancs/valide_pack.py packs/*.json   # cinq règles de format, dont l'ann
 
 ## Ce qui n'est pas encore là
 
-- **Le bord téléphonique** (Asterisk, AudioSocket, un numéro) : `docs/19` décrit le
-  parcours de branchement, il n'est pas codé.
+- **Un vrai numéro.** Le bord téléphonique est codé et joué de bout en bout
+  (`standard/audiosocket.py`, `serveur.py`, `session.py`, et douze appels réels
+  par `bancs/appel_reel.py`), mais **il n'a jamais reçu d'appel d'un opérateur** :
+  il manque un numéro 09 avec renvoi, et la configuration Asterisk de
+  `deploiement/` n'a tourné sur aucune machine. `docs/19` décrit le parcours.
 - **Le gain réel du cache de prompt** : seule mesure encore impossible sans clé
   payante (`docs/09`, mesure 23).
 - **Les valeurs absolues de reconnaissance** : le corpus est synthétique, une seule
-  voix. Ce qui est solide, ce sont les **écarts** entre conditions.
+  voix. Ce qui est solide, ce sont les **écarts** entre conditions. Le moteur
+  local échoue encore de temps en temps sur une première phrase — c'est ce qui
+  fonde la mesure 20 : **le moteur distant reste le défaut** en production.
+- **Un commerçant.** Aucune des règles n'a été confrontée à un vrai salon.
 
 ## Pour reprendre le travail
 

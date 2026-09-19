@@ -1,16 +1,20 @@
 # voice-pipeline (refonte) — reprise de session
 
 **Quoi** : standard téléphonique IA en français, **service à part entière** ; Crenolo n'en est qu'un adaptateur.
-**Où en est-on (18/09)** : **le code existe**. Branche **`lot-l1`**, **348 tests verts**, porte de non-régression ouverte en deux passages (`pass^5`). **Dix-neuf modules** dans `standard/` — dont le serveur AudioSocket, la session téléphonique, le connecteur et la conformité —, trois packs sectoriels, un mode de démonstration hors ligne.
+**Où en est-on (20/09)** : **le produit tourne de bout en bout**. Branche **`lot-l1`** poussée sur `marpeap/voice_pipeline`, **583 tests verts**, porte de non-régression ouverte en deux passages (`pass^5`), et surtout **douze scénarios d'appel joués avec les vrais moteurs sur une vraie socket — douze sur douze** (`bancs/appel_reel.py`). Trente-sept modules dans `standard/`, trois packs sectoriels, démonstration hors ligne.
+
+**Ce que le banc d'appel réel a corrigé (19-20/09)**, invisible en test parce que toutes les doublures synthétisent en 0 ms et parlent un français parfait : l'annonce légale coupée par le barge-in · le calendrier qui refusait `JEUDIS`/`JEDI`/`JE DIS` · la ligne muette sur un tour vide · le SMS promis sans passerelle · le créneau pris pendant l'appel confondu avec une panne · le nom de l'appelant jamais demandé · la prise de message promise par la question D4 et jamais implémentée · la purge de conservation jamais appelée.
 
 **Commandes** :
 ```bash
 .venv/bin/python -m pytest tests/ -q          # toute la suite
 .venv/bin/python bancs/porte.py --passages 2  # la porte
 .venv/bin/python demonstration.py             # un appel rejoué, sans clé ni téléphone
+.venv/bin/python bancs/appel_reel.py          # douze appels, vrais moteurs, vraie socket
+python -m standard registre                   # le registre RGPD, dérivé de la config
 ```
 
-**Ce qui reste** : le bord téléphonique (Asterisk + AudioSocket + un numéro, `docs/19`), le gain du cache de prompt (clé payante), et les valeurs absolues de reconnaissance (corpus synthétique).
+**Ce qui reste, et qui ne dépend plus du code** : un numéro 09 avec renvoi (la configuration Asterisk de `deploiement/` n'a tourné sur aucune machine) · un commerçant volontaire · une clé STT payante (mesure 20 : le moteur distant reste le défaut, le local échoue encore sur une première phrase de temps en temps) · un expéditeur SMS déclaré · le gain du cache de prompt, seule mesure impossible sans clé.
 
 **Règle de travail permanente (18/09)** : une valeur a une seule source — `standard/regles.py` porte les seuils et les phrases interdites, avec la mesure qui les justifie.
 
