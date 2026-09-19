@@ -18,6 +18,7 @@ from typing import Any
 
 from standard.comprehension import Comprehension, ErreurFournisseur
 from standard.decision import Agenda, Etat, decider
+from standard.assentiment import est_un_refus, est_un_oui
 from standard.langue import FRANCAIS, detecter_langue, phrase_de_passage
 from standard.ecriture import (
     BaseRendezVous,
@@ -95,6 +96,15 @@ class Appel:
         # Avant toute chose : parle-t-il une langue que nous ne servons pas ?
         # Le servir a moitie serait pire que passer la main — et l'AI Act demande
         # l'annonce « dans la langue de la conversation ».
+        # Le « oui » d'un appelant a qui l'on vient de proposer un creneau n'est
+        # pas une nouvelle demande : c'est CE moment qui ecrit en base, et rien
+        # d'autre dans le produit ne le fait.
+        if self._en_attente is not None:
+            if est_un_oui(transcription):
+                return self.confirmer()
+            if est_un_refus(transcription):
+                self._en_attente = None
+
         langue = detecter_langue(transcription)
         if langue != FRANCAIS:
             phrase = phrase_de_passage(langue)
@@ -133,8 +143,11 @@ class Appel:
 
         donnees = dict(self._en_attente)
         donnees.setdefault("prestation", self.etat.connu.get("prestation"))
+        telephone = donnees.get("telephone") or self.etat.connu.get("telephone")
+        promet_sms = self.envoyeur_sms is not None and bool(telephone)
         cle = cle_idempotence(self.tenant, self.identifiant, self.numero_de_tour)
-        ecriture: Ecriture = ecrire_rendez_vous(self.base, cle, donnees, self.journal.ecriture)
+        ecriture: Ecriture = ecrire_rendez_vous(self.base, cle, donnees,
+                                                self.journal.ecriture, promet_sms)
 
         genre = "confirmation" if ecriture.statut in ("confirme", "rejoue") else "incertain"
         trace = {"transcription": "[confirmation de l'appelant]", "genre": genre,
@@ -144,8 +157,7 @@ class Appel:
             self._en_attente = None
             # Le SMS suit l'ecriture relue, jamais la proposition : promettre un
             # message pour un rendez-vous qui n'existe pas serait doubler la faute.
-            telephone = donnees.get("telephone") or self.etat.connu.get("telephone")
-            if self.envoyeur_sms is not None and telephone:
+            if promet_sms:
                 envoi = self.envoyeur_sms.confirmer(telephone, {**donnees,
                                                                 "salon": self.nom_salon})
                 trace["sms"] = "envoyé" if envoi.envoye else "échec"

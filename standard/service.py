@@ -148,10 +148,14 @@ class Service:
 
     def __init__(self, configuration: Configuration, client_modele,
                  base, fabrique_connexion: Callable[[], Any] | None = None,
-                 maintenir: Callable[[Any], None] | None = None):
+                 maintenir: Callable[[Any], None] | None = None,
+                 creneaux_pris: Callable[[], dict[str, set[str]]] | None = None):
         self.configuration = configuration
         self.client_modele = client_modele
         self.base = base
+        # Sans cette fonction, l'agenda ignore les rendez-vous deja pris et
+        # propose au deuxieme appelant le creneau du premier.
+        self.creneaux_pris = creneaux_pris or dict
         self.metriques = Supervision()
         self.reserve = ReserveDeConnexions(
             fabrique=fabrique_connexion or (lambda: object()),
@@ -184,7 +188,8 @@ class Service:
         return Agenda(aujourd_hui=self.configuration.aujourd_hui,
                       horizon_jours=self.configuration.horizon_jours,
                       jours_fermes=tuple(self.configuration.jours_fermes),
-                      creneaux=set(self.configuration.creneaux))
+                      creneaux=set(self.configuration.creneaux),
+                      pris=self.creneaux_pris())
 
     def _annonce(self) -> str:
         """La formulation choisie par le salon, jamais son existence."""
@@ -210,7 +215,12 @@ class Service:
         if not self._demarre:
             raise RuntimeError("le service doit etre demarre avant de prendre un appel")
         texte, _ = self._memoire
+        _, memoire_lue = self._memoire
+        nom_salon = (memoire_lue.frontmatter.get("salon", {}).get("nom")
+                     or memoire_lue.frontmatter.get("etablissement", {}).get("nom")
+                     or "le salon")
         appel = Appel(client_modele=self.client_modele, agenda=self._agenda(),
+                      nom_salon=nom_salon,
                       base=self.base, memoire=texte,
                       consignes_communes=self.configuration.consignes_communes,
                       tenant=self.configuration.tenant, identifiant=identifiant,

@@ -18,11 +18,15 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+from datetime import datetime, timezone
+from uuid import uuid4
 from datetime import date
 from pathlib import Path
 from typing import Any, Mapping
 
 from standard.depot import Depot
+from standard.journal import JournalDAppels
 from standard.hors_ligne import ModeleHorsLigne
 from standard.moteurs import (
     MoteurAbsent,
@@ -112,16 +116,55 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
     config = configuration_depuis_environnement(env)
     depot = Depot(env.get("STANDARD_BASE", "standard.sqlite3"))
 
+    def creneaux_pris() -> dict[str, set[str]]:
+        """Ce que la base sait deja, a chaque appel : un agenda qui ne lit pas
+        les rendez-vous existants n'est pas un agenda."""
+        occupes: dict[str, set[str]] = {}
+        for ligne in depot.lister(config.tenant):
+            if ligne.get("date") and ligne.get("heure"):
+                occupes.setdefault(ligne["date"], set()).add(ligne["heure"])
+        return occupes
+
     service = Service(config,
                       client_modele=ModeleHorsLigne(aujourd_hui=config.aujourd_hui),
-                      base=depot.pour(config.tenant))
+                      base=depot.pour(config.tenant),
+                      creneaux_pris=creneaux_pris)
     service.demarrer()
 
+    journal = JournalDAppels(depot)
+    verrou = threading.Lock()
     compteur = {"appels": 0}
 
     def fabrique_agent():
-        compteur["appels"] += 1
-        return service.nouvel_appel(f"appel-{compteur['appels']}")
+        with verrou:
+            compteur["appels"] += 1
+            numero = compteur["appels"]
+        # L'identifiant doit etre unique : deux appels simultanes qui partagent
+        # le leur produiraient la meme cle d'idempotence, donc le rendez-vous de
+        # l'un confirme a l'autre.
+        return service.nouvel_appel(f"appel-{numero}-{uuid4().hex[:8]}")
+
+    def archiver(session) -> None:
+        """Verser l'appel au journal. Sans cela, la console est vide par
+        construction et la preuve d'annonce exigee par l'AI Act est jetee avec
+        l'objet de session."""
+        agent = getattr(session, "agent", None)
+        journal_appel = getattr(agent, "journal", None)
+        if journal_appel is None:
+            return
+        tours = list(journal_appel.tours)
+        issue = tours[-1]["genre"] if tours else "sans suite"
+        journal.enregistrer(config.tenant, {
+            "uuid": session.identifiant or f"sans-uuid-{uuid4().hex[:8]}",
+            "debut": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "duree_s": 0,
+            "issue": {"confirmation": "rendez-vous"}.get(issue, issue),
+            "bruite": any(t.get("bruite") for t in tours),
+            "interruptions": getattr(session, "interruptions", 0),
+            "preuve_annonce": session.preuve_d_annonce or {"conforme": False},
+            "confirmations_orphelines": journal_appel.confirmations_orphelines,
+            "tours": tours,
+        })
 
     try:
         transcrire = choisir_transcription(env)
@@ -138,4 +181,5 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
         transcrire=transcrire,
         synthetiser=_synthese_tolerante(env),
         hote=env.get("STANDARD_HOTE", "0.0.0.0"),
-        port=int(env.get("STANDARD_PORT", "8090")))
+        port=int(env.get("STANDARD_PORT", "8090")),
+        sur_fin=archiver)
