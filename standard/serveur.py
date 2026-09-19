@@ -46,6 +46,7 @@ class ServeurAudioSocket:
         self.appels_en_cours = 0
         self.appels_total = 0
         self.paroles_perdues = 0
+        self.pannes_pendant_appel = 0
         self._prise: socket.socket | None = None
         self._fil: threading.Thread | None = None
         self._arret = threading.Event()
@@ -110,7 +111,14 @@ class ServeurAudioSocket:
                     continue
                 if not morceau:
                     break                     # l'appelant a raccroche
-                session.recevoir(morceau)
+                try:
+                    session.recevoir(morceau)
+                except Exception:
+                    # `urllib.error.URLError` herite d'`OSError` : la garde
+                    # ecrite pour les sockets avalait aussi les pannes reseau,
+                    # et l'appel se fermait sans un mot. On compte et on continue.
+                    self.pannes_pendant_appel += 1
+                    continue
                 if session.transfert_demande:
                     # Le bord telephonique reprend la main : on lui rend l'appel
                     # plutot que de raccrocher au nez de l'appelant.

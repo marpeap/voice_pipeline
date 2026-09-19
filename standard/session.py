@@ -31,6 +31,8 @@ from standard.audiosocket import (
 from standard.ecoute import TamponDePreRoll, estimer_rsb_db
 from standard.regles import SEUIL_BRUITE_DB, SEUIL_PAROLE, SILENCE_DE_FIN_MS
 
+PANNES_AVANT_TRANSFERT = 2
+
 # Interruption (barge-in). Etat de l'art releve le 19/09/2026 : ecart de reprise
 # de parole de 200 a 400 ms, moins de 2 % d'interruptions a tort, coupure de la
 # synthese en moins de 60 ms. Le garde-fou le plus efficace est une DUREE
@@ -91,6 +93,8 @@ class SessionTelephonique:
     audio_recu: int = 0
     saisie_terminee: bool = False
     interruptions: int = 0
+    trames_ignorees: int = 0
+    pannes: int = 0
     transfert_demande: bool = False
     preuve_d_annonce: dict | None = None
     erreurs: list[bytes] = field(default_factory=list)
@@ -200,6 +204,18 @@ class SessionTelephonique:
         return sortant
 
     def _traiter(self, trame: Trame) -> list[bytes]:
+        """Le bord telephonique n'est pas sous notre controle.
+
+        Un UUID de cinq octets, un DTMF vide : un octet de travers ne vaut pas
+        un raccrochage. On compte, on ignore, et l'appel continue.
+        """
+        try:
+            return self._traiter_trame(trame)
+        except ValueError:
+            self.trames_ignorees += 1
+            return []
+
+    def _traiter_trame(self, trame: Trame) -> list[bytes]:
         if trame.est_fin:
             self.fermee = True
             return []
@@ -270,16 +286,41 @@ class SessionTelephonique:
         self._fond.clear()
         self._a_parle = False
         self._silence_ms = 0
-        texte = self.transcrire(audio, self.frequence_moteur)
+        try:
+            texte = self.transcrire(audio, self.frequence_moteur)
+        except Exception:
+            # Une panne du moteur — reseau coupe, 429, moteur absent — ne doit
+            # jamais se traduire par un silence : c'est le pire etat d'un
+            # standard, la ligne ouverte et personne au bout.
+            return self._panne("Je n'ai pas réussi à vous entendre, "
+                               "pouvez-vous répéter ?")
         if not texte:
             return []
-        reponse = self.agent.tour(texte, bruite=bruite)
+
+        try:
+            reponse = self.agent.tour(texte, bruite=bruite)
+        except Exception:
+            return self._panne("Je rencontre un problème technique, un instant.")
+
+        self.pannes = 0
         morceaux = self._jouer(reponse.phrase)
         if getattr(reponse, "genre", "") == "transfert":
             # Le bord telephonique doit VRAIMENT passer la main : une phrase sans
             # signal, c'est raccrocher au nez de l'appelant en musique.
             self.transfert_demande = True
         return morceaux
+
+    def _panne(self, phrase: str) -> list[bytes]:
+        """L'agent parle, ou il passe la main. Il ne se tait jamais.
+
+        Insister ne repare pas une panne : au deuxieme tour perdu, on transfere
+        plutot que de faire repeter un appelant a qui l'on ne peut rien offrir.
+        """
+        self.pannes += 1
+        if self.pannes >= PANNES_AVANT_TRANSFERT:
+            self.transfert_demande = True
+            phrase = "Je rencontre un problème technique. Je vous passe quelqu'un."
+        return self._jouer(phrase)
 
     # --- le clavier (regle T7) ----------------------------------------------
 
