@@ -27,7 +27,7 @@ scénarios montrent ce qui compte vraiment :
 ## Vérifier
 
 ```bash
-.venv/bin/python -m pytest tests/ -q          # la suite complète (583 tests)
+.venv/bin/python -m pytest tests/ -q          # la suite complète (634 tests)
 .venv/bin/python bancs/porte.py --passages 2  # la porte de non-régression
 .venv/bin/python bancs/appel_reel.py          # douze appels joués avec les vrais moteurs
 ```
@@ -36,11 +36,12 @@ scénarios montrent ce qui compte vraiment :
 Rien n'y est simulé sauf la ligne : la voix de l'appelant est synthétisée puis
 dégradée en 8 kHz comme le ferait le réseau, envoyée en trames AudioSocket sur
 une vraie socket, transcrite par le moteur local, et le rendez-vous est relu en
-base. Douze scénarios : créneau explicite, jour fermé, heure hors créneaux,
-refus puis accord, « oui » trop court pour le moteur, créneau pris par un autre
+base. Treize scénarios : créneau explicite, jour fermé, heure hors créneaux, refus
+puis accord, « oui » trop court pour le moteur, créneau pris par un autre
 pendant l'appel, question d'horaires, prise de message, correction du nom,
-numéro dicté puis composé au clavier avec SMS. **Douze sur douze au 20/09** —
-deux sur cinq avant les correctifs du 19.
+démarchage refusé, numéro dicté puis composé au clavier avec SMS. **Douze ou
+treize sur treize selon les caprices du moteur local** — deux sur cinq avant les
+correctifs du 19.
 
 **La porte rejoue les fautes mesurées contre le produit**, en `pass^5` : un
 scénario réussi quatre fois sur cinq est un scénario **échoué**. Le lot n'est fini
@@ -107,6 +108,9 @@ numéro ou une transcription.
 | `registre` | le registre RGPD, dérivé de la configuration | publier une clé de fournisseur |
 | `sante` | le point d'état, lisible par une machine | publier une donnée d'appelant |
 | `sms` | la confirmation écrite, transactionnelle | promettre un SMS qui ne peut pas partir |
+| `demarchage` | reconnaître un appel de prospection | raccrocher au nez d'un client |
+| `echecs` | les quatre règles de détection d'échec | compter un transfert comme une réussite |
+| `connecteur` (branché) | écrire chez le commerçant | confondre un refus et une panne de l'hôte |
 
 ## Configurer un salon
 
