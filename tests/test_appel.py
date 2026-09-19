@@ -358,6 +358,11 @@ def test_un_creneau_pris_pendant_l_appel_ne_devient_pas_une_incertitude():
     assert "vient d'être pris" in reponse.phrase
     assert "Il me reste" in reponse.phrase
     assert "rappellera" not in reponse.phrase
+    # Et surtout : le créneau refusé ne doit pas être reproposé dans la phrase
+    # qui annonce qu'il est pris. L'agenda a été lu au début de l'appel, il ne
+    # sait pas encore ce que la base vient de refuser.
+    assert "15:30" not in conversation.agenda.libres("2026-09-17"), \
+        "l'agenda propose encore le créneau que la base vient de refuser"
 
 
 # --- le nom de l'appelant ---------------------------------------------------

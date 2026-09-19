@@ -70,7 +70,8 @@ def test_le_message_dicte_est_ecrit_puis_confirme(tmp_path):
     appel = conversation(base.pour("salon-1"))
     appel.tour("je voudrais parler à quelqu'un du salon")
     appel.tour("je voudrais savoir si vous faites des colorations végétales")
-    reponse = appel.tour("zéro six douze trente-quatre cinquante-six soixante-dix-huit")
+    appel.tour("zéro six douze trente-quatre cinquante-six soixante-dix-huit")
+    reponse = appel.tour("oui c'est bien ça")      # la relecture, mesure 21
     assert reponse.genre == "message"
     messages = base.messages("salon-1")
     assert len(messages) == 1
@@ -197,3 +198,49 @@ def test_une_nouvelle_demande_ferme_la_fenetre(tmp_path):
     appel.tour("je voudrais aussi un rendez-vous vendredi à quinze heures trente")
     appel.tour("Martin")
     assert base.lister("salon-1")[0]["nom"] == "Le Fora"
+
+
+def test_le_numero_de_rappel_est_relu_avant_d_etre_gardé(tmp_path):
+    """Banc du 20/09 : « 0612345678 » dicté est revenu « 0612345078 », et le
+    message est parti avec un numéro faux. La relecture est systématique depuis
+    la mesure 21 — elle ne peut pas l'être seulement pour les rendez-vous."""
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation(base.pour("salon-1"))
+    appel.tour("je voudrais parler à quelqu'un du salon")
+    appel.tour("dites-lui que je passerai jeudi")
+    reponse = appel.tour("zéro six douze trente-quatre cinquante-six soixante-dix-huit")
+    assert "relis" in reponse.phrase.lower()
+    assert base.messages("salon-1") == [], "le message est parti sans relecture"
+
+    final = appel.tour("oui c'est ça")
+    assert final.genre == "message"
+    assert base.messages("salon-1")[0]["telephone"] == "0612345678"
+
+
+def test_un_numero_mal_relu_se_corrige_avant_le_depot(tmp_path):
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation(base.pour("salon-1"))
+    temoin = []
+    appel.basculer_clavier = lambda: temoin.append(True)
+    appel.tour("je voudrais parler à quelqu'un du salon")
+    appel.tour("dites-lui que je passerai jeudi")
+    appel.tour("zéro six douze trente-quatre cinquante-six soixante-dix-huit")
+    reponse = appel.tour("non ce n'est pas ça")
+    assert temoin, "après un refus de relecture, le clavier doit s'armer"
+    assert "clavier" in reponse.phrase.lower()
+    assert base.messages("salon-1") == []
+
+
+def test_pendant_que_l_appelant_compose_on_ne_depose_pas_le_message(tmp_path):
+    """Le clavier armé, ce qu'on entend de l'appelant n'est pas un nouvel échec :
+    déposer là jetterait le numéro qu'il est en train de taper."""
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation(base.pour("salon-1"))
+    appel.basculer_clavier = lambda: None
+    appel.tour("je voudrais parler à quelqu'un du salon")
+    appel.tour("dites-lui que je passerai jeudi")
+    appel.tour("euh je ne sais plus")                 # numéro incompréhensible
+    appel.tour("attendez je cherche")                 # il tape
+    assert base.messages("salon-1") == []
+    appel.numero_au_clavier("0612345678")
+    assert base.messages("salon-1")[0]["telephone"] == "0612345678"

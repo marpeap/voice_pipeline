@@ -114,6 +114,9 @@ SCENARIOS = {
         ["bonjour je voudrais parler à quelqu'un du salon s'il vous plaît",
          "dites-lui que je cherche une coloration végétale pour samedi",
          "zéro six douze trente-quatre cinquante-six soixante-dix-huit",
+         # Que le numéro dicté soit relu ou refusé, la suite est la même : le
+         # clavier, seul chemin qui ne perd pas de chiffre (mesure 7).
+         "non ce n'est pas ça",
          CLAVIER + "0612345678#"],
         {"message": "COLORATION", "telephone": "0612345678"},
         {"STANDARD_REPONSES": '{"A1": "Salon Elegance", "D4": "message"}'},
@@ -129,6 +132,12 @@ SCENARIOS = {
          # redemande le nom seul, et l'appelant le redit.
          "Martin"],
         {"date": "2026-09-17", "heure": "15:30", "nom": "Martin"},
+    ),
+    # Un démarcheur : l'agent refuse en une phrase, n'écrit rien, rend la ligne.
+    "demarchage": (
+        ["bonjour je vous appelle pour vous proposer notre solution de "
+         "référencement sur internet"],
+        None,
     ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",

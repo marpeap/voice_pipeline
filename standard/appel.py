@@ -116,6 +116,8 @@ class Appel:
         self.fin_demandee = False
         self._message_en_cours: str | None = None
         self._message_dicte = ""
+        self._rappel_propose: str | None = None
+        self._relances_clavier = 0
         self._reference_ecrite: str | None = None
         self._corrige_le_nom = False
         self._tours_depuis_ecriture = 0
@@ -318,21 +320,57 @@ class Appel:
             self.journal.noter(transcription=transcription, genre="message", phrase=phrase)
             return Reponse("message", phrase)
 
+        if self._message_en_cours == "relecture":
+            if est_un_oui(transcription):
+                self.etat.connu["telephone"] = self._rappel_propose
+                self._rappel_propose = None
+                return self._deposer_le_message()
+            # Refus, ou autre chose : le numero relu etait faux. On ne le garde
+            # pas, et on passe au clavier — insister a l'oral ne rattrape pas
+            # (mesure 7).
+            self._rappel_propose = None
+            self._message_en_cours = "numero"
+            return self._numero_de_rappel_au_clavier(transcription)
+
         lecture = lire_numero(transcription)
         if lecture.issue == "accepte":
-            self.etat.connu["telephone"] = lecture.numero
-            return self._deposer_le_message()
+            # Relecture systematique depuis la mesure 21 : « 0612345678 » dicte
+            # est revenu « 0612345078 » sur le banc du 20/09, et le message
+            # serait parti avec un numero faux — donc sans rappel possible.
+            # Un attribut a part : `_numero_propose` est celui du rendez-vous,
+            # et `tour` l'intercepte avant tout le reste.
+            self._rappel_propose = lecture.numero
+            self._message_en_cours = "relecture"
+            phrase = f"Je relis : {lecture.relecture}. C'est bien cela ?"
+            self.journal.noter(transcription=transcription, genre="message",
+                               phrase=phrase, numero_lu=lecture.numero)
+            return Reponse("message", phrase)
 
         # Un numero dicte se perd quatre fois sur dix (mesure 7) — et un message
         # sans numero de rappel ne sert presque a rien. On passe donc au clavier
         # des le premier echec, comme la regle T7 le fait pour le rendez-vous.
+        return self._numero_de_rappel_au_clavier(transcription)
+
+    def _numero_de_rappel_au_clavier(self, transcription: str) -> Reponse:
+        """Le clavier des le premier echec : un message sans numero de rappel ne
+        sert presque a rien, et insister a l'oral ne rattrape pas (mesure 7)."""
+        if self._echecs_numero and self._relances_clavier == 0:
+            # Le clavier est deja arme : l'appelant compose, et ce qu'on entend
+            # de lui pendant ce temps n'est pas un nouvel echec. Deposer ici
+            # jetterait le numero qu'il est en train de taper.
+            self._relances_clavier += 1
+            phrase = "Je vous écoute, composez votre numéro puis faites dièse."
+            self.journal.noter(transcription=transcription, genre="message",
+                               phrase=phrase)
+            return Reponse("message", phrase)
+
         self._echecs_numero += 1
         if self._echecs_numero == 1 and self.basculer_clavier is not None:
             self.basculer_clavier()
             phrase = ("Je n'ai pas saisi votre numéro. Composez-le sur le clavier "
                       "de votre téléphone, puis faites dièse.")
             self.journal.noter(transcription=transcription, genre="message",
-                               phrase=phrase, lecture=lecture.issue)
+                               phrase=phrase)
             return Reponse("message", phrase)
 
         # Deuxieme echec, ou pas de clavier : on garde le message quand meme.
@@ -543,6 +581,10 @@ class Appel:
             # l'appelant sur un constat : on regarde ce qu'il reste le meme jour.
             self._en_attente = None
             self._demande_le_numero = False
+            # L'agenda a ete lu au debut de l'appel : il ignore ce que la base
+            # vient de refuser, et reproposerait le creneau perdu au tour
+            # suivant. On le lui apprend ici.
+            self.agenda.pris.setdefault(donnees["date"], set()).add(donnees["heure"])
             libres = espacer(self.agenda.libres(donnees["date"]))
             if libres:
                 reste = " ou ".join(enoncer_heure(heure) for heure in libres)
