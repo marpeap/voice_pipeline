@@ -42,6 +42,9 @@ class Agenda:
     # En mode greffon, c'est l'hote qui sait ce qui est libre : sa reponse fait
     # foi, et son silence n'est jamais lu comme « tout est libre ».
     libres_du_jour: Any = None
+    # Une correction peut fermer un creneau pour UN jour de la semaine : la
+    # liste ouverte se recalcule donc par jour, pas une fois pour toutes.
+    creneaux_du_jour: Any = None
 
     def statut(self, jour_iso: str) -> str:
         """hors horizon · ferme · ouvert — trois reponses, jamais une seule.
@@ -61,15 +64,21 @@ class Agenda:
             return "ferme"
         return "ouvert"
 
+    def _ouverts(self, jour_iso: str) -> set[str]:
+        if self.creneaux_du_jour is not None:
+            return set(self.creneaux_du_jour(jour_iso))
+        return self.creneaux
+
     def libres(self, jour_iso: str) -> list[str]:
         if self.libres_du_jour is not None:
             # On garde l'intersection : l'hote peut proposer un creneau que le
             # salon a ferme dans sa fiche, et c'est la fiche qui commande.
             depuis_l_hote = list(self.libres_du_jour(jour_iso))
-            if self.creneaux:
-                return sorted(set(depuis_l_hote) & self.creneaux)
+            ouverts = self._ouverts(jour_iso)
+            if ouverts:
+                return sorted(set(depuis_l_hote) & ouverts)
             return sorted(depuis_l_hote)
-        return sorted(self.creneaux - self.pris.get(jour_iso, set()))
+        return sorted(self._ouverts(jour_iso) - self.pris.get(jour_iso, set()))
 
 
 @dataclass

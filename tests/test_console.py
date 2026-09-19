@@ -305,3 +305,19 @@ def test_un_appel_sans_echec_n_affiche_aucun_motif():
     _, contenu = page(Console(journal=journal, tenant="salon-1"),
                       f"/appel/{APPEL['uuid']}")
     assert "tourné en rond" not in contenu
+
+
+def test_le_formulaire_demande_quel_creneau_n_existe_pas(console):
+    """Sans ce champ, la correction « ce créneau n'existe pas » ne disait pas
+    lequel : la règle serveur se posait sur du vide et ne fermait rien."""
+    _, contenu = page(console, f"/appel/{APPEL['uuid']}")
+    assert 'name=heure' in contenu
+    assert "créneau qui n'existe pas" in contenu
+
+
+def test_un_creneau_corrige_depuis_la_console_arrive_en_regle_serveur(console):
+    page(console, "/correction", "POST",
+         {"faute": "creneau_inexistant", "appel": APPEL["uuid"],
+          "empan": "midi et demi", "heure": "12:30"})
+    correction = console.registre.actives()[0]
+    assert correction.valeur["heure"] == "12:30"

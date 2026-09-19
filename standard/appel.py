@@ -31,6 +31,7 @@ from standard.grammaire import enoncer_numero, lire_numero
 from standard.identite import lire_correction_de_nom, lire_nom, lire_nom_seul
 from standard.locataire import lire_memoire
 from standard.demarchage import est_un_demarchage
+from standard.texte import aplatir
 from standard.regles import (
     RELANCES_MUETTES_AVANT_TRANSFERT,
     TOURS_FENETRE_CORRECTION_NOM,
@@ -85,7 +86,7 @@ class Appel:
                  nom_salon: str = "le salon",
                  prestations: tuple[str, ...] = (),
                  modele: str | None = None, parametres: dict | None = None,
-                 secours=None):
+                 secours=None, interdits: list[str] | None = None):
         self.comprehension = Comprehension(
             client=client_modele, consignes_communes=consignes_communes,
             prestations=prestations,
@@ -97,6 +98,11 @@ class Appel:
         # rappellera ». Encore faut-il que le salon SACHE qu'il doit rappeler —
         # sinon la phrase honnete devient une promesse en l'air.
         self.secours = secours
+        # Les interdits poses par une correction. Le corps du memoire les dit au
+        # modele ; ici, le serveur les EMPECHE — une consigne redigee peut ne pas
+        # etre retenue sur un tour donne, et « la plupart du temps » n'est pas
+        # une regle (docs/06).
+        self.interdits = list(interdits or [])
         self.memoire = memoire
         # La fiche du salon, lue une fois : l'agent y prend ses reponses de fait
         # (horaires), au lieu de repondre « Que puis-je faire pour vous ? » a une
@@ -521,6 +527,17 @@ class Appel:
         invariant garde par un compteur que rien ne peut incrementer n'est pas
         garde du tout, et c'est ce qu'une revue independante a trouve le 19/09.
         """
+        # Les interdits poses par une correction : le corps du memoire les dit
+        # au modele, ici le serveur les EMPECHE. Une consigne redigee peut ne
+        # pas etre retenue sur un tour donne, et « la plupart du temps » n'est
+        # pas une regle (docs/06, cas Intercom).
+        plat = aplatir(phrase, garder="a-z' ")
+        for interdit in self.interdits:
+            if aplatir(interdit, garder="a-z' ") in plat:
+                self.journal.noter(transcription="[garde de sortie]", genre="bloquee",
+                                   phrase="", interdit=interdit)
+                return "Je préfère vous passer quelqu'un du salon sur ce point."
+
         if not contient_une_confirmation(phrase):
             return phrase
         self.journal.ecriture.noter_confirmation_orpheline(

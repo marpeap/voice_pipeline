@@ -242,6 +242,12 @@ class Console:
             "<input id=duree name=duree_minutes type=number min=5 max=480 step=5>"
             "<label for=interdit>Ce qu'il ne doit jamais promettre</label>"
             "<input id=interdit name=interdit type=text>"
+            # Sans ce champ, « ce créneau n'existe pas » ne disait pas LEQUEL :
+            # la règle serveur se posait sur du vide et ne fermait rien.
+            "<label for=heure>Le créneau qui n'existe pas</label>"
+            "<input id=heure name=heure type=time step=300>"
+            "<label for=jour>Ce jour-là seulement (facultatif)</label>"
+            "<input id=jour name=jour type=text placeholder='samedi'>"
             "</fieldset>")
 
         formulaire = (

@@ -111,6 +111,11 @@ class AppelSuivi:
         ouverte apres un demarchage refuse."""
         return self._appel.fin_demandee
 
+    @property
+    def interdits(self) -> list:
+        """Ce que le serveur empeche de dire, quelle que soit la phrase."""
+        return self._appel.interdits
+
     def rien_entendu(self):
         """La session la cherche ici : sans delegation, l'agent resterait muet."""
         return self._appel.rien_entendu()
@@ -260,11 +265,37 @@ class Service:
 
     # --- appels -------------------------------------------------------------
 
+    def _creneaux_ouverts(self, jour_iso: str | None = None) -> set[str]:
+        """Les creneaux de la fiche, moins ceux qu'une correction a supprimes.
+
+        `docs/06` : « ce qui doit etre vrai a 100 % est evalue cote serveur ».
+        La regle etait calculee et stockee — personne ne la lisait, et le gerant
+        qui corrigeait « ce creneau n'existe pas » se l'entendait proposer au
+        client suivant.
+        """
+        ouverts = set(self.configuration.creneaux)
+        for regle in getattr(self, "regles_serveur", []):
+            if regle.get("type") != "agenda" or not regle.get("heure"):
+                continue
+            jour_vise = regle.get("jour")
+            if jour_vise and jour_iso:
+                from standard.regles import JOURS
+                from standard.texte import sans_accents
+
+                nom_du_jour = JOURS[date.fromisoformat(jour_iso).weekday()]
+                if sans_accents(jour_vise).lower() != sans_accents(nom_du_jour):
+                    continue
+            elif jour_vise and not jour_iso:
+                continue          # regle d'un seul jour : elle ne ferme pas tout
+            ouverts.discard(regle["heure"])
+        return ouverts
+
     def _agenda(self) -> Agenda:
         return Agenda(aujourd_hui=self.configuration.aujourd_hui,
                       horizon_jours=self.configuration.horizon_jours,
                       jours_fermes=tuple(self.configuration.jours_fermes),
-                      creneaux=set(self.configuration.creneaux),
+                      creneaux=self._creneaux_ouverts(),
+                      creneaux_du_jour=self._creneaux_ouverts,
                       pris=self.creneaux_pris(),
                       libres_du_jour=self.libres_du_jour)
 
@@ -304,6 +335,8 @@ class Service:
                       tenant=self.configuration.tenant, identifiant=identifiant,
                       modele=self.configuration.modele,
                       parametres=self.configuration.parametres or None,
-                      secours=self.secours)
+                      secours=self.secours,
+                      interdits=[r["interdit"] for r in getattr(self, "regles_serveur", [])
+                                 if r.get("type") == "interdit" and r.get("interdit")])
         appel.envoyeur_sms = self.envoyeur_sms
         return AppelSuivi(appel, self._annonce(), self.metriques)
