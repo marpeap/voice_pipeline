@@ -110,6 +110,16 @@ class SessionTelephonique:
 
     # --- ouverture ----------------------------------------------------------
 
+    def _brancher_le_clavier(self) -> None:
+        """Donne a l'agent le moyen de demander le clavier, et de recevoir sa saisie.
+
+        Sans ce branchement, la regle T7 — apres deux echecs sur un numero, on
+        bascule au clavier — restait une phrase dans un document : `session.py`
+        savait ramasser les touches, et personne ne les lui demandait.
+        """
+        if hasattr(self.agent, "basculer_clavier"):
+            self.agent.basculer_clavier = self.attendre_un_numero
+
     def ouvrir(self) -> list[bytes]:
         """Joue l'annonce, et **en garde la preuve**.
 
@@ -122,6 +132,7 @@ class SessionTelephonique:
 
         from standard.conformite import verifier_annonce
 
+        self._brancher_le_clavier()
         phrase = self.agent.salutation()
         verdict = verifier_annonce(phrase)
         self.preuve_d_annonce = {
@@ -281,7 +292,16 @@ class SessionTelephonique:
             if len(self._chiffres) == LONGUEUR_NUMERO:
                 self.saisie_terminee = True
                 self._attend_un_numero = False
+                return self._rendre_le_numero()
         return []
+
+    def _rendre_le_numero(self) -> list[bytes]:
+        """Le numero complet repart vers l'agent, qui decide ce qu'il en fait."""
+        numero = self.numero_compose()
+        if numero is None or not hasattr(self.agent, "numero_au_clavier"):
+            return []
+        reponse = self.agent.numero_au_clavier(numero)
+        return self._jouer(reponse.phrase)
 
     def numero_compose(self) -> str | None:
         """Le numero saisi, **seulement s'il en est un** : dix chiffres, pas neuf.

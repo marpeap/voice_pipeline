@@ -19,6 +19,7 @@ from typing import Any
 from standard.comprehension import Comprehension, ErreurFournisseur
 from standard.decision import Agenda, Etat, decider
 from standard.assentiment import est_un_refus, est_un_oui
+from standard.grammaire import enoncer_numero, lire_numero
 from standard.regles import contient_une_confirmation
 from standard.langue import FRANCAIS, detecter_langue, phrase_de_passage
 from standard.ecriture import (
@@ -78,6 +79,10 @@ class Appel:
         self.journal = Journal()
         self.numero_de_tour = 0
         self.envoyeur_sms = None                 # branché par le service, facultatif
+        self.basculer_clavier = None             # branché par la session (DTMF, règle T7)
+        self._numero_propose: str | None = None  # en attente de relecture
+        self._echecs_numero = 0
+        self._demande_le_numero = False
         self._en_attente: dict | None = None     # la proposition que l'appelant doit confirmer
 
     def _calendrier(self) -> dict:
@@ -97,12 +102,24 @@ class Appel:
         # Avant toute chose : parle-t-il une langue que nous ne servons pas ?
         # Le servir a moitie serait pire que passer la main — et l'AI Act demande
         # l'annonce « dans la langue de la conversation ».
+        # Le numero en cours de relecture passe avant tout : « oui » repond a la
+        # question posee, pas a une nouvelle demande.
+        if self._numero_propose is not None:
+            if est_un_oui(transcription):
+                numero, self._numero_propose = self._numero_propose, None
+                self.etat.connu["telephone"] = numero
+                return self.confirmer()
+            self._numero_propose = None          # il corrige : on reprend l'ecoute
+
+        if self._attend_un_numero:
+            return self._entendre_un_numero(transcription)
+
         # Le « oui » d'un appelant a qui l'on vient de proposer un creneau n'est
         # pas une nouvelle demande : c'est CE moment qui ecrit en base, et rien
         # d'autre dans le produit ne le fait.
         if self._en_attente is not None:
             if est_un_oui(transcription):
-                return self.confirmer()
+                return self._apres_accord()
             if est_un_refus(transcription):
                 self._en_attente = None
 
@@ -131,6 +148,76 @@ class Appel:
                            phrase=sortie.phrase, bruite=bruite,
                            entites=dict(sortie.entites))
         return Reponse(sortie.genre, sortie.phrase, sortie.entites)
+
+    # --- le numero de l'appelant -------------------------------------------
+
+    @property
+    def _attend_un_numero(self) -> bool:
+        return self._en_attente is not None and self._demande_le_numero
+
+    def _apres_accord(self) -> Reponse:
+        """L'appelant a dit oui. Reste a savoir ou envoyer la confirmation.
+
+        L'agent ne peut pas lire le numero sur son ecran : l'Arcep recommande aux
+        operateurs de masquer l'identifiant d'appelant sur les renvois complexes
+        (docs/19). Il le demande donc — mais seulement s'il en fera quelque chose.
+        """
+        if self.envoyeur_sms is None or self.etat.connu.get("telephone"):
+            return self.confirmer()
+        self._demande_le_numero = True
+        # Formulation choisie pour ne rien affirmer : a ce stade, RIEN n'est
+        # encore ecrit en base, et le garde de sortie refuserait « c'est note ».
+        phrase = ("Parfait. À quel numéro de mobile puis-je vous envoyer "
+                  "la confirmation ?")
+        self.journal.noter(transcription="[accord de l'appelant]", genre="question",
+                           phrase=phrase)
+        return Reponse("question", phrase)
+
+    def _entendre_un_numero(self, transcription: str) -> Reponse:
+        """Lit le numero sous contrainte, et le fait relire. Jamais de supposition."""
+        lecture = lire_numero(transcription)
+
+        if lecture.issue == "accepte":
+            self._numero_propose = lecture.numero
+            self._echecs_numero = 0
+            phrase = f"Je relis : {lecture.relecture}. C'est bien cela ?"
+            self.journal.noter(transcription=transcription, genre="question",
+                               phrase=phrase, numero_lu=lecture.numero)
+            return Reponse("question", phrase)
+
+        self._echecs_numero += 1
+        if lecture.issue == "refus":
+            phrase = ("Ce numéro ne peut pas recevoir de SMS. "
+                      "Avez-vous un numéro de mobile ?")
+        elif self._echecs_numero >= 2:
+            # Regle T7 : apres deux echecs, le clavier. Mesure 7 : quatre numeros
+            # sur dix se perdent a l'oral, et insister ne les rattrape pas.
+            if self.basculer_clavier is not None:
+                self.basculer_clavier()
+            phrase = ("Je n'arrive pas à noter votre numéro. Composez-le sur "
+                      "le clavier de votre téléphone, puis faites dièse.")
+        else:
+            phrase = ("Je n'ai pas tout saisi. Pouvez-vous me redonner votre "
+                      "numéro, chiffre par chiffre ?")
+        self.journal.noter(transcription=transcription, genre="question", phrase=phrase,
+                           lecture=lecture.issue)
+        return Reponse("question", phrase)
+
+    def numero_au_clavier(self, numero: str) -> Reponse:
+        """Le numero compose au clavier. Il passe par les memes regles que l'oral.
+
+        Dix chiffres, pas neuf, et pas de 08 : un numero saisi n'est pas plus
+        vrai qu'un numero dicte, il est seulement mieux transmis.
+        """
+        lecture = lire_numero(numero)
+        if lecture.issue != "accepte":
+            phrase = "Ce numéro ne convient pas. Le salon vous rappellera pour confirmer."
+            self.journal.noter(transcription=f"[clavier] {numero}", genre="question",
+                               phrase=phrase, lecture=lecture.issue)
+            return Reponse("question", phrase)
+        self.etat.connu["telephone"] = lecture.numero
+        self._demande_le_numero = False
+        return self.confirmer()
 
     def _garde_de_sortie(self, phrase: str) -> str:
         """Le dernier filet : aucune phrase venue d'ailleurs que de l'ecriture
@@ -172,6 +259,7 @@ class Appel:
 
         if genre == "confirmation":
             self._en_attente = None
+            self._demande_le_numero = False
             # Le SMS suit l'ecriture relue, jamais la proposition : promettre un
             # message pour un rendez-vous qui n'existe pas serait doubler la faute.
             if promet_sms:

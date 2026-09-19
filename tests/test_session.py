@@ -300,3 +300,28 @@ def test_la_synthese_est_consommee_paresseusement():
     premier = s.emettre()
     assert premier is not None
     assert len(produits) < 5, "toute la phrase a ete synthetisee avant le premier paquet"
+
+
+def test_le_clavier_est_branche_sur_l_agent():
+    """Règle T7 : `session.py` savait ramasser les touches, et personne ne les
+    lui demandait. Relevé par la revue du 19/09."""
+    class AgentAvecClavier(AgentFactice):
+        def __init__(self):
+            super().__init__()
+            self.basculer_clavier = None
+            self.numeros = []
+
+        def numero_au_clavier(self, numero):
+            from standard.appel import Reponse
+            self.numeros.append(numero)
+            return Reponse("confirmation", "C'est enregistré.")
+
+    agent = AgentAvecClavier()
+    s = session(agent)
+    s.ouvrir()
+    assert callable(agent.basculer_clavier), "l'agent ne peut pas demander le clavier"
+
+    agent.basculer_clavier()
+    for chiffre in "0612345678":
+        s.recevoir(encoder(TYPE_DTMF, chiffre.encode()))
+    assert agent.numeros == ["0612345678"]
