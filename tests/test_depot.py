@@ -5,6 +5,8 @@ depend pas de la bonne volonte de l'appelant. Une requete qui « oublie » le
 locataire ne doit pas rendre tout le monde — elle doit echouer.
 """
 
+import re
+
 import pytest
 
 from standard.depot import Depot, ChevauchementRefuse
@@ -176,3 +178,18 @@ def test_deux_fils_ne_peuvent_pas_prendre_le_meme_creneau(tmp_path):
 
     assert sorted(resultats) == ["pris", "refuse"], \
         "les deux appelants ont obtenu le même créneau"
+
+
+def test_toute_table_de_production_porte_la_meme_isolation():
+    """Une table ajoutée sans politique est une fuite : on vérifie le lot entier,
+    pas le fichier qu'on vient d'écrire."""
+    from pathlib import Path
+
+    migrations = sorted((Path(__file__).resolve().parents[1] / "migrations").glob("*.sql"))
+    assert migrations, "aucune migration : le test ne prouverait rien"
+    for chemin in migrations:
+        sql = chemin.read_text().lower()
+        for table in re.findall(r"create table if not exists (\w+)", sql):
+            assert f"alter table {table} enable row level security" in sql, chemin.name
+            assert f"alter table {table} force row level security" in sql, chemin.name
+            assert f"on {table}" in sql and "current_setting" in sql, chemin.name
