@@ -30,7 +30,12 @@ from standard.audiosocket import (
     encoder_audio,
 )
 from standard.ecoute import TamponDePreRoll, estimer_rsb_db
-from standard.regles import SEUIL_BRUITE_DB, SEUIL_PAROLE, SILENCE_DE_FIN_MS
+from standard.regles import (
+    DUREE_MINIMALE_POUR_UNE_RELANCE_MS,
+    SEUIL_BRUITE_DB,
+    SEUIL_PAROLE,
+    SILENCE_DE_FIN_MS,
+)
 
 PANNES_AVANT_TRANSFERT = 2
 
@@ -322,6 +327,14 @@ class SessionTelephonique:
             return self._panne("Je n'ai pas réussi à vous entendre, "
                                "pouvez-vous répéter ?")
         if not texte:
+            # Le silence est le pire etat d'un standard : si l'appelant a
+            # vraiment parle, on relance plutot que de laisser la ligne ouverte
+            # (banc du 19/09, un « oui » revenu vide du moteur).
+            assez_parle = (len(audio) / 2 / self.frequence_moteur * 1000
+                           >= DUREE_MINIMALE_POUR_UNE_RELANCE_MS)
+            relancer = getattr(self.agent, "rien_entendu", None)
+            if assez_parle and callable(relancer):
+                return self._dire(relancer())
             return []
 
         try:
@@ -330,6 +343,10 @@ class SessionTelephonique:
             return self._panne("Je rencontre un problème technique, un instant.")
 
         self.pannes = 0
+        return self._dire(reponse)
+
+    def _dire(self, reponse) -> list[bytes]:
+        """Joue une reponse d'agent — et honore le transfert qu'elle demande."""
         morceaux = self._jouer(reponse.phrase)
         if getattr(reponse, "genre", "") == "transfert":
             # Le bord telephonique doit VRAIMENT passer la main : une phrase sans

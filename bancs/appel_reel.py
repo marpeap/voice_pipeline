@@ -59,6 +59,18 @@ SCENARIOS = {
          "c'est parfait"],
         {"date": "2026-09-17", "heure": "17:00"},
     ),
+    "jour-ferme": (
+        ["bonjour je voudrais un rendez-vous dimanche à quinze heures trente",
+         "alors jeudi à quinze heures trente",
+         "oui c'est parfait"],
+        {"date": "2026-09-17", "heure": "15:30"},
+    ),
+    "heure-hors-creneaux": (
+        ["bonjour je voudrais un rendez-vous jeudi à onze heures",
+         "va pour dix heures trente",
+         "oui"],
+        {"date": "2026-09-17", "heure": "10:30"},
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],

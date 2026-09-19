@@ -71,6 +71,16 @@ SEUIL_BRUITE_DB = 15
 """Mesure 10 : a 10-15 dB — la rue, la voiture — le WER double, et il double sur
 les entites. En dessous de ce seuil, la strategie de capture change."""
 
+RELANCES_MUETTES_AVANT_TRANSFERT = 2
+"""Deux relances, puis un humain. Banc du 19/09 : un « oui » de six dixiemes de
+seconde revient vide du moteur — et l'agent restait muet, ligne ouverte, ce qui
+est le pire etat d'un standard. Au-dela de deux, ce n'est plus l'audio qui est
+en cause."""
+
+DUREE_MINIMALE_POUR_UNE_RELANCE_MS = 300
+"""En dessous, ce n'etait pas une parole : une porte, une toux, un blanc. On ne
+relance pas sur du bruit."""
+
 SEUIL_PAROLE = 500
 """Amplitude moyenne au-dela de laquelle on considere que l'appelant parle."""
 

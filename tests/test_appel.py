@@ -285,3 +285,41 @@ def test_aucune_seconde_affirmation_ne_se_glisse_dans_la_confirmation():
     conversation.tour("JEUDI QUINZE HEURES TRENTE")
     reponse = conversation.confirmer()
     assert "annulé" not in reponse.phrase.lower()
+
+
+# --- quand le moteur ne rend rien -------------------------------------------
+# Banc du 19/09 : « oui », dit seul et vite, revient vide du moteur local.
+
+def hors_ligne():
+    """Le modele hors ligne suffit ici : ce qu'on teste, c'est le silence."""
+    from standard.hors_ligne import ModeleHorsLigne
+    return appel(ModeleHorsLigne(aujourd_hui=MARDI))
+
+
+def test_rien_entendu_rappelle_le_creneau_en_attente():
+    conversation = hors_ligne()
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    reponse = conversation.rien_entendu()
+    assert reponse.genre == "question"
+    assert "17 septembre" in reponse.phrase and "15 h 30" in reponse.phrase
+
+
+def test_rien_entendu_sans_proposition_demande_simplement_de_repeter():
+    reponse = hors_ligne().rien_entendu()
+    assert reponse.genre == "question"
+    assert "répéter" in reponse.phrase
+
+
+def test_apres_deux_relances_muettes_on_passe_la_main():
+    conversation = hors_ligne()
+    conversation.rien_entendu()
+    conversation.rien_entendu()
+    assert conversation.rien_entendu().genre == "transfert"
+
+
+def test_un_tour_compris_remet_le_compteur_de_relances_a_zero():
+    conversation = hors_ligne()
+    conversation.rien_entendu()
+    conversation.rien_entendu()
+    conversation.tour("bonjour je voudrais un rendez-vous jeudi")
+    assert conversation.rien_entendu().genre == "question"

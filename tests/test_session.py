@@ -470,3 +470,32 @@ def test_apres_l_annonce_l_agent_se_fait_couper_normalement():
     for _ in range(int(s.duree_minimale_interruption_ms / 20) + 2):
         s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
     assert s.interruptions >= 1, "l'agent ne se laisse plus interrompre du tout"
+
+
+def test_un_tour_vide_ne_laisse_pas_la_ligne_muette():
+    """Le moteur n'a rien rendu : l'agent relance, il ne se tait pas."""
+    class AgentQuiRelance(AgentFactice):
+        def rien_entendu(self):
+            from standard.appel import Reponse
+            return Reponse("question", "Je n'ai pas entendu, pouvez-vous répéter ?")
+
+    s = session(AgentQuiRelance(), moteur=lambda audio, frequence: "")
+    s.ouvrir()
+    vider_l_annonce(s)
+    for _ in range(int(500 / 20)):                     # une demi-seconde de parole
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    for _ in range(int(s.silence_de_fin_ms / 20) + 2):
+        s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
+    assert s.reste_a_emettre > 0, "l'agent est resté muet sur un tour vide"
+
+
+def test_un_bruit_trop_bref_ne_declenche_pas_de_relance():
+    """Une porte qui claque n'est pas une parole : on ne relance pas dessus."""
+    s = session(moteur=lambda audio, frequence: "")
+    s.ouvrir()
+    vider_l_annonce(s)
+    for _ in range(int(s.duree_minimale_interruption_ms / 20) + 1):
+        s.recevoir(encoder(TYPE_AUDIO_8K, parole(160)))
+    for _ in range(int(s.silence_de_fin_ms / 20) + 2):
+        s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
+    assert s.reste_a_emettre == 0

@@ -17,12 +17,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from standard.comprehension import Comprehension, ErreurFournisseur
-from standard.decision import Agenda, Etat, decider
+from standard.decision import Agenda, Etat, decider, enoncer_date, enoncer_heure
 from standard.assentiment import est_un_refus, est_un_oui
 from standard.fiche import repondre as repondre_depuis_la_fiche
 from standard.grammaire import enoncer_numero, lire_numero
 from standard.locataire import lire_memoire
-from standard.regles import contient_une_confirmation
+from standard.regles import (
+    RELANCES_MUETTES_AVANT_TRANSFERT,
+    contient_une_confirmation,
+)
 from standard.langue import FRANCAIS, detecter_langue, phrase_de_passage
 from standard.ecriture import (
     BaseRendezVous,
@@ -87,6 +90,7 @@ class Appel:
         self.identifiant = identifiant
         self.nom_salon = nom_salon
         self.etat = Etat()
+        self._relances_muettes = 0
         self.journal = Journal()
         self.numero_de_tour = 0
         self.envoyeur_sms = None                 # branché par le service, facultatif
@@ -109,6 +113,7 @@ class Appel:
     def tour(self, transcription: str, bruite: bool = False) -> Reponse:
         """Un tour de parole : ce que l'appelant a dit, ce que l'agent repond."""
         self.numero_de_tour += 1
+        self._relances_muettes = 0        # on l'a entendu : le compteur repart
 
         # Avant toute chose : parle-t-il une langue que nous ne servons pas ?
         # Le servir a moitie serait pire que passer la main — et l'AI Act demande
@@ -254,6 +259,33 @@ class Appel:
         self.journal.ecriture.noter_confirmation_orpheline(
             self.identifiant, f"phrase bloquee : {phrase!r}")
         return ("Je vérifie votre demande, un instant.")
+
+    def rien_entendu(self) -> Reponse:
+        """L'appelant a parle, et le moteur n'a rien rendu.
+
+        Banc du 19/09 : « oui », dit seul et vite, revient vide du moteur local.
+        L'agent se taisait — ligne ouverte, personne au bout, et le rendez-vous
+        deja propose ne s'ecrivait jamais. On relance, en rappelant ce qu'on
+        attend ; deux fois au plus, puis un humain.
+        """
+        self._relances_muettes += 1
+        if self._relances_muettes > RELANCES_MUETTES_AVANT_TRANSFERT:
+            phrase = ("Je ne vous entends pas bien. "
+                      "Je préfère vous passer quelqu'un du salon.")
+            self.journal.noter(transcription="[rien entendu]", genre="transfert",
+                               phrase=phrase)
+            return Reponse("transfert", phrase)
+
+        if self._en_attente:
+            quand = enoncer_date(self._en_attente["date"])
+            heure = enoncer_heure(self._en_attente["heure"])
+            phrase = (f"Je n'ai pas entendu votre réponse. "
+                      f"Je vous réserve le {quand} à {heure} ?")
+        else:
+            phrase = "Je n'ai pas entendu, pouvez-vous répéter ?"
+        self.journal.noter(transcription="[rien entendu]", genre="question",
+                           phrase=phrase)
+        return Reponse("question", phrase)
 
     def confirmer(self) -> Reponse:
         """L'appelant a dit oui. C'est ici, et seulement ici, qu'on ecrit.
