@@ -49,6 +49,14 @@ que si elle passe deux fois d'affilée.
 | **Quatre synthèses simultanées au plus** | Mesure 13 : au-delà, le premier son dépasse 400 ms |
 | **L'annonce « assistant automatique » est non désactivable** | AI Act art. 50 §1 — et mesure 19 : elle survit au canal téléphonique |
 
+## Ce qui tourne, en trois commandes
+
+```bash
+python -m standard verifier   # dit si le service peut décrocher, et ce qui manque sinon
+python -m standard servir     # écoute les appels d'Asterisk (AudioSocket)
+python -m standard console    # la console du commerçant, sur la boucle locale
+```
+
 ## Les pièces
 
 | Module | Ce qu'il fait | Ce qu'il n'a pas le droit de faire |
@@ -62,6 +70,18 @@ que si elle passe deux fois d'affilée.
 | `locataire` | questionnaire → `memoire.md` | reparser le corps écrit par le commerçant |
 | `hors_ligne` | comprendre sans modèle | combler ce qu'il n'a pas lu |
 | `service` | configuration, démarrage, supervision | activer un agent dont une question critique est vide |
+| `serveur` | écoute AudioSocket, un appel = une session | laisser un appel raté en emporter d'autres |
+| `session` | trames, interruption, clavier DTMF | continuer à parler quand l'appelant reprend la parole |
+| `audiosocket` | le protocole d'Asterisk | supposer qu'un paquet reçu est une trame complète |
+| `connecteur` | l'agenda interne ou un logiciel tiers | confondre un « non » et un « je ne sais pas » |
+| `journal` | ce qui reste de l'appel | conserver l'audio |
+| `console` | le fil, le détail, la correction en trois gestes | montrer un prompt, sous quelque forme que ce soit |
+| `correction` | sept fautes, cycle de vie, corpus | appliquer une dictée sans arbitrage |
+| `conformite` | annonce, audio, e-mail, registre | promettre ce qui n'est pas vérifié |
+| `acces` | clés par locataire, rotation, débit | garder un secret en clair |
+| `audit` | qui a changé quoi | permettre de corriger un événement |
+| `depot` | rendez-vous cloisonnés | rendre des lignes sans locataire |
+| `langue` | détection prudente | servir à moitié un appelant qu'on ne comprend pas |
 
 ## Configurer un salon
 
