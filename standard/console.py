@@ -170,6 +170,20 @@ class Console:
                 f"{_texte(FAUTES[f]['libelle'])}</label>" for f in fautes)
             groupes += f"<fieldset><legend>{_texte(titre)}</legend>{choix}</fieldset>"
 
+        # Chaque faute a besoin d'une valeur differente. Sans ces champs, la
+        # console ne transmettait qu'une note libre — et la correction ne
+        # s'appliquait a rien. Ils restent optionnels : ce qui manque met la
+        # correction de cote, sans jamais faire tomber les autres.
+        precisions = (
+            "<fieldset><legend>Précisions</legend>"
+            "<label for=prestation>Prestation concernée</label>"
+            "<input id=prestation name=prestation type=text>"
+            "<label for=duree>Durée réelle, en minutes</label>"
+            "<input id=duree name=duree_minutes type=number min=5 max=480 step=5>"
+            "<label for=interdit>Ce qu'il ne doit jamais promettre</label>"
+            "<input id=interdit name=interdit type=text>"
+            "</fieldset>")
+
         formulaire = (
             f"<h2>Corriger cet appel</h2>"
             f"<p class=legende>Choisissez ce qui n'allait pas. Aucune phrase à écrire : "
@@ -178,7 +192,7 @@ class Console:
             f"<form method=post action='/correction'>"
             f"<input type=hidden name=appel value='{html.escape(uuid)}'>"
             f"<input type=hidden name=empan value='{html.escape(empan)}'>"
-            f"{groupes}"
+            f"{groupes}{precisions}"
             f"<label for=note>Précision, si vous voulez (facultatif)</label>"
             f"<textarea id=note name=note rows=2></textarea>"
             f"<button type=submit>Poser la correction</button></form>")
@@ -207,7 +221,12 @@ class Console:
         valeur = {cle: valeur for cle, valeur in corps.items()
                   if cle not in ("faute", "appel", "empan") and valeur}
         if "duree_minutes" in valeur:
-            valeur["duree_minutes"] = int(valeur["duree_minutes"])
+            try:
+                valeur["duree_minutes"] = int(valeur["duree_minutes"])
+            except (TypeError, ValueError):
+                # Un champ libre arrive de l'exterieur : une duree illisible ne
+                # doit pas faire tomber la console du commercant.
+                valeur.pop("duree_minutes")
 
         correction = self.registre.ajouter(Correction(
             faute=faute, appel=corps.get("appel", ""),

@@ -276,3 +276,20 @@ def test_le_demarrage_chauffe_la_connexion_du_modele():
 def test_un_client_sans_amorcage_ne_fait_pas_tomber_le_demarrage():
     s = Service(configuration(), client_modele=ModeleFactice(), base=BaseFactice())
     s.demarrer()          # ne lève pas
+
+
+def test_les_corrections_actives_entrent_dans_la_memoire_de_l_agent():
+    """La console dit au commerçant « la correction s'applique tout de suite ».
+    Seconde revue (19/09) : rien ne les lisait. C'était faux."""
+    from standard.correction import Correction, RegistreDeCorrections
+
+    registre = RegistreDeCorrections()
+    registre.ajouter(Correction(faute="promesse_interdite", appel="a",
+                                empan="on peut se garer devant",
+                                valeur={"interdit": "promettre une place de parking"}))
+
+    s = Service(configuration(), client_modele=ModeleFactice(), base=BaseFactice(),
+                corrections=registre)
+    s.demarrer()
+    appel = s.nouvel_appel("appel-1")
+    assert "place de parking" in appel.memoire

@@ -163,3 +163,50 @@ def test_une_correction_revoquee_sort_du_corpus():
     enregistree = registre.ajouter(correction())
     registre.revoquer(enregistree.identifiant)
     assert registre.scenarios_de_regression() == []
+
+
+# --- la persistance : un gérant interrompu ne perd rien ----------------------
+
+def test_les_corrections_survivent_au_redemarrage(tmp_path):
+    """Seconde revue (19/09) : le registre était une liste en mémoire, alors que
+    sa docstring promettait « écriture à chaque appui ». Un redémarrage effaçait
+    tout ce que le gérant avait posé."""
+    from standard.depot import Depot
+
+    chemin = str(tmp_path / "corrections.sqlite3")
+    registre = RegistreDeCorrections(depot=Depot(chemin), tenant="salon-1")
+    registre.ajouter(correction(faute="duree",
+                                valeur={"prestation": "coupe", "duree_minutes": 45}))
+
+    repris = RegistreDeCorrections(depot=Depot(chemin), tenant="salon-1")
+    assert len(repris.actives()) == 1
+    assert repris.actives()[0].valeur["duree_minutes"] == 45
+
+
+def test_un_salon_ne_relit_pas_les_corrections_d_un_autre(tmp_path):
+    from standard.depot import Depot
+
+    chemin = str(tmp_path / "corrections.sqlite3")
+    RegistreDeCorrections(depot=Depot(chemin), tenant="salon-1").ajouter(correction())
+    assert RegistreDeCorrections(depot=Depot(chemin), tenant="salon-2").actives() == []
+
+
+def test_une_revocation_est_persistee(tmp_path):
+    from standard.depot import Depot
+
+    chemin = str(tmp_path / "corrections.sqlite3")
+    registre = RegistreDeCorrections(depot=Depot(chemin), tenant="salon-1")
+    posee = registre.ajouter(correction())
+    registre.revoquer(posee.identifiant)
+    assert RegistreDeCorrections(depot=Depot(chemin), tenant="salon-1").actives() == []
+
+
+# --- ce que la console envoie doit pouvoir être appliqué ---------------------
+
+def test_une_correction_incomplete_ne_fait_pas_tomber_l_application():
+    """La console n'envoyait qu'une note libre : `appliquer` levait `KeyError`
+    sur `valeur["prestation"]`. Une correction incomplète se met de côté, elle
+    ne casse rien."""
+    incomplete = Correction(faute="duree", appel="a", empan="x", valeur={"note": "trop long"})
+    reponses, corps, regles = appliquer([incomplete], {}, "")
+    assert reponses == {} and regles == []

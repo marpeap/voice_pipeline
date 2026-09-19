@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from standard.depot import Depot
+from standard.correction import RegistreDeCorrections
 from standard.journal import JournalDAppels
 from standard.hors_ligne import ModeleHorsLigne
 from standard.parole import FileDeSynthese
@@ -228,7 +229,9 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
                       client_modele=_client_modele(env, config),
                       base=depot.pour(config.tenant),
                       creneaux_pris=creneaux_pris,
-                      envoyeur_sms=_envoyeur_sms(env, config))
+                      envoyeur_sms=_envoyeur_sms(env, config),
+                      corrections=RegistreDeCorrections(depot=depot,
+                                                        tenant=config.tenant))
     service.demarrer()
 
     journal = JournalDAppels(depot)

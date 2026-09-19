@@ -90,6 +90,11 @@ class AppelSuivi:
     # sans delegation, le `hasattr` echouait en silence et la regle T7 — le
     # clavier apres deux echecs — n'etait jamais armee.
     @property
+    def memoire(self) -> str:
+        """Ce que l'agent sait — utile au diagnostic, et verifiable par un test."""
+        return self._appel.memoire
+
+    @property
     def basculer_clavier(self):
         return self._appel.basculer_clavier
 
@@ -181,7 +186,8 @@ class Service:
                  base, fabrique_connexion: Callable[[], Any] | None = None,
                  maintenir: Callable[[Any], None] | None = None,
                  creneaux_pris: Callable[[], dict[str, set[str]]] | None = None,
-                 envoyeur_sms: Any = None):
+                 envoyeur_sms: Any = None,
+                 corrections: Any = None):
         self.configuration = configuration
         self.client_modele = client_modele
         self.base = base
@@ -189,6 +195,7 @@ class Service:
         # propose au deuxieme appelant le creneau du premier.
         self.creneaux_pris = creneaux_pris or dict
         self.envoyeur_sms = envoyeur_sms
+        self.corrections = corrections
         self.metriques = Supervision()
         self._memoire = None
         self._demarre = False
@@ -206,8 +213,17 @@ class Service:
             raise RuntimeError(
                 "l'agent ne peut pas etre active, ces questions critiques sont sans "
                 f"reponse : {', '.join(manquantes)}")
-        texte = composer_memoire(self.configuration.pack, self.configuration.reponses,
-                                 self.configuration.corps)
+        reponses = dict(self.configuration.reponses)
+        corps = self.configuration.corps
+        self.regles_serveur: list = []
+        if self.corrections is not None:
+            # La console promet au commercant que sa correction « s'applique tout
+            # de suite ». Elle ne s'appliquait nulle part : rien ne la relisait.
+            from standard.correction import appliquer
+
+            reponses, corps, self.regles_serveur = appliquer(
+                self.corrections.actives(), reponses, corps)
+        texte = composer_memoire(self.configuration.pack, reponses, corps)
         self._memoire = (texte, lire_memoire(texte))
 
         # Mesure 4 : 2 040 ms pour une connexion neuve, 378 ms pour une gardee.

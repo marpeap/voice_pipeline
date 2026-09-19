@@ -113,15 +113,65 @@ class Correction:
         return (self.faute, ancrage)
 
 
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS corrections (
+    identifiant TEXT NOT NULL,
+    tenant_id   TEXT NOT NULL,
+    donnees     TEXT NOT NULL,
+    PRIMARY KEY (tenant_id, identifiant)
+);
+"""
+
+
 class RegistreDeCorrections:
     """Le cycle de vie des corrections d'un salon.
 
-    Ecriture a chaque appui : un gerant interrompu toutes les deux minutes ne doit
-    jamais perdre ce qu'il vient de poser.
+    **Ecriture a chaque appui** : un gerant interrompu toutes les deux minutes ne
+    doit jamais perdre ce qu'il vient de poser. Cette phrase etait dans la
+    docstring bien avant d'etre vraie — le registre etait une liste en memoire,
+    et un redemarrage effacait tout. Une revue independante l'a releve.
+
+    Sans depot, il reste en memoire : c'est ce qui permet de l'utiliser dans un
+    test ou une demonstration sans fichier.
     """
 
-    def __init__(self):
+    def __init__(self, depot=None, tenant: str = "inconnu"):
         self._corrections: list[Correction] = []
+        self._depot = depot
+        self._tenant = tenant
+        if depot is not None:
+            with depot._verrou:
+                depot._connexion.executescript(SCHEMA)
+            self._relire()
+
+    # --- persistance --------------------------------------------------------
+
+    def _relire(self) -> None:
+        import json
+
+        with self._depot._verrou:
+            lignes = self._depot._connexion.execute(
+                "SELECT donnees FROM corrections WHERE tenant_id = ?",
+                (self._tenant,)).fetchall()
+        for ligne in lignes:
+            champs = json.loads(ligne["donnees"])
+            self._corrections.append(Correction(**champs))
+
+    def _ecrire(self, correction: "Correction") -> None:
+        if self._depot is None:
+            return
+        import json
+
+        champs = {"faute": correction.faute, "appel": correction.appel,
+                  "empan": correction.empan, "valeur": correction.valeur,
+                  "identifiant": correction.identifiant, "etat": correction.etat,
+                  "posee_le": correction.posee_le}
+        with self._depot._verrou:
+            self._depot._connexion.execute(
+                "INSERT OR REPLACE INTO corrections (identifiant, tenant_id, donnees) "
+                "VALUES (?, ?, ?)",
+                (correction.identifiant, self._tenant,
+                 json.dumps(champs, ensure_ascii=False)))
 
     # --- poser ---------------------------------------------------------------
 
@@ -131,6 +181,7 @@ class RegistreDeCorrections:
             # laquelle vaut.
             correction.etat = EN_CONFLIT
         self._corrections.append(correction)
+        self._ecrire(correction)
         return correction
 
     def _contredit(self, candidate: Correction) -> bool:
@@ -150,11 +201,14 @@ class RegistreDeCorrections:
             if autre.etat in ETATS_ACTIFS or autre.etat == EN_CONFLIT:
                 autre.etat = SUSPENDUE
         gagnante.etat = EN_ESSAI
+        for correction in self._corrections:
+            self._ecrire(correction)
         return gagnante
 
     def revoquer(self, identifiant: str) -> Correction:
         correction = self.par_identifiant(identifiant)
         correction.etat = REVOQUEE
+        self._ecrire(correction)
         return correction
 
     # --- lire ----------------------------------------------------------------
@@ -208,27 +262,33 @@ def appliquer(corrections: list[Correction], reponses: dict, corps: str):
             continue
         valeur = correction.valeur
 
-        if correction.faute == "duree":
-            reponses.setdefault("durees", {})[valeur["prestation"]] = valeur["duree_minutes"]
+        # Une correction incomplete — la console peut n'avoir recu qu'une note —
+        # se met de cote au lieu de faire tomber l'application des autres.
+        try:
+            if correction.faute == "duree":
+                reponses.setdefault("durees", {})[valeur["prestation"]] = \
+                    valeur["duree_minutes"]
 
-        elif correction.faute == "prestation":
-            reponses.setdefault("synonymes", {})[valeur["terme"]] = valeur["prestation"]
+            elif correction.faute == "prestation":
+                reponses.setdefault("synonymes", {})[valeur["terme"]] = valeur["prestation"]
 
-        elif correction.faute == "mauvaise_information":
-            reponses.setdefault("fiche", {})[valeur["champ"]] = valeur["valeur"]
+            elif correction.faute == "mauvaise_information":
+                reponses.setdefault("fiche", {})[valeur["champ"]] = valeur["valeur"]
 
-        elif correction.faute == "escalade":
-            reponses.setdefault("escalade", {})[valeur["motif"]] = valeur.get("seuil", 1)
+            elif correction.faute == "escalade":
+                reponses.setdefault("escalade", {})[valeur["motif"]] = valeur.get("seuil", 1)
 
-        elif correction.faute == "creneau_inexistant":
-            # Cote serveur uniquement : une contrainte d'agenda ne se redige pas.
-            regles_serveur.append({"type": "agenda", **valeur})
+            elif correction.faute == "creneau_inexistant":
+                # Cote serveur uniquement : une contrainte d'agenda ne se redige pas.
+                regles_serveur.append({"type": "agenda", **valeur})
 
-        elif correction.faute == "promesse_interdite":
-            # Le corps le dit au modele, ET le serveur l'empeche. Une consigne
-            # ecrite n'est pas une garantie, elle est une preference.
-            ajouts.append(f"- Ne jamais {valeur['interdit']}.")
-            regles_serveur.append({"type": "interdit", "interdit": valeur["interdit"]})
+            elif correction.faute == "promesse_interdite":
+                # Le corps le dit au modele, ET le serveur l'empeche. Une consigne
+                # ecrite n'est pas une garantie, elle est une preference.
+                ajouts.append(f"- Ne jamais {valeur['interdit']}.")
+                regles_serveur.append({"type": "interdit", "interdit": valeur["interdit"]})
+        except KeyError:
+            continue
 
     if ajouts:
         corps = corps.rstrip("\n") + "\n\n## Ce que l'agent ne doit jamais faire\n\n" \

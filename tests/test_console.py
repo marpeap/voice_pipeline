@@ -190,3 +190,18 @@ def test_sans_piste_d_audit_la_console_fonctionne_quand_meme(console):
         "appel": APPEL["uuid"], "faute": "duree", "empan": "x",
         "prestation": "coupe", "duree_minutes": "30"})
     assert statut == 303
+
+
+def test_le_formulaire_propose_les_champs_que_la_correction_utilise(console):
+    """Seconde revue (19/09) : le formulaire n'envoyait qu'une note libre, donc
+    `appliquer` levait `KeyError` sur toute correction issue de la console."""
+    contenu = page(console, f"/appel/{APPEL['uuid']}")[1]
+    for champ in ("prestation", "duree_minutes", "interdit"):
+        assert f'name={champ}' in contenu or f'name="{champ}"' in contenu
+
+
+def test_une_duree_illisible_ne_fait_pas_tomber_la_console(console):
+    statut, _ = page(console, "/correction", "POST", {
+        "appel": APPEL["uuid"], "faute": "duree", "empan": "x",
+        "prestation": "coupe", "duree_minutes": "quarante-cinq"})
+    assert statut == 303
