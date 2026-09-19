@@ -56,6 +56,7 @@ def main(arguments: list[str]) -> int:
         # Qui a pose quelle correction, et un debit borne : les deux existaient
         # sans etre branches, ce qu'une revue independante a releve.
         console = Console(journal=journal, tenant=config.tenant,
+                          depot=depot,          # sans lui, les messages pris
                           audit=PisteDAudit(depot),
                           acteur=os.environ.get("STANDARD_ACTEUR", "console"))
         serveur = ServeurConsole(console, limiteur=Limiteur(),

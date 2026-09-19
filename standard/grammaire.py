@@ -282,6 +282,16 @@ def en_lettres(n: int) -> str:
     return f"quatre-vingt-{_UNITES[reste]}"
 
 
+def ecrire_numero(numero: str) -> str:
+    """Le meme numero, mais pour l'oeil : « 06 12 34 56 78 ».
+
+    L'oral et l'ecrit groupent par deux de la meme facon — c'est la lecture
+    francaise d'un numero, et la console doit la retrouver telle quelle.
+    """
+    chiffres = "".join(c for c in numero if c.isdigit())
+    return " ".join(chiffres[debut:debut + 2] for debut in range(0, len(chiffres), 2))
+
+
 def enoncer_numero(numero: str) -> str:
     """Relecture par groupes de deux (T6), inconditionnelle depuis la mesure 21.
 

@@ -205,3 +205,55 @@ def test_une_duree_illisible_ne_fait_pas_tomber_la_console(console):
         "appel": APPEL["uuid"], "faute": "duree", "empan": "x",
         "prestation": "coupe", "duree_minutes": "quarante-cinq"})
     assert statut == 303
+
+
+# --- les messages à rappeler -------------------------------------------------
+# Un message pris et jamais montré vaut moins que pas de message du tout : le
+# commerçant croit que l'agent a transféré.
+
+@pytest.fixture
+def console_avec_message():
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", APPEL)
+    depot.pour("salon-1").enregistrer_message(
+        {"texte": "je cherche une coloration végétale pour samedi",
+         "nom": "Dupont", "telephone": "0612345678"})
+    return Console(journal=journal, tenant="salon-1", depot=depot)
+
+
+def test_le_fil_montre_les_messages_a_rappeler(console_avec_message):
+    _, contenu = page(console_avec_message)
+    assert "coloration végétale" in contenu
+    assert "06 12 34 56 78" in contenu, "le numéro doit être lisible d'un coup d'œil"
+
+
+def test_un_message_passe_avant_le_fil_des_appels(console_avec_message):
+    """B7 : ce qui appelle une action est en position 1, pas au milieu."""
+    _, contenu = page(console_avec_message)
+    assert contenu.index("rappeler") < contenu.index("Fil des appels")
+
+
+def test_sans_message_la_console_n_affiche_pas_la_section(console):
+    _, contenu = page(console)
+    assert "à rappeler" not in contenu
+
+
+def test_les_messages_d_un_autre_salon_ne_s_affichent_pas():
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", APPEL)
+    depot.pour("salon-2").enregistrer_message({"texte": "message du voisin"})
+    _, contenu = page(Console(journal=journal, tenant="salon-1", depot=depot))
+    assert "voisin" not in contenu
+
+
+def test_la_console_lancee_en_ligne_de_commande_recoit_le_depot():
+    """Sans le dépôt, la section « à rappeler » est invisible en production —
+    la même faute que le clavier posé sur un objet qui ne le délègue pas."""
+    import inspect
+
+    import standard.__main__ as principal
+
+    source = inspect.getsource(principal)
+    assert "depot=depot" in source

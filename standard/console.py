@@ -22,6 +22,7 @@ import html
 from dataclasses import dataclass, field
 from typing import Any
 
+from standard.grammaire import ecrire_numero
 from standard.correction import FAUTES, Correction, RegistreDeCorrections
 
 PAPIER = "#F2F0EB"
@@ -55,6 +56,14 @@ a.appel:hover, a.appel:focus-visible {{ border-color:{ENCRE}; outline:none; }}
 .issue {{ font-weight:600; }}
 .incident {{ border-left:4px solid {ELECTRIQUE}; padding-left:12px; }}
 .vide {{ border:1px dashed {FILET}; padding:24px; color:{ENCRE_ATTENUEE}; }}
+/* Un message a rappeler : le nom et le numero d'abord, le texte ensuite.
+   B5, 1:2 — 8 px dans le bloc, 16 px entre deux blocs. */
+li.message {{ border:1px solid {FILET}; padding:12px; display:grid; gap:4px; }}
+li.message p {{ margin:4px 0 0; color:{ENCRE_ATTENUEE}; }}
+a.numero {{ display:inline-flex; align-items:center; min-height:44px;
+  font-variant-numeric:tabular-nums; color:{ENCRE}; text-decoration:none;
+  border-bottom:2px solid {ELECTRIQUE}; }}
+a.numero:focus-visible {{ outline:3px solid {ENCRE}; outline-offset:2px; }}
 blockquote {{ margin:0 0 8px; padding:12px; border-left:2px solid {FILET}; }}
 form {{ display:grid; gap:24px; margin-top:24px; }}
 fieldset {{ border:0; padding:0; margin:0; display:grid; gap:8px; }}
@@ -95,6 +104,7 @@ class Console:
     tenant: str
     registre: RegistreDeCorrections = field(default_factory=RegistreDeCorrections)
     audit: Any = None
+    depot: Any = None               # pour lire les messages pris pendant un appel
     acteur: str = "console"
     _message: str | None = None
 
@@ -124,6 +134,8 @@ class Console:
             entete += f"<p class=succes>{_texte(self._message)}</p>"
             self._message = None
 
+        bloc_messages = self._bloc_messages()
+
         # B7 : ce qui compte est en position 1. Un incident passe devant le fil.
         bloc_incidents = ""
         if incidents:
@@ -139,7 +151,7 @@ class Console:
             corps = ("<div class=vide><strong>Aucun appel pour le moment.</strong><br>"
                      "Dès que votre numéro sera branché, les appels apparaîtront ici, "
                      "avec ce que l'agent a compris et ce qu'il a répondu.</div>")
-            return _page("Vos appels", entete + corps)
+            return _page("Vos appels", entete + bloc_messages + corps)
 
         lignes = "".join(
             f"<li><a class=appel href='/appel/{html.escape(a['uuid'])}'>"
@@ -148,7 +160,32 @@ class Console:
             f"<span class=heure>{int(a.get('duree_s', 0))} s</span></a></li>"
             for a in appels[:50])
         return _page("Vos appels",
-                     entete + bloc_incidents + f"<h2>Fil des appels</h2><ul class=fil>{lignes}</ul>")
+                     entete + bloc_incidents + bloc_messages
+                     + f"<h2>Fil des appels</h2><ul class=fil>{lignes}</ul>")
+
+    def _bloc_messages(self) -> str:
+        """Les messages pris quand le salon a choisi « rappeler » (question D4).
+
+        Un message pris et jamais montre vaut moins que pas de message du tout :
+        le commercant croit alors que l'agent a transfere. Il passe donc avant le
+        fil (B7), et porte le numero ecrit pour l'oeil plutot que pour l'oreille.
+        """
+        if self.depot is None:
+            return ""
+        messages = self.depot.messages(self.tenant)
+        if not messages:
+            return ""
+        lignes = []
+        for message in messages[:5]:
+            qui = _texte(message.get("nom") or "Appelant")
+            numero = message.get("telephone")
+            rappel = (f"<a class=numero href='tel:{html.escape(numero)}'>"
+                      f"{_texte(ecrire_numero(numero))}</a>") if numero else \
+                     "<span class=legende>pas de numéro</span>"
+            lignes.append(f"<li class=message><strong>{qui}</strong> {rappel}"
+                          f"<p>{_texte(message.get('texte', ''))}</p></li>")
+        return ("<h2>À rappeler — messages</h2>"
+                f"<ul class=fil>{''.join(lignes)}</ul>")
 
     # --- le détail ----------------------------------------------------------
 
