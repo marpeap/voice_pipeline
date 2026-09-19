@@ -114,3 +114,15 @@ def test_le_refus_dit_quand_reessayer(serveur_limite):
                 assert erreur.headers.get("Retry-After")
                 return
     pytest.fail("aucun refus alors que la limite est de deux par minute")
+
+
+def test_la_commande_console_cable_l_audit_et_la_limitation(tmp_path, monkeypatch):
+    """La revue du 19/09 : `acces` et `audit` existaient, testés, documentés — et
+    n'étaient branchés nulle part. Un garde-fou non branché ne garde rien."""
+    import inspect
+
+    from standard import __main__ as commande
+
+    source = inspect.getsource(commande.main)
+    assert "PisteDAudit" in source, "la console ne laisse aucune trace de qui corrige"
+    assert "Limiteur" in source, "la console n'est pas protégée d'un matraquage"

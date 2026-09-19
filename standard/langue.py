@@ -20,9 +20,14 @@ MOTS_MINIMUM = 4        # en dessous, une detection se trompe plus qu'elle n'aid
 # Des mots frequents et **discriminants** : ils n'existent pas, ou tres peu, dans
 # les autres langues de la liste. On ne compte pas « no », « la », « un ».
 INDICES = {
+    # Des mots qui n'existent PAS en francais : « you », « do », « the » ou
+    # « i » traineraient dans une phrase francaise ordinaire — « week-end »,
+    # « brushing », « soin » — et deux d'entre eux suffiraient a transferer un
+    # client francais. Transferer a tort est pire que le defaut qu'on repare.
     "en": {"hello", "would", "like", "book", "appointment", "please", "thanks",
-           "morning", "afternoon", "tomorrow", "could", "have", "anything",
-           "thursday", "friday", "monday", "you", "do", "i", "the", "good"},
+           "morning", "afternoon", "tomorrow", "could", "anything", "speak",
+           "thursday", "friday", "monday", "tuesday", "wednesday", "saturday",
+           "sunday", "available", "booking", "english", "sorry", "help"},
     "es": {"hola", "quisiera", "cita", "gracias", "buenos", "manana", "jueves",
            "viernes", "para", "el", "una", "por", "favor"},
     "de": {"hallo", "guten", "termin", "bitte", "danke", "morgen", "donnerstag",
@@ -53,7 +58,8 @@ def detecter_langue(transcription: str) -> str:
     meilleure = max(scores, key=scores.get)
     # Il faut une proportion franche, pas un mot isole : « un rendez-vous pour
     # le week-end » contient des mots anglais sans etre de l'anglais.
-    if scores[meilleure] >= max(2, len(mots) // 3):
+    # Il faut au moins deux mots franchement etrangers, et un tiers de l'enonce.
+    if scores[meilleure] >= max(2, len(mots) // 3) and scores[meilleure] >= 2:
         return meilleure
     return FRANCAIS
 

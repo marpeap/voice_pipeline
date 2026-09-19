@@ -46,9 +46,19 @@ def main(arguments: list[str]) -> int:
         from standard.journal import JournalDAppels
 
         import os
+
+        from standard.acces import Limiteur
+        from standard.audit import PisteDAudit
+
         config = configuration_depuis_environnement()
-        journal = JournalDAppels(Depot(os.environ.get("STANDARD_BASE", "standard.sqlite3")))
-        serveur = ServeurConsole(Console(journal=journal, tenant=config.tenant),
+        depot = Depot(os.environ.get("STANDARD_BASE", "standard.sqlite3"))
+        journal = JournalDAppels(depot)
+        # Qui a pose quelle correction, et un debit borne : les deux existaient
+        # sans etre branches, ce qu'une revue independante a releve.
+        console = Console(journal=journal, tenant=config.tenant,
+                          audit=PisteDAudit(depot),
+                          acteur=os.environ.get("STANDARD_ACTEUR", "console"))
+        serveur = ServeurConsole(console, limiteur=Limiteur(),
                                  port=int(os.environ.get("STANDARD_PORT_CONSOLE", "8091")))
         serveur.demarrer()
         print(f"console sur http://{serveur.hote}:{serveur.port}", flush=True)

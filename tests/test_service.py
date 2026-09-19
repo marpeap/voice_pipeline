@@ -163,3 +163,27 @@ def test_chaque_appel_a_son_etat_a_lui():
     premier, second = s.nouvel_appel("a1"), s.nouvel_appel("a2")
     premier.tour("JEUDI QUINZE HEURES TRENTE")
     assert second.etat.connu == {}, "deux appels partagent leur etat"
+
+
+def test_deux_confirmations_orphelines_distinctes_comptent_pour_deux():
+    """Relevé par la revue du 19/09 : `absorber` faisait un `max()`, donc deux
+    incidents dans deux appels différents comptaient pour un. Sur un indicateur
+    dont la cible est zéro, c'est la différence entre « un incident » et « un
+    incident par appel »."""
+    from standard.service import Supervision
+
+    supervision = Supervision()
+    supervision.absorber(1)
+    supervision.absorber(1)
+    assert supervision.etat()["confirmations_orphelines"] == 2
+
+
+def test_un_meme_incident_n_est_compte_qu_une_fois():
+    """L'appelant transmet l'écart, pas le total : sinon le même incident
+    compterait à chaque tour suivant."""
+    from standard.service import Supervision
+
+    supervision = Supervision()
+    supervision.absorber(1)
+    supervision.absorber(0)
+    assert supervision.etat()["confirmations_orphelines"] == 1

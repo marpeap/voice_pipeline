@@ -79,3 +79,15 @@ def test_le_pipeline_transfere_un_appelant_anglophone():
     reponse = appel.tour("hello i would like to book an appointment please")
     assert reponse.genre == "transfert"
     assert ModeleQuiRepondQuandMeme.appels == 0, "le modele a ete appele pour rien"
+
+
+@pytest.mark.parametrize("dit", [
+    "je voudrais un rendez-vous pour le week-end",
+    "bonjour c'est pour un brushing et un soin",
+    "est-ce que vous avez de la place ce soir",
+])
+def test_une_phrase_francaise_ordinaire_ne_declenche_jamais_de_transfert(dit):
+    """La revue du 19/09 notait que les indices anglais incluaient « i », « do »,
+    « the », « you » — sur cinq mots, deux suffisaient. Transférer un client
+    français parce qu'il a dit « week-end » serait pire que le défaut réparé."""
+    assert detecter_langue(dit) == FRANCAIS

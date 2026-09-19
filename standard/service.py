@@ -85,6 +85,7 @@ class AppelSuivi:
         self._annonce = annonce
         self._supervision = supervision
         self._supervision.appels += 1
+        self._orphelines_comptees = 0
 
     @property
     def etat(self):
@@ -106,12 +107,22 @@ class AppelSuivi:
     def tour(self, transcription: str, bruite: bool = False):
         if bruite:
             self._supervision.appels_bruites += 1
-        return self._appel.tour(transcription, bruite=bruite)
+        reponse = self._appel.tour(transcription, bruite=bruite)
+        # Le garde de sortie peut avoir bloque une phrase mensongere pendant ce
+        # tour : l'incident doit remonter tout de suite, pas seulement si
+        # l'appelant va jusqu'a la confirmation.
+        self._remonter_les_incidents()
+        return reponse
 
     def confirmer(self):
         reponse = self._appel.confirmer()
-        self._supervision.absorber(self._appel.journal)
+        self._remonter_les_incidents()
         return reponse
+
+    def _remonter_les_incidents(self) -> None:
+        total = self._appel.journal.confirmations_orphelines
+        self._supervision.absorber(total - self._orphelines_comptees)
+        self._orphelines_comptees = total
 
 
 @dataclass
@@ -127,9 +138,16 @@ class Supervision:
     confirmations_orphelines: int = 0
     premiers_fragments_ms: list[float] = field(default_factory=list)
 
-    def absorber(self, journal) -> None:
-        self.confirmations_orphelines = max(self.confirmations_orphelines,
-                                            journal.confirmations_orphelines)
+    def absorber(self, nouvelles: int) -> None:
+        """On ADDITIONNE des incidents NOUVEAUX, jamais un total.
+
+        Deux pieges evites ici. Un `max()` comptait deux incidents dans deux
+        appels pour un seul — sur un indicateur dont la cible est zero, c'est la
+        difference entre « un incident » et « un incident par appel ». Et
+        additionner un total a chaque tour compterait le meme incident autant de
+        fois qu'il y a de tours : l'appelant transmet donc l'ECART.
+        """
+        self.confirmations_orphelines += max(0, nouvelles)
 
     def etat(self) -> dict[str, Any]:
         import statistics
