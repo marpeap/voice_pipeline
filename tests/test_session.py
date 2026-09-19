@@ -399,3 +399,18 @@ def test_l_emission_et_la_lecture_ne_se_marchent_pas_dessus():
         s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
     time.sleep(0.3)
     assert erreurs == []
+
+
+def test_le_delai_avant_premier_fragment_est_mesure_a_chaque_tour():
+    """Seconde revue (19/09) : `premiers_fragments_ms` n'était alimenté nulle
+    part, donc la métrique désignée comme *celle qui dit qu'une machine est
+    pleine* valait toujours `None`."""
+    def synthese_lente(texte):
+        time.sleep(0.03)
+        yield bytes(320)
+
+    s = SessionTelephonique(agent=AgentFactice(), transcrire=lambda a, f: "une phrase",
+                            synthetiser=synthese_lente)
+    s.ouvrir()
+    assert s.premiers_fragments_ms, "l'annonce n'a pas été mesurée"
+    assert s.premiers_fragments_ms[0] >= 25

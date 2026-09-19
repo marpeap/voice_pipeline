@@ -69,6 +69,12 @@ class ClientModeleHttp:
         self._parametres = dict(parametres or {})
         self._connectee = False
 
+    def amorcer(self) -> None:
+        """Ouvre la connexion **au demarrage du service**, jamais a l'arrivee d'un
+        appel : c'est la difference mesuree entre 2 040 ms et 378 ms."""
+        self._transport.nouvelle_connexion()
+        self._connectee = True
+
     def completer(self, messages: list[dict], **parametres: Any) -> str:
         charge = {
             "model": self._modele,

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import array
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -94,6 +95,7 @@ class SessionTelephonique:
     saisie_terminee: bool = False
     interruptions: int = 0
     trames_ignorees: int = 0
+    premiers_fragments_ms: list = field(default_factory=list)
     pannes: int = 0
     transfert_demande: bool = False
     preuve_d_annonce: dict | None = None
@@ -374,10 +376,14 @@ class SessionTelephonique:
         16 bits a 8 kHz. Envoyer plus gros fait saccader, plus fin ne sert a rien.
         """
         with self._parole_verrou:
+            depart = time.perf_counter()
             self._source = iter(self.synthetiser(texte))
             # On amorce un premier paquet tout de suite : le reste suivra a la
             # demande, pendant que l'agent parle deja.
             premier = self.emettre()
+            # C'est CE delai qui dit qu'une machine est pleine — bien avant la
+            # charge processeur, qui reste basse jusqu'au bout (mesure 13).
+            self.premiers_fragments_ms.append((time.perf_counter() - depart) * 1000)
             if premier is None:
                 return []
             self._a_dire.insert(0, premier)

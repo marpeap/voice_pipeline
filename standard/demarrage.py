@@ -254,6 +254,8 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
             return
         tours = list(journal_appel.tours)
         issue = tours[-1]["genre"] if tours else "sans suite"
+        service.metriques.premiers_fragments_ms.extend(
+            getattr(session, "premiers_fragments_ms", []))
         journal.enregistrer(config.tenant, {
             "uuid": session.identifiant or f"sans-uuid-{uuid4().hex[:8]}",
             "debut": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -276,10 +278,14 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
             raise MoteurAbsent("aucun moteur de transcription : l'appel ne peut pas "
                                "etre compris")
 
-    return ServeurAudioSocket(
+    serveur = ServeurAudioSocket(
         fabrique_agent=fabrique_agent,
         transcrire=transcrire,
         synthetiser=_synthese_tolerante(env),
         hote=env.get("STANDARD_HOTE", "0.0.0.0"),
         port=int(env.get("STANDARD_PORT", "8090")),
         sur_fin=archiver)
+    # La supervision n'est utile que si elle est ATTEIGNABLE depuis ce qui tourne.
+    serveur.service = service
+    serveur.journal = journal
+    return serveur

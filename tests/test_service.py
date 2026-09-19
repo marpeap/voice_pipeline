@@ -91,15 +91,29 @@ def test_une_configuration_sans_pack_est_refusee():
 
 # --- le demarrage -----------------------------------------------------------
 
-def test_le_demarrage_amorce_les_connexions_avant_tout_appel():
-    """Mesure 4 : une connexion rouverte coute 2 040 ms, gardee 378 ms."""
-    s = service()
-    assert s.ouvertures == []
+def test_aucune_connexion_n_est_ouverte_a_l_arrivee_d_un_appel():
+    """Mesure 4 : une connexion rouverte coûte 2 040 ms, gardée 378 ms.
+
+    Ce test vérifiait auparavant qu'une « réserve » fabriquait quatre objets au
+    démarrage. C'était une garantie en trompe-l'œil : personne n'empruntait ces
+    objets, et le vrai trafic ouvrait une connexion neuve à chaque tour. Ce qui
+    compte est ici : prendre un appel n'ouvre rien.
+    """
+    class ClientQuiCompte(ModeleFactice):
+        def __init__(self):
+            super().__init__()
+            self.ouvertures = 0
+
+        def amorcer(self):
+            self.ouvertures += 1
+
+    client = ClientQuiCompte()
+    s = Service(configuration(), client_modele=client, base=BaseFactice())
     s.demarrer()
-    assert len(s.ouvertures) == 3
-    avant = len(s.ouvertures)
+    avant = client.ouvertures
     s.nouvel_appel("appel-1")
-    assert len(s.ouvertures) == avant, "un appel a ouvert une connexion"
+    s.nouvel_appel("appel-2")
+    assert client.ouvertures == avant, "prendre un appel a ouvert une connexion"
 
 
 def test_un_agent_incomplet_ne_s_active_pas():
@@ -238,3 +252,27 @@ def test_l_envoyeur_de_sms_est_transmis_quand_il_existe():
     reponse = appel.tour("oui")
     assert "numéro" in reponse.phrase.lower(), \
         "sans envoyeur transmis, l'agent ne demande jamais le numéro"
+
+
+def test_le_demarrage_chauffe_la_connexion_du_modele():
+    """Seconde revue (19/09) : la « réserve de connexions » fabriquait quatre
+    `object()` vides que personne n'empruntait, pendant que le vrai trafic
+    ouvrait une connexion neuve à chaque tour. La mesure 4 dit 2 040 ms contre
+    378 ms : ce qu'il faut chauffer, c'est la connexion qui sert."""
+    class ClientQuiCompte(ModeleFactice):
+        def __init__(self):
+            super().__init__()
+            self.amorces = 0
+
+        def amorcer(self):
+            self.amorces += 1
+
+    client = ClientQuiCompte()
+    s = Service(configuration(), client_modele=client, base=BaseFactice())
+    s.demarrer()
+    assert client.amorces == 1
+
+
+def test_un_client_sans_amorcage_ne_fait_pas_tomber_le_demarrage():
+    s = Service(configuration(), client_modele=ModeleFactice(), base=BaseFactice())
+    s.demarrer()          # ne lève pas

@@ -22,7 +22,6 @@ from typing import Any, Callable
 from standard import regles
 from standard.appel import Appel
 from standard.decision import Agenda
-from standard.ecoute import ReserveDeConnexions
 from standard.locataire import composer_memoire, lire_memoire, paliers_manquants
 
 
@@ -191,9 +190,6 @@ class Service:
         self.creneaux_pris = creneaux_pris or dict
         self.envoyeur_sms = envoyeur_sms
         self.metriques = Supervision()
-        self.reserve = ReserveDeConnexions(
-            fabrique=fabrique_connexion or (lambda: object()),
-            taille=configuration.connexions, maintenir=maintenir)
         self._memoire = None
         self._demarre = False
 
@@ -213,7 +209,19 @@ class Service:
         texte = composer_memoire(self.configuration.pack, self.configuration.reponses,
                                  self.configuration.corps)
         self._memoire = (texte, lire_memoire(texte))
-        self.reserve.amorcer()          # au demarrage, jamais a l'arrivee d'un appel
+
+        # Mesure 4 : 2 040 ms pour une connexion neuve, 378 ms pour une gardee.
+        # On chauffe donc la connexion QUI SERT — celle du modele — au lieu de
+        # fabriquer une reserve d'objets que personne n'emprunte, ce qu'une revue
+        # independante a justement qualifie de decoratif.
+        amorcer = getattr(self.client_modele, "amorcer", None)
+        if callable(amorcer):
+            try:
+                amorcer()
+            except Exception:
+                # Un fournisseur injoignable au demarrage ne doit pas empecher le
+                # service de decrocher : la premiere requete reessaiera.
+                pass
         self._demarre = True
 
     # --- appels -------------------------------------------------------------

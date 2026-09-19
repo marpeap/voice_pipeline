@@ -148,3 +148,18 @@ def test_un_creneau_deja_pris_n_est_plus_propose(tmp_path):
         assert "15 h 30" not in dit, "un créneau déjà réservé a été proposé à un autre appelant"
     finally:
         serveur.arreter()
+
+
+def test_la_supervision_rend_un_delai_reel_apres_un_appel(service):
+    """La métrique qui dit qu'une machine est pleine doit valoir autre chose que
+    `None` une fois qu'un appel a eu lieu."""
+    prise = socket.create_connection(("127.0.0.1", service.port), timeout=3)
+    prise.settimeout(3)
+    try:
+        parler(prise)
+        parler(prise)
+    finally:
+        prise.close()
+    time.sleep(0.5)
+    etat = service.service.supervision()
+    assert etat["premier_fragment_p50_ms"] is not None
