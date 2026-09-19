@@ -1,11 +1,11 @@
 # voice-pipeline (refonte) — reprise de session
 
 **Quoi** : standard téléphonique IA en français, **service à part entière** ; Crenolo n'en est qu'un adaptateur.
-**Où en est-on (18/09)** : **le code existe**. Branche **`lot-l1`**, 144 tests verts, porte de non-régression ouverte en deux passages (`pass^5`). Neuf modules dans `standard/`, trois packs sectoriels, un mode de démonstration hors ligne.
+**Où en est-on (18/09)** : **le code existe**. Branche **`lot-l1`**, **267 tests verts**, porte de non-régression ouverte en deux passages (`pass^5`). **Dix-huit modules** dans `standard/` — dont le serveur AudioSocket, la session téléphonique, le connecteur et la conformité —, trois packs sectoriels, un mode de démonstration hors ligne.
 
 **Commandes** :
 ```bash
-.venv/bin/python -m pytest tests/ -q          # 144 tests
+.venv/bin/python -m pytest tests/ -q          # toute la suite
 .venv/bin/python bancs/porte.py --passages 2  # la porte
 .venv/bin/python demonstration.py             # un appel rejoué, sans clé ni téléphone
 ```
