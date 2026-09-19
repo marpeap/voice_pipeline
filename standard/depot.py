@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import uuid
 from typing import Any
 
 
@@ -50,6 +51,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS rendez_vous_cle
 -- libere la place au lieu de la bloquer pour toujours.
 CREATE UNIQUE INDEX IF NOT EXISTS rendez_vous_creneau
     ON rendez_vous (tenant_id, date, heure) WHERE annule = 0;
+
+-- Les messages pris quand le salon a choisi « prendre un message » plutot que
+-- « transferer » (question D4 des packs). Aucune contrainte d'unicite : deux
+-- appelants peuvent laisser le meme message, et les deux comptent.
+CREATE TABLE IF NOT EXISTS messages (
+    reference  TEXT PRIMARY KEY,
+    tenant_id  TEXT NOT NULL,
+    recu_le    TEXT NOT NULL,
+    donnees    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS messages_locataire ON messages (tenant_id, recu_le);
 """
 
 
@@ -64,6 +76,9 @@ class AccesLocataire:
 
     def inserer(self, cle: str, donnees: dict) -> str:
         return self._depot._inserer(self._tenant, cle, donnees)
+
+    def enregistrer_message(self, donnees: dict) -> str:
+        return self._depot._enregistrer_message(self._tenant, donnees)
 
     def relire(self, reference: str) -> dict | None:
         return self._depot._relire(self._tenant, reference)
@@ -131,6 +146,32 @@ class Depot:
                 "UPDATE rendez_vous SET annule = 1 WHERE tenant_id = ? AND reference = ?",
                 (tenant, reference))
             return curseur.rowcount > 0
+
+    def _enregistrer_message(self, tenant: str, donnees: dict) -> str:
+        """Un message pris pour le salon. Il n'y a rien a relire : personne
+        n'attend au bout du fil, et le message ne promet rien a personne."""
+        from datetime import datetime, timezone
+
+        reference = f"msg-{uuid.uuid4().hex[:12]}"
+        recu_le = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self._verrou:
+            self._connexion.execute(
+                "INSERT INTO messages (reference, tenant_id, recu_le, donnees) "
+                "VALUES (?, ?, ?, ?)",
+                (reference, tenant, recu_le,
+                 json.dumps({**donnees, "reference": reference, "recu_le": recu_le},
+                            ensure_ascii=False)))
+            self._connexion.commit()
+        return reference
+
+    def messages(self, tenant: str | None) -> list[dict[str, Any]]:
+        """Les messages d'un locataire, du plus recent au plus ancien."""
+        if not tenant:
+            raise ValueError("messages sans locataire : refuse, pour ne pas tout rendre")
+        with self._verrou:
+            return [json.loads(ligne["donnees"]) for ligne in self._connexion.execute(
+                "SELECT donnees FROM messages WHERE tenant_id = ? "
+                "ORDER BY recu_le DESC", (tenant,))]
 
     def lister(self, tenant: str | None) -> list[dict[str, Any]]:
         """Liste les rendez-vous d'un locataire. **Sans locataire, elle refuse.**"""

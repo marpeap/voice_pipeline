@@ -108,6 +108,16 @@ SCENARIOS = {
         None,
         (1, {"date": "2026-09-17", "heure": "15:30"}),
     ),
+    # Le salon a choisi « prendre un message » : l'agent ne transfère pas vers
+    # un téléphone que personne ne décroche, il note et raccroche proprement.
+    "prise-de-message": (
+        ["bonjour je voudrais parler à quelqu'un du salon s'il vous plaît",
+         "dites-lui que je cherche une coloration végétale pour samedi",
+         "zéro six douze trente-quatre cinquante-six soixante-dix-huit",
+         CLAVIER + "0612345678#"],
+        {"message": "COLORATION", "telephone": "0612345678"},
+        {"STANDARD_REPONSES": '{"A1": "Salon Elegance", "D4": "message"}'},
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],
@@ -300,7 +310,8 @@ def jouer(nom: str, repliques, attendu, supplement=None, intrusion=None) -> bool
     print(f"\ninterruptions : {serveur.interruptions_totales} · "
           f"paroles perdues : {serveur.paroles_perdues} · "
           f"pannes pendant l'appel : {serveur.pannes_pendant_appel}")
-    rendez_vous = Depot(base).lister("salon-1")
+    depot = Depot(base)
+    rendez_vous = depot.lister("salon-1")
     print()
     for index, audio in enumerate(entendu):
         texte = transcrire_la_reponse(audio)
@@ -308,6 +319,20 @@ def jouer(nom: str, repliques, attendu, supplement=None, intrusion=None) -> bool
             print(f"ce que l'appelant a entendu [{index}] : {texte[:220]}")
 
     print(f"\nrendez-vous en base : {rendez_vous}")
+    if attendu and "message" in attendu:
+        messages = depot.messages("salon-1")
+        print(f"messages en base : {messages}")
+        if not messages:
+            print("ÉCHEC : aucun message n'a été pris.")
+            return False
+        if attendu["message"] not in messages[0].get("texte", ""):
+            print(f"ÉCHEC : le message ne contient pas « {attendu['message']} ».")
+            return False
+        if attendu.get("telephone") and messages[0].get("telephone") != attendu["telephone"]:
+            print(f"ÉCHEC : le numéro de rappel manque ou diffère — {messages[0]}")
+            return False
+        print("SUCCÈS : le message est en base, avec le numéro de rappel.")
+        return True
     if attendu is None:
         if rendez_vous:
             print("ÉCHEC : un rendez-vous a été écrit alors qu'on n'en demandait pas.")

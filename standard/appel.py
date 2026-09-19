@@ -102,6 +102,8 @@ class Appel:
         self._demande_le_nom = False
         self._echecs_nom = 0
         self._nom_abandonne = False
+        self._message_en_cours: str | None = None
+        self._message_dicte = ""
         self.journal = Journal()
         self.numero_de_tour = 0
         self.envoyeur_sms = None                 # branché par le service, facultatif
@@ -137,6 +139,9 @@ class Appel:
                 self.etat.connu["telephone"] = numero
                 return self.confirmer()
             self._numero_propose = None          # il corrige : on reprend l'ecoute
+
+        if self._message_en_cours is not None:
+            return self._poursuivre_le_message(transcription)
 
         if self._demande_le_nom:
             return self._entendre_un_nom(transcription)
@@ -182,6 +187,12 @@ class Appel:
                 return Reponse("question", depuis_la_fiche)
 
         sortie = decider(proposition, self.etat, self.agenda)
+        # Le salon a pu choisir « prendre un message » plutot que « transferer »
+        # (question D4 des packs). Cette reponse n'etait lue nulle part : tout
+        # finissait en transfert, y compris vers un telephone que personne ne
+        # decroche — l'appel perdu que le produit existe pour rattraper.
+        if sortie.genre == "transfert" and self._prend_des_messages():
+            return self._commencer_un_message(transcription)
         sortie.phrase = self._garde_de_sortie(sortie.phrase)
         self._en_attente = sortie.entites if sortie.genre == "proposition" else None
         self.journal.noter(transcription=transcription, genre=sortie.genre,
@@ -194,6 +205,76 @@ class Appel:
     @property
     def _attend_un_numero(self) -> bool:
         return self._en_attente is not None and self._demande_le_numero
+
+    # --- la prise de message (question D4) ----------------------------------
+
+    def _prend_des_messages(self) -> bool:
+        """La fiche decide ; le code ne decide pas a sa place."""
+        return str((self.fiche.get("escalade") or {}).get("humain", "")) == "message"
+
+    def _commencer_un_message(self, transcription: str) -> Reponse:
+        self._message_en_cours = "texte"
+        phrase = "Je peux prendre un message pour le salon. Je vous écoute."
+        self.journal.noter(transcription=transcription, genre="message", phrase=phrase)
+        return Reponse("message", phrase)
+
+    def _poursuivre_le_message(self, transcription: str) -> Reponse:
+        if self._message_en_cours == "texte":
+            self._message_dicte = transcription.strip()
+            if self.etat.connu.get("telephone"):
+                return self._deposer_le_message()
+            self._message_en_cours = "numero"
+            phrase = "C'est noté. À quel numéro le salon peut-il vous rappeler ?"
+            self.journal.noter(transcription=transcription, genre="message", phrase=phrase)
+            return Reponse("message", phrase)
+
+        lecture = lire_numero(transcription)
+        if lecture.issue == "accepte":
+            self.etat.connu["telephone"] = lecture.numero
+            return self._deposer_le_message()
+
+        # Un numero dicte se perd quatre fois sur dix (mesure 7) — et un message
+        # sans numero de rappel ne sert presque a rien. On passe donc au clavier
+        # des le premier echec, comme la regle T7 le fait pour le rendez-vous.
+        self._echecs_numero += 1
+        if self._echecs_numero == 1 and self.basculer_clavier is not None:
+            self.basculer_clavier()
+            phrase = ("Je n'ai pas saisi votre numéro. Composez-le sur le clavier "
+                      "de votre téléphone, puis faites dièse.")
+            self.journal.noter(transcription=transcription, genre="message",
+                               phrase=phrase, lecture=lecture.issue)
+            return Reponse("message", phrase)
+
+        # Deuxieme echec, ou pas de clavier : on garde le message quand meme.
+        # Un message sans rappel possible vaut mieux qu'un message perdu, et
+        # insister ferait raccrocher.
+        return self._deposer_le_message()
+
+    def _deposer_le_message(self) -> Reponse:
+        """Ecrit le message, et ne confirme que ce qui est ecrit."""
+        contenu = {"texte": self._message_dicte,
+                   "nom": self.etat.connu.get("nom"),
+                   "telephone": self.etat.connu.get("telephone"),
+                   "appel": self.identifiant}
+        self._message_en_cours = None
+        deposer = getattr(self.base, "enregistrer_message", None)
+        if not callable(deposer):
+            phrase = "Je préfère vous passer quelqu'un du salon, un instant."
+            self.journal.noter(transcription="[message]", genre="transfert", phrase=phrase)
+            return Reponse("transfert", phrase)
+        try:
+            reference = deposer(contenu)
+        except Exception as erreur:
+            self.journal.noter(transcription="[message]", genre="incertain",
+                               phrase="", erreur=str(erreur))
+            phrase = ("Je n'arrive pas à enregistrer votre message. "
+                      "Je préfère vous passer quelqu'un du salon.")
+            return Reponse("transfert", phrase)
+
+        phrase = "C'est noté, je transmets au salon. Bonne journée."
+        self.journal.noter(transcription="[message]", genre="message", phrase=phrase,
+                           reference=reference)
+        return Reponse("message", phrase)
 
     def _demande_du_nom(self) -> bool:
         """Le pack decide (question D5), pas le code.
@@ -289,6 +370,11 @@ class Appel:
         vrai qu'un numero dicte, il est seulement mieux transmis.
         """
         lecture = lire_numero(numero)
+        if lecture.issue == "accepte" and self._message_en_cours is not None:
+            self.etat.connu["telephone"] = lecture.numero
+            return self._deposer_le_message()
+        if lecture.issue != "accepte" and self._message_en_cours is not None:
+            return self._deposer_le_message()
         if lecture.issue != "accepte":
             phrase = "Ce numéro ne convient pas. Le salon vous rappellera pour confirmer."
             self.journal.noter(transcription=f"[clavier] {numero}", genre="question",
