@@ -24,7 +24,13 @@ import wave
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
-from standard.audiosocket import PAQUET_20MS_8K, TYPE_AUDIO_8K, Decodeur, encoder  # noqa: E402
+from standard.audiosocket import (  # noqa: E402
+    PAQUET_20MS_8K,
+    TYPE_AUDIO_8K,
+    TYPE_DTMF,
+    Decodeur,
+    encoder,
+)
 from standard.demarrage import construire_serveur  # noqa: E402
 from standard.depot import Depot  # noqa: E402
 
@@ -32,9 +38,12 @@ VOIX_APPELANT = os.path.expanduser("~/piper/fr_FR-siwis-medium.onnx")
 MODELE_STT = os.path.expanduser("~/modeles/sherpa-onnx-streaming-zipformer-fr-2023-04-14")
 MARDI = "2026-09-15"
 
-# Chaque scenario : un nom, ce que l'appelant dit, et ce qu'on doit trouver en
-# base a la fin. `None` veut dire « rien ne doit s'ecrire » — un appel qui
-# n'aboutit pas est un resultat, pas une panne.
+# Chaque scenario : un nom, ce que l'appelant dit, ce qu'on doit trouver en base
+# a la fin, et — au besoin — ce qui change dans l'environnement du serveur.
+# `None` veut dire « rien ne doit s'ecrire » : un appel qui n'aboutit pas est un
+# resultat, pas une panne.
+CLAVIER = "clavier:"     # une replique composee au clavier, pas dite
+
 SCENARIOS = {
     "creneau-explicite": (
         ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
@@ -75,6 +84,20 @@ SCENARIOS = {
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],
         None,
+    ),
+    # Avec une passerelle SMS, l'agent demande le numero, le fait relire, puis
+    # ecrit. C'est le seul chemin du produit qui touche a la fois la grammaire
+    # des numeros, l'ecriture et l'envoi.
+    "numero-et-sms": (
+        ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
+         "oui c'est parfait",
+         # Deux échecs à l'oral suffisent à armer le clavier (règle T7) : c'est
+         # ce chemin-là qu'on veut voir marcher de bout en bout.
+         "zéro six douze trente-quatre cinquante-six soixante-dix-huit",
+         "c'est bien ça",
+         CLAVIER + "0612345678#"],
+        {"date": "2026-09-17", "heure": "15:30"},
+        {"STANDARD_SMS_EXPEDITEUR": "Elegance", "STANDARD_SMS_NOM": "Elegance"},
     ),
 }
 
@@ -142,11 +165,46 @@ def transcrire_la_reponse(audio: bytes) -> str:
     return texte
 
 
-def jouer(nom: str, repliques, attendu) -> bool:
+def passerelle_sms(recus: list):
+    """Une passerelle SMS minuscule, en local : elle accuse reception.
+
+    Sans accuse, l'envoyeur refuse de considerer le message comme parti — c'est
+    la regle du produit, et le banc doit la respecter comme un vrai fournisseur.
+    """
+    import json
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class Guichet(BaseHTTPRequestHandler):
+        def do_POST(self):
+            corps = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            recus.append(json.loads(corps or b"{}"))
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"id": "sms-1", "delivered": True}).encode())
+
+        def log_message(self, *_):
+            pass
+
+    serveur = HTTPServer(("127.0.0.1", 0), Guichet)
+    threading.Thread(target=serveur.serve_forever, daemon=True).start()
+    return serveur
+
+
+def jouer(nom: str, repliques, attendu, supplement=None) -> bool:
     """Un appel complet, du decrochage a la verification en base."""
     base = f"/tmp/appel_reel_{nom}.sqlite3"
     if os.path.exists(base):
         os.remove(base)
+
+    supplement = dict(supplement or {})
+    messages: list = []
+    guichet = None
+    if supplement.get("STANDARD_SMS_EXPEDITEUR") and "STANDARD_SMS_BASE" not in supplement:
+        guichet = passerelle_sms(messages)
+        supplement["STANDARD_SMS_BASE"] = f"http://127.0.0.1:{guichet.server_port}"
+        supplement["STANDARD_SMS_CLE"] = "cle-de-banc"
 
     serveur = construire_serveur({
         "STANDARD_TENANT": "salon-1",
@@ -161,6 +219,7 @@ def jouer(nom: str, repliques, attendu) -> bool:
         "STANDARD_STT_MODELE": MODELE_STT,
         "STANDARD_TTS": "piper",
         "STANDARD_VOIX": VOIX_APPELANT,
+        **(supplement or {}),
     })
     serveur.demarrer()
     print(f"serveur en écoute sur {serveur.port}\n")
@@ -175,9 +234,16 @@ def jouer(nom: str, repliques, attendu) -> bool:
         print(f"annonce  : {len(annonce)} octets reçus")
 
         for replique in repliques_du_tour:
-            print(f"appelant : « {replique} »")
-            envoyer(prise, voix(replique))
-            envoyer(prise, silence(900))        # de quoi clore le tour
+            if replique.startswith(CLAVIER):
+                touches = replique[len(CLAVIER):]
+                print(f"appelant : [clavier] {touches}")
+                for touche in touches:
+                    prise.sendall(encoder(TYPE_DTMF, touche.encode()))
+                    time.sleep(0.02)
+            else:
+                print(f"appelant : « {replique} »")
+                envoyer(prise, voix(replique))
+                envoyer(prise, silence(900))    # de quoi clore le tour
             reponse = ecouter(prise, decodeur, 3.0)
             entendu.append(reponse)
             print(f"agent    : {len(reponse)} octets audio")
@@ -185,6 +251,8 @@ def jouer(nom: str, repliques, attendu) -> bool:
         prise.close()
         time.sleep(0.3)
         serveur.arreter()
+        if guichet is not None:
+            guichet.shutdown()
 
     print(f"\ninterruptions : {serveur.interruptions_totales} · "
           f"paroles perdues : {serveur.paroles_perdues} · "
@@ -206,6 +274,18 @@ def jouer(nom: str, repliques, attendu) -> bool:
     if not rendez_vous:
         print("ÉCHEC : aucun rendez-vous n'a été pris.")
         return False
+    if guichet is not None:
+        print(f"SMS partis : {len(messages)}")
+        if not messages:
+            print("ÉCHEC : aucun SMS n'est parti alors qu'une passerelle répondait.")
+            return False
+        texte = str(messages[0])
+        print(f"SMS : {texte[:160]}")
+        quand = f"{attendu['date']} {attendu['heure']}" if attendu else ""
+        from standard.decision import enoncer_date
+        if attendu and enoncer_date(attendu["date"]).split()[0] not in texte.lower():
+            print(f"ÉCHEC : le SMS ne porte pas la date confirmée ({quand}).")
+            return False
     pris = rendez_vous[0]
     ecart = {champ: (valeur, pris.get(champ)) for champ, valeur in attendu.items()
              if pris.get(champ) != valeur}
@@ -220,9 +300,11 @@ def main() -> int:
     voulus = sys.argv[1:] or list(SCENARIOS)
     resultats = {}
     for nom in voulus:
-        repliques, attendu = SCENARIOS[nom]
+        scenario = SCENARIOS[nom]
+        repliques, attendu = scenario[0], scenario[1]
+        supplement = scenario[2] if len(scenario) > 2 else None
         print(f"\n========== {nom} ==========")
-        resultats[nom] = jouer(nom, repliques, attendu)
+        resultats[nom] = jouer(nom, repliques, attendu, supplement)
     print("\n---------- bilan ----------")
     for nom, reussi in resultats.items():
         print(f"  {'OK  ' if reussi else 'RATÉ'} {nom}")
