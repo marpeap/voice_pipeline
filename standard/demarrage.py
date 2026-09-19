@@ -27,6 +27,7 @@ from typing import Any, Mapping
 
 from standard.depot import Depot
 from standard.correction import RegistreDeCorrections
+from standard.entretien import Entretien
 from standard.journal import JournalDAppels
 from standard.hors_ligne import ModeleHorsLigne
 from standard.parole import FileDeSynthese
@@ -292,4 +293,7 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
     # La supervision n'est utile que si elle est ATTEIGNABLE depuis ce qui tourne.
     serveur.service = service
     serveur.journal = journal
+    # La duree de conservation annoncee au registre n'est vraie que si quelqu'un
+    # purge : c'est ce fil-la, demarre et arrete avec le serveur.
+    serveur.entretien = Entretien(journal)
     return serveur

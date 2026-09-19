@@ -16,7 +16,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-CONSERVATION_PAR_DEFAUT_JOURS = 90
+from standard.regles import CONSERVATION_JOURS
+
+CONSERVATION_PAR_DEFAUT_JOURS = CONSERVATION_JOURS
+"""Conserve pour les appelants existants : la valeur vit dans `regles`."""
 CHAMPS_INTERDITS = ("audio", "enregistrement", "wav", "pcm")
 
 SCHEMA = """

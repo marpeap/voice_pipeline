@@ -67,6 +67,15 @@ PREROLL_MS = 300
 """Mesure 9 : un moteur streaming perd le premier mot d'un enonce sur quatre.
 Le flux garde ce qui precede le seuil de parole."""
 
+CONSERVATION_JOURS = 90
+"""Duree de conservation des appels et de leurs transcriptions.
+
+La CNIL recommande **six mois au maximum** pour les enregistrements d'appels et
+leurs transcriptions, hors obligation sectorielle. Un standard de salon n'a
+aucune raison d'aller au bout : 90 jours couvrent la saison et les litiges de
+rendez-vous. C'est cette valeur que le registre des traitements annonce, et
+`entretien` la rend vraie en purgeant."""
+
 SEUIL_BRUITE_DB = 15
 """Mesure 10 : a 10-15 dB — la rue, la voiture — le WER double, et il double sur
 les entites. En dessous de ce seuil, la strategie de capture change."""

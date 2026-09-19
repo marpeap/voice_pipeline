@@ -67,6 +67,12 @@ class ServeurAudioSocket:
         self._prise.settimeout(0.2)
         self._fil = threading.Thread(target=self._accepter, daemon=True)
         self._fil.start()
+        # Le menage tourne avec le service, ou il ne tourne pas du tout : un cron
+        # pose a la main sur un VPS recree est la facon habituelle dont une duree
+        # de conservation devient fausse.
+        entretien = getattr(self, "entretien", None)
+        if entretien is not None:
+            entretien.demarrer()
 
     def arreter(self, attente_s: float = 5.0) -> None:
         """Arret propre : on attend les appels en cours, on ne les coupe pas.
@@ -75,6 +81,9 @@ class ServeurAudioSocket:
         d'une phrase. La promesse etait dans `__main__` bien avant d'etre tenue.
         """
         self._arret.set()
+        entretien = getattr(self, "entretien", None)
+        if entretien is not None:
+            entretien.arreter()
         if self._fil:
             self._fil.join(timeout=2)
         with self._verrou:

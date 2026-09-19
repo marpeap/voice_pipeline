@@ -3,6 +3,7 @@
     python -m standard verifier   # dit si le service peut décrocher
     python -m standard servir     # écoute les appels d'Asterisk
     python -m standard console    # la console du commerçant, sur la boucle locale
+    python -m standard registre   # le registre des traitements (RGPD art. 30)
 """
 
 from __future__ import annotations
@@ -22,6 +23,18 @@ def main(arguments: list[str]) -> int:
         rapport = verifier_le_deploiement()
         print(json.dumps(rapport, indent=2, ensure_ascii=False))
         return 0 if rapport["pret"] else 1
+
+    if commande == "registre":
+        # Derive de la configuration qui tourne : un registre recopie a la main
+        # devient faux au premier changement de moteur.
+        from standard.registre import registre_des_traitements, rendre_en_texte
+
+        registre = registre_des_traitements()
+        if "--json" in arguments:
+            print(json.dumps(registre, indent=2, ensure_ascii=False))
+        else:
+            print(rendre_en_texte(registre))
+        return 0
 
     if commande == "servir":
         serveur = construire_serveur()
