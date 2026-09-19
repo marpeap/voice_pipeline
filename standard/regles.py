@@ -92,7 +92,7 @@ LONGUEUR_MINIMALE_POUR_UN_PREFIXE = 4
 """En deca, un prefixe ne designe plus rien : « mar » vaut mardi et mars."""
 
 
-def indice_dans(mot: str, vocabulaire, reserves=()) -> int | None:
+def indice_dans(mot: str, vocabulaire, reserves=(), ecart: int = 1) -> int | None:
     """Retrouve un mot du calendrier **meme abime a la fin**.
 
     Mesure du 19/09, cinq appels joues avec les vrais moteurs : « jeudi » revient
@@ -112,11 +112,45 @@ def indice_dans(mot: str, vocabulaire, reserves=()) -> int | None:
         return vocabulaire.index(mot) if mot in vocabulaire else None
 
     trouves = [index for index, entree in enumerate(vocabulaire)
-               if _correspond(mot, entree)]
+               if _correspond(mot, entree, ecart)]
     return trouves[0] if len(trouves) == 1 else None
 
 
-def _correspond(mot: str, entree: str) -> bool:
+FUSION_PREMIER_FRAGMENT_MAX = 3
+"""Au-dela, ce n'est plus un mot coupe en deux : c'est deux mots."""
+
+
+def indice_dans_les_mots(mots, vocabulaire, reserves=()) -> int | None:
+    """Comme `indice_dans`, mais sur une phrase — et en recollant les mots coupes.
+
+    Banc du 19/09 : le moteur rend « jeudi » en deux morceaux, « JE DIS ». Le
+    mot existe, il est simplement fendu ; on tente donc la fusion des paires
+    dont le premier fragment est minuscule, et **seulement** quand aucun mot
+    entier n'a repondu.
+
+    Ce que cela coute : « je dis » dans une autre phrase pourrait devenir jeudi.
+    Une date lue ne s'ecrit jamais seule — l'agent l'enonce et attend un accord
+    (regle E1) —, donc le pire cas est une question de trop, pas un rendez-vous
+    faux.
+    """
+    for mot in mots:
+        rang = indice_dans(mot, vocabulaire, reserves)
+        if rang is not None:
+            return rang
+    for premier, second in zip(mots, mots[1:]):
+        if len(premier) > FUSION_PREMIER_FRAGMENT_MAX:
+            continue
+        # Deux lettres d'ecart tolerees ICI seulement : « je dis » recolle donne
+        # « jedis », et « jeudi » en est a deux operations. Le risque est borne
+        # par les trois gardes ci-dessus — fragment minuscule, aucun mot entier
+        # reconnu, et une seule entree correspondante.
+        rang = indice_dans(premier + second, vocabulaire, reserves, ecart=2)
+        if rang is not None:
+            return rang
+    return None
+
+
+def _correspond(mot: str, entree: str, ecart: int = 1) -> bool:
     if mot == entree:
         return True
     if len(mot) < LONGUEUR_MINIMALE_POUR_UN_PREFIXE:
@@ -124,19 +158,21 @@ def _correspond(mot: str, entree: str) -> bool:
     if mot.startswith(entree) or entree.startswith(mot):
         return True
     # « JEDI » pour « jeudi » : le milieu du mot aussi se perd, pas seulement sa
-    # fin (banc du 19/09). Une lettre d'ecart, jamais deux : au-dela, on
-    # rapprocherait « mardi » de « mars ».
-    return _une_lettre_d_ecart(mot, entree)
+    # fin (banc du 19/09). Une lettre d'ecart par defaut, jamais deux sur un mot
+    # entier : au-dela, on rapprocherait « mardi » de « mars ».
+    return distance(mot, entree) <= ecart
 
 
-def _une_lettre_d_ecart(a: str, b: str) -> bool:
-    """Vrai si une seule insertion, suppression ou substitution les separe."""
-    if abs(len(a) - len(b)) > 1:
-        return False
-    if len(a) == len(b):
-        return sum(x != y for x, y in zip(a, b)) == 1
-    court, long = (a, b) if len(a) < len(b) else (b, a)
-    for coupe in range(len(long)):
-        if long[:coupe] + long[coupe + 1:] == court:
-            return True
-    return False
+def distance(a: str, b: str) -> int:
+    """Levenshtein, sur des mots de calendrier — jamais sur des phrases."""
+    if a == b:
+        return 0
+    precedente = list(range(len(b) + 1))
+    for i, lettre_a in enumerate(a, start=1):
+        courante = [i]
+        for j, lettre_b in enumerate(b, start=1):
+            courante.append(min(precedente[j] + 1,
+                                courante[j - 1] + 1,
+                                precedente[j - 1] + (lettre_a != lettre_b)))
+        precedente = courante
+    return precedente[-1]

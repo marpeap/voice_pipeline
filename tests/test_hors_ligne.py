@@ -141,3 +141,15 @@ def test_deux_lettres_d_ecart_ne_suffisent_pas():
 def test_le_jour_le_plus_proche_est_choisi_et_un_seul():
     """« marsi » n'a qu'un voisin dans la semaine : mardi."""
     assert analyser("un rendez-vous marsi")["date"] == "2026-09-22"
+
+
+def test_un_jour_fendu_en_deux_mots_se_recolle():
+    """« JE DIS » pour « jeudi » : le moteur coupe aussi les mots en deux."""
+    assert analyser("je voudrais un rendez-vous je dis à quinze heures trente")["date"] \
+        == "2026-09-17"
+
+
+def test_deux_vrais_mots_ne_se_recollent_pas_en_un_jour():
+    """La fusion ne vaut que pour un premier fragment minuscule."""
+    assert analyser("je voudrais changer mardi pour vendre disons autre chose")["date"] \
+        == "2026-09-22"
