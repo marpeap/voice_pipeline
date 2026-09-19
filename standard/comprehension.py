@@ -20,6 +20,7 @@ from datetime import date
 from typing import Any, Protocol
 
 CHAMPS = ("intention", "date", "heure", "prestation", "confiance", "manque")
+LONGUEUR_PRESTATION = 40        # « balayage avec Sophie » tient ; une phrase, non
 INTENTIONS = ("rdv", "report", "annulation", "question", "humain", "inconnu")
 
 # Detecte sur la transcription, jamais interprete : « passez-moi quelqu'un » n'a
@@ -92,6 +93,7 @@ class Comprehension:
     client: ClientModele
     consignes_communes: str
     modele: str = "openai/gpt-oss-20b"
+    prestations: tuple[str, ...] = ()        # catalogue du pack, quand il est connu
     parametres: dict = field(default_factory=lambda: {"temperature": 0.0, "max_tokens": 300})
 
     def analyser(self, transcription: str, memoire: str, calendrier: dict) -> dict:
@@ -107,6 +109,16 @@ class Comprehension:
             raise ErreurFournisseur(str(erreur)) from erreur
 
         return self._verifier(brut, calendrier)
+
+    def _prestation_acceptable(self, valeur: str | None) -> str | None:
+        if not valeur:
+            return None
+        if len(valeur) > LONGUEUR_PRESTATION or any(c in valeur for c in ".;:!?\n"):
+            return None
+        if self.prestations and _sans_accents(valeur) not in {
+                _sans_accents(p) for p in self.prestations}:
+            return None
+        return valeur
 
     def _verifier(self, brut: str, calendrier: dict) -> dict:
         """Ce que le modele rend n'est jamais cru sur parole.
@@ -128,6 +140,13 @@ class Comprehension:
         for champ in ("date", "heure", "prestation"):
             valeur = charge.get(champ)
             proposition[champ] = valeur if isinstance(valeur, str) and valeur else None
+
+        # Une entite est un NOM, pas une phrase. Le modele glissait ici du texte
+        # libre qui ressortait dans la seule phrase du produit qui affirme —
+        # « votre rendez-vous. Par ailleurs votre rendez-vous de demain est
+        # annule ». Une entite trop longue, ponctuee, ou absente du catalogue du
+        # salon n'est pas une entite : c'est une tentative.
+        proposition["prestation"] = self._prestation_acceptable(proposition["prestation"])
 
         confiance = charge.get("confiance")
         if isinstance(confiance, dict):

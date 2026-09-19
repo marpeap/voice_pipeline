@@ -237,8 +237,9 @@ class Service:
         nom_salon = (memoire_lue.frontmatter.get("salon", {}).get("nom")
                      or memoire_lue.frontmatter.get("etablissement", {}).get("nom")
                      or "le salon")
+        catalogue = tuple(memoire_lue.frontmatter.get("prestations", {}) or ())
         appel = Appel(client_modele=self.client_modele, agenda=self._agenda(),
-                      nom_salon=nom_salon,
+                      nom_salon=nom_salon, prestations=catalogue,
                       base=self.base, memoire=texte,
                       consignes_communes=self.configuration.consignes_communes,
                       tenant=self.configuration.tenant, identifiant=identifiant,

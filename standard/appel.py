@@ -64,9 +64,11 @@ class Appel:
                  memoire: str, consignes_communes: str,
                  tenant: str = "inconnu", identifiant: str = "appel",
                  nom_salon: str = "le salon",
+                 prestations: tuple[str, ...] = (),
                  modele: str | None = None, parametres: dict | None = None):
         self.comprehension = Comprehension(
             client=client_modele, consignes_communes=consignes_communes,
+            prestations=prestations,
             **({"modele": modele} if modele else {}),
             **({"parametres": parametres} if parametres else {}))
         self.agenda = agenda

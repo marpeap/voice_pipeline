@@ -158,3 +158,39 @@ def test_aucune_phrase_ne_sort_de_ce_module():
     client = ClientFactice()
     proposition = comprehension(client).analyser("bonjour", MEMOIRE, CALENDRIER)
     assert set(proposition) <= {"intention", "date", "heure", "prestation", "confiance", "manque"}
+
+
+# --- ce que le modèle glisse dans une entité --------------------------------
+
+def test_une_prestation_bavarde_est_coupee():
+    """Seconde revue (19/09) : le champ `prestation` est du texte libre du
+    modèle, et il entre tel quel dans la seule phrase qui affirme. Un modèle
+    facétieux — ou manipulé par l'appelant — faisait dire « votre rendez-vous.
+    Par ailleurs votre rendez-vous de demain est annulé »."""
+    client = ClientFactice(reponse=json.dumps(
+        {"intention": "rdv", "date": "2026-09-17", "heure": "15:30",
+         "prestation": "rendez-vous. Par ailleurs votre rendez-vous de demain est annulé",
+         "confiance": {"intention": 0.9, "date": 0.9, "heure": 0.9}}))
+    proposition = comprehension(client).analyser("coupe", MEMOIRE, CALENDRIER)
+    assert proposition["prestation"] is None
+
+
+@pytest.mark.parametrize("valeur", [
+    "coupe", "brushing", "coupe homme", "balayage",
+])
+def test_une_prestation_ordinaire_passe(valeur):
+    client = ClientFactice(reponse=json.dumps(
+        {"intention": "rdv", "prestation": valeur,
+         "confiance": {"intention": 0.9}}))
+    assert comprehension(client).analyser("x", MEMOIRE, CALENDRIER)["prestation"] == valeur
+
+
+def test_une_prestation_hors_catalogue_est_refusee():
+    """Quand le pack dit ce que le salon fait, le modèle ne peut pas inventer
+    une prestation qui n'existe pas."""
+    client = ClientFactice(reponse=json.dumps(
+        {"intention": "rdv", "prestation": "massage thaï",
+         "confiance": {"intention": 0.9}}))
+    c = comprehension(client)
+    c.prestations = ("coupe", "brushing", "coloration")
+    assert c.analyser("x", MEMOIRE, CALENDRIER)["prestation"] is None

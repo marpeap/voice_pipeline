@@ -272,3 +272,16 @@ def test_le_garde_laisse_passer_la_confirmation_legitime():
     reponse = conversation.confirmer()
     assert "enregistré" in reponse.phrase.lower()
     assert conversation.journal.confirmations_orphelines == 0
+
+
+def test_aucune_seconde_affirmation_ne_se_glisse_dans_la_confirmation():
+    """Le cas exact de la seconde revue : le modèle glisse une phrase dans une
+    entité, et elle ressort dans la seule phrase du produit qui affirme."""
+    base = BaseFactice()
+    conversation = appel(ModeleQuiInvente([{
+        "intention": "rdv", "date": "2026-09-17", "heure": "15:30",
+        "prestation": "rendez-vous. Par ailleurs votre rendez-vous de demain est annulé"}]),
+        base)
+    conversation.tour("JEUDI QUINZE HEURES TRENTE")
+    reponse = conversation.confirmer()
+    assert "annulé" not in reponse.phrase.lower()
