@@ -271,3 +271,35 @@ def test_un_expediteur_invalide_ne_branche_rien():
                         STANDARD_SMS_NOM="Salon Élégance")
     config = configuration_depuis_environnement(env)
     assert _envoyeur_sms(env, config) is None
+
+
+def test_sans_cle_la_verification_annonce_le_moteur_hors_ligne():
+    """Seconde revue (19/09) : poser `STANDARD_MODELE` faisait annoncer ce modèle
+    par la commande de vérification, alors que le service servait le moteur de
+    repli. On annonce ce qui tournera, pas ce qui est écrit."""
+    rapport = verifier_le_deploiement(environnement(STANDARD_MODELE="un-modele",
+                                                    STANDARD_STT="muet",
+                                                    STANDARD_TTS="muet"))
+    assert rapport["modele"] == "hors ligne"
+
+
+def test_avec_une_cle_le_modele_annonce_est_celui_qui_tournera():
+    rapport = verifier_le_deploiement(environnement(STANDARD_MODELE="un-modele",
+                                                    STANDARD_MODELE_CLE="secrete",
+                                                    STANDARD_STT="muet",
+                                                    STANDARD_TTS="muet"))
+    assert rapport["modele"] == "un-modele"
+
+
+def test_le_client_choisi_suit_la_configuration():
+    from standard.demarrage import _client_modele
+    from standard.hors_ligne import ModeleHorsLigne
+    from standard.modele import ClientModeleHttp
+
+    env = environnement()
+    config = configuration_depuis_environnement(env)
+    assert isinstance(_client_modele(env, config), ModeleHorsLigne)
+
+    env = environnement(STANDARD_MODELE="un-modele", STANDARD_MODELE_CLE="secrete")
+    config = configuration_depuis_environnement(env)
+    assert isinstance(_client_modele(env, config), ClientModeleHttp)

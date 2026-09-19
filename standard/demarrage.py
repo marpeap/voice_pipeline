@@ -93,13 +93,36 @@ def verifier_le_deploiement(environnement: Mapping[str, str] | None = None) -> d
         "pack_valide": bool(config.pack.get("blocs")),
         "creneaux": len(config.creneaux),
         "questions_manquantes": manquantes,
-        "modele": config.modele or "hors ligne",
+        # On annonce ce qui TOURNERA, pas ce qui est ecrit dans la configuration :
+        # un nom de modele sans cle ne sert a rien, et l'afficher ferait croire
+        # qu'un modele repond alors que c'est le moteur de repli.
+        "modele": (config.modele if (config.modele and env.get("STANDARD_MODELE_CLE"))
+                   else "hors ligne"),
         "moteurs": moteurs,
         # « Pret » veut dire capable de decrocher ET d'entendre : un service qui
         # repond sans comprendre est pire qu'un service qui refuse de demarrer.
         "pret": (not manquantes and bool(config.creneaux)
                  and all(m["disponible"] for m in moteurs.values())),
     }
+
+
+def _client_modele(env, config):
+    """Le modele configure, ou le moteur hors ligne — et on ne ment pas sur lequel.
+
+    Sans cle, on rend le moteur deterministe : un service qui refuse de demarrer
+    faute de cle est un service qu'on ne peut pas essayer. Mais la commande de
+    verification dit alors « hors ligne », et non le nom qu'on aurait aime lire.
+    """
+    from standard.modele import ClientModeleHttp, TransportHttps
+
+    if not (config.modele and env.get("STANDARD_MODELE_CLE")):
+        return ModeleHorsLigne(aujourd_hui=config.aujourd_hui)
+
+    hote = env.get("STANDARD_MODELE_HOTE", "api.groq.com")
+    base = env.get("STANDARD_MODELE_BASE", "/openai/v1")
+    return ClientModeleHttp(TransportHttps(hote, base), modele=config.modele,
+                            cle=env["STANDARD_MODELE_CLE"],
+                            parametres=config.parametres)
 
 
 def _envoyeur_sms(env, config):
@@ -202,7 +225,7 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
         return occupes
 
     service = Service(config,
-                      client_modele=ModeleHorsLigne(aujourd_hui=config.aujourd_hui),
+                      client_modele=_client_modele(env, config),
                       base=depot.pour(config.tenant),
                       creneaux_pris=creneaux_pris,
                       envoyeur_sms=_envoyeur_sms(env, config))
