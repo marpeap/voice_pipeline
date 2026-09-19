@@ -37,6 +37,7 @@ def etat_du_serveur(serveur) -> dict:
         "paroles_perdues": getattr(serveur, "paroles_perdues", 0),
         "pannes_pendant_appel": getattr(serveur, "pannes_pendant_appel", 0),
         "archivages_perdus": getattr(serveur, "archivages_perdus", 0),
+        "demarchages_filtres": getattr(serveur, "demarchages_filtres", 0),
     }
     if service is not None:
         etat.update(service.supervision())

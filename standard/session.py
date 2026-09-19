@@ -103,6 +103,7 @@ class SessionTelephonique:
     trames_ignorees: int = 0
     premiers_fragments_ms: list = field(default_factory=list)
     annonce_delivree: bool = False
+    fin_demandee: bool = False      # l'agent a rendu la ligne (demarchage filtre)
     pannes: int = 0
     transfert_demande: bool = False
     preuve_d_annonce: dict | None = None
@@ -346,8 +347,12 @@ class SessionTelephonique:
         return self._dire(reponse)
 
     def _dire(self, reponse) -> list[bytes]:
-        """Joue une reponse d'agent — et honore le transfert qu'elle demande."""
+        """Joue une reponse d'agent — et honore ce qu'elle demande ensuite."""
         morceaux = self._jouer(reponse.phrase)
+        if getattr(self.agent, "fin_demandee", False):
+            # La phrase se dit en ENTIER avant que la ligne ne se ferme : c'est
+            # le serveur qui raccroche, une fois la file vidée.
+            self.fin_demandee = True
         if getattr(reponse, "genre", "") == "transfert":
             # Le bord telephonique doit VRAIMENT passer la main : une phrase sans
             # signal, c'est raccrocher au nez de l'appelant en musique.

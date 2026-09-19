@@ -67,6 +67,11 @@ PREROLL_MS = 300
 """Mesure 9 : un moteur streaming perd le premier mot d'un enonce sur quatre.
 Le flux garde ce qui precede le seuil de parole."""
 
+TOURS_OU_LE_DEMARCHAGE_SE_COUPE = 2
+"""Passe les premiers mots, une phrase commerciale peut venir d'un client qui
+explique son metier : on ne coupe pas une conversation deja engagee. Le faux
+positif coute un client, le faux negatif trente secondes."""
+
 TOURS_FENETRE_CORRECTION_NOM = 2
 """Combien de tours apres la confirmation un nom seul vaut encore correction.
 

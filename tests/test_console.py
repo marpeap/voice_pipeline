@@ -272,3 +272,15 @@ def test_un_rendez_vous_a_rattraper_se_distingue_d_un_message():
     _, contenu = page(Console(journal=journal, tenant="salon-1", depot=depot))
     assert "À confirmer" in contenu
     assert contenu.index("À confirmer") < contenu.index("Fil des appels")
+
+
+def test_le_fil_dit_combien_de_demarchages_ont_ete_filtres():
+    """KPI promis dans `docs/06` : « spams filtrés et non facturés ». Un salon
+    qui ne le voit pas croit payer ces appels."""
+    depot = Depot(":memory:")
+    journal = JournalDAppels(depot)
+    journal.enregistrer("salon-1", {**APPEL, "issue": "demarchage",
+                                    "uuid": "7f3a1c5e-0000-4000-8000-000000000009"})
+    journal.enregistrer("salon-1", APPEL)
+    _, contenu = page(Console(journal=journal, tenant="salon-1"))
+    assert "1 démarchage filtré" in contenu

@@ -45,6 +45,7 @@ class ServeurAudioSocket:
         self.rythme = rythme          # respecter 20 ms entre paquets ; faux en test
         self.sur_fin = sur_fin
         self.archivages_perdus = 0     # un appel fini dont le journal n'a pas voulu
+        self.demarchages_filtres = 0   # non factures au salon (docs/06)
 
         self.appels_en_cours = 0
         self.appels_total = 0
@@ -136,6 +137,11 @@ class ServeurAudioSocket:
             session.ouvrir()
             emetteur.start()
             while not self._arret.is_set() and not session.fermee:
+                # Verifie AVANT la lecture : un demarcheur qui se tait n'envoie
+                # plus rien, et la ligne serait restee ouverte a l'attendre.
+                if session.fin_demandee and not session.en_train_de_parler:
+                    self.demarchages_filtres += 1
+                    break
                 try:
                     morceau = connexion.recv(TAILLE_LECTURE)
                 except socket.timeout:

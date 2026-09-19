@@ -105,6 +105,12 @@ class AppelSuivi:
     def numero_au_clavier(self, numero: str):
         return self._appel.numero_au_clavier(numero)
 
+    @property
+    def fin_demandee(self) -> bool:
+        """La session la cherche ici : sans delegation, la ligne resterait
+        ouverte apres un demarchage refuse."""
+        return self._appel.fin_demandee
+
     def rien_entendu(self):
         """La session la cherche ici : sans delegation, l'agent resterait muet."""
         return self._appel.rien_entendu()

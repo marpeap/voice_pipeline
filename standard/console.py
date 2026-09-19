@@ -128,8 +128,18 @@ class Console:
         resume = self.journal.resume(self.tenant)
         incidents = self.journal.incidents(self.tenant)
 
-        entete = f"<h1>Vos appels</h1><p class=legende>{resume['appels']} appels · " \
-                 f"{resume['rendez_vous']} rendez-vous · {resume['transferts']} transferts</p>"
+        # Miller (4±1) : quatre chiffres au plus dans cette ligne, et le
+        # quatrieme n'apparait que s'il y a quelque chose a dire.
+        chiffres = [f"{resume['appels']} appels",
+                    f"{resume['rendez_vous']} rendez-vous",
+                    f"{resume['transferts']} transferts"]
+        filtres = resume.get("demarchages", 0)
+        if filtres:
+            chiffres.append(f"{filtres} démarchage{'s' if filtres > 1 else ''} "
+                            f"filtré{'s' if filtres > 1 else ''}, non facturé"
+                            f"{'s' if filtres > 1 else ''}")
+        entete = ("<h1>Vos appels</h1>"
+                  f"<p class=legende>{' · '.join(chiffres)}</p>")
         if self._message:
             entete += f"<p class=succes>{_texte(self._message)}</p>"
             self._message = None

@@ -30,9 +30,11 @@ from standard.fiche import repondre as repondre_depuis_la_fiche
 from standard.grammaire import enoncer_numero, lire_numero
 from standard.identite import lire_correction_de_nom, lire_nom, lire_nom_seul
 from standard.locataire import lire_memoire
+from standard.demarchage import est_un_demarchage
 from standard.regles import (
     RELANCES_MUETTES_AVANT_TRANSFERT,
     TOURS_FENETRE_CORRECTION_NOM,
+    TOURS_OU_LE_DEMARCHAGE_SE_COUPE,
     contient_une_confirmation,
 )
 from standard.langue import FRANCAIS, detecter_langue, phrase_de_passage
@@ -62,6 +64,9 @@ class Journal:
     """
     tours: list[dict[str, Any]] = field(default_factory=list)
     ecriture: JournalEcriture = field(default_factory=JournalEcriture)
+    # Un appel de demarchage filtre ne doit pas etre facture au salon : il se
+    # compte ici, et la supervision le remonte (docs/06, KPI promis).
+    demarchages: int = 0
 
     @property
     def confirmations_orphelines(self) -> int:
@@ -108,6 +113,7 @@ class Appel:
         self._demande_le_nom = False
         self._echecs_nom = 0
         self._nom_abandonne = False
+        self.fin_demandee = False
         self._message_en_cours: str | None = None
         self._message_dicte = ""
         self._reference_ecrite: str | None = None
@@ -136,6 +142,19 @@ class Appel:
         """Un tour de parole : ce que l'appelant a dit, ce que l'agent repond."""
         self.numero_de_tour += 1
         self._relances_muettes = 0        # on l'a entendu : le compteur repart
+
+        # Un appel de prospection ne se negocie pas non plus : on refuse en une
+        # phrase et on rend la ligne. Seulement dans les premiers tours — ensuite
+        # une phrase commerciale peut venir d'un client qui explique son metier.
+        if (self.numero_de_tour <= TOURS_OU_LE_DEMARCHAGE_SE_COUPE
+                and est_un_demarchage(transcription)):
+            self.journal.demarchages += 1
+            phrase = ("Le salon ne donne pas suite aux démarchages par téléphone. "
+                      "Bonne journée.")
+            self.journal.noter(transcription=transcription, genre="demarchage",
+                               phrase=phrase)
+            self.fin_demandee = True
+            return Reponse("demarchage", phrase)
 
         # Avant toute chose : parle-t-il une langue que nous ne servons pas ?
         # Le servir a moitie serait pire que passer la main — et l'AI Act demande

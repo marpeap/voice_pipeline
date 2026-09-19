@@ -94,12 +94,16 @@ class JournalDAppels:
         appels = self.lister(tenant)
         if not appels:
             return {"appels": 0, "rendez_vous": 0, "transferts": 0,
-                    "part_bruitee_pct": 0.0, "confirmations_orphelines": 0}
+                    "demarchages": 0, "part_bruitee_pct": 0.0,
+                    "confirmations_orphelines": 0}
         bruites = sum(1 for a in appels if a.get("bruite"))
         return {
             "appels": len(appels),
             "rendez_vous": sum(1 for a in appels if a.get("issue") == "rendez-vous"),
             "transferts": sum(1 for a in appels if a.get("issue") == "transfert"),
+            # Promis par `docs/06` : « spams filtres et non factures ». Un salon
+            # qui ne les voit pas croit les payer.
+            "demarchages": sum(1 for a in appels if a.get("issue") == "demarchage"),
             "part_bruitee_pct": round(100 * bruites / len(appels), 1),
             "confirmations_orphelines": sum(a.get("confirmations_orphelines", 0)
                                             for a in appels),
