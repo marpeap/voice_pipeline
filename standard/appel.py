@@ -18,6 +18,7 @@ from typing import Any
 
 from standard.comprehension import Comprehension, ErreurFournisseur
 from standard.decision import Agenda, Etat, decider
+from standard.langue import FRANCAIS, detecter_langue, phrase_de_passage
 from standard.ecriture import (
     BaseRendezVous,
     Ecriture,
@@ -87,6 +88,17 @@ class Appel:
     def tour(self, transcription: str, bruite: bool = False) -> Reponse:
         """Un tour de parole : ce que l'appelant a dit, ce que l'agent repond."""
         self.numero_de_tour += 1
+
+        # Avant toute chose : parle-t-il une langue que nous ne servons pas ?
+        # Le servir a moitie serait pire que passer la main — et l'AI Act demande
+        # l'annonce « dans la langue de la conversation ».
+        langue = detecter_langue(transcription)
+        if langue != FRANCAIS:
+            phrase = phrase_de_passage(langue)
+            self.journal.noter(transcription=transcription, genre="transfert",
+                               phrase=phrase, langue=langue)
+            return Reponse("transfert", phrase, {"langue": langue})
+
         try:
             proposition = self.comprehension.analyser(transcription, self.memoire,
                                                       self._calendrier())
