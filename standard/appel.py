@@ -19,7 +19,9 @@ from typing import Any
 from standard.comprehension import Comprehension, ErreurFournisseur
 from standard.decision import Agenda, Etat, decider
 from standard.assentiment import est_un_refus, est_un_oui
+from standard.fiche import repondre as repondre_depuis_la_fiche
 from standard.grammaire import enoncer_numero, lire_numero
+from standard.locataire import lire_memoire
 from standard.regles import contient_une_confirmation
 from standard.langue import FRANCAIS, detecter_langue, phrase_de_passage
 from standard.ecriture import (
@@ -74,6 +76,13 @@ class Appel:
         self.agenda = agenda
         self.base = base
         self.memoire = memoire
+        # La fiche du salon, lue une fois : l'agent y prend ses reponses de fait
+        # (horaires), au lieu de repondre « Que puis-je faire pour vous ? » a une
+        # question dont il a la reponse ecrite (banc du 19/09).
+        try:
+            self.fiche = lire_memoire(memoire).frontmatter
+        except Exception:
+            self.fiche = {}
         self.tenant = tenant
         self.identifiant = identifiant
         self.nom_salon = nom_salon
@@ -142,6 +151,16 @@ class Appel:
                                phrase="", erreur=str(erreur))
             return Reponse("panne", "Je rencontre un problème technique. "
                                     "Je vous passe quelqu'un du salon.")
+
+        # Une question de fait se repond avant toute logique d'agenda : elle ne
+        # demande ni creneau, ni confirmation, ni ecriture.
+        if proposition.get("intention") == "question":
+            depuis_la_fiche = repondre_depuis_la_fiche(transcription, self.fiche)
+            if depuis_la_fiche:
+                self.journal.noter(transcription=transcription, genre="question",
+                                   phrase=depuis_la_fiche, bruite=bruite,
+                                   source="fiche")
+                return Reponse("question", depuis_la_fiche)
 
         sortie = decider(proposition, self.etat, self.agenda)
         sortie.phrase = self._garde_de_sortie(sortie.phrase)
