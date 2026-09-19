@@ -183,3 +183,44 @@ def test_aucun_sms_ne_part_vers_un_numero_invalide():
     envoi = envoyeur.confirmer("06123", RDV)
     assert envoi.envoye is False
     assert transporteur.envois == []
+
+
+# --- un transporteur réel, et un transporteur qui n'envoie pas ---------------
+
+def test_le_transporteur_http_envoie_ce_qu_on_lui_donne():
+    from standard.sms import TransporteurHttp
+
+    vues = []
+
+    def transport(methode, url, corps=None, entetes=None, delai=None):
+        vues.append({"url": url, "corps": corps, "entetes": entetes})
+        return 200, {"id": "sms-1", "delivered": True}
+
+    transporteur = TransporteurHttp(transport, base="https://passerelle.example",
+                                    cle="secrete")
+    retour = transporteur.envoyer("0612345678", "Bonjour", "SalonEleg")
+    assert retour["identifiant"] == "sms-1"
+    assert vues[0]["corps"]["to"] == "+33612345678", "le numéro doit partir au format international"
+    assert vues[0]["entetes"]["Authorization"].endswith("secrete")
+    assert "secrete" not in vues[0]["url"]
+
+
+def test_le_transporteur_http_signale_un_refus():
+    from standard.sms import TransporteurHttp
+
+    transporteur = TransporteurHttp(lambda *a, **kw: (402, {"erreur": "credit épuisé"}),
+                                    base="https://x", cle="k")
+    with pytest.raises(RuntimeError, match="402"):
+        transporteur.envoyer("0612345678", "Bonjour", "SalonEleg")
+
+
+def test_le_transporteur_consigne_n_envoie_rien_et_le_dit():
+    """Pour un pilote sans passerelle : on garde la trace de ce qui *aurait* été
+    envoyé, et l'agent ne promet pas de SMS puisqu'il n'y a pas d'accusé."""
+    from standard.sms import TransporteurConsigne
+
+    consignes = []
+    transporteur = TransporteurConsigne(consignes.append)
+    retour = transporteur.envoyer("0612345678", "Bonjour", "SalonEleg")
+    assert retour["accuse_de_remise"] is False
+    assert consignes[0]["destinataire"] == "0612345678"

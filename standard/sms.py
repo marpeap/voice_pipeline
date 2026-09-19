@@ -194,3 +194,56 @@ class Envoyeur:
                      identifiant=retour.get("identifiant"),
                      reserve="" if accuse else
                      "aucun accusé de remise : l'envoi n'est pas prouvé")
+
+
+# --- les transporteurs -------------------------------------------------------
+
+class TransporteurHttp:
+    """Une passerelle SMS quelconque, jointe en HTTP. Le transport est injecte.
+
+    Rien ici ne suppose un fournisseur particulier : le produit ne doit pas etre
+    lie a une passerelle, et la seule chose qui compte est **l'accuse de
+    remise** — un SMS sans accuse ne prouve rien (Arcep, sur les passerelles par
+    carte SIM).
+    """
+
+    def __init__(self, transport, base: str, cle: str, delai_s: float = 5.0):
+        self._transport = transport
+        self._base = base.rstrip("/")
+        self._cle = cle
+        self._delai = delai_s
+
+    def envoyer(self, destinataire: str, message: str, expediteur: str) -> dict:
+        # Format international : une passerelle etrangere ne devine pas le « 0 »
+        # francais, et le message part alors nulle part en se faisant payer.
+        international = "+33" + destinataire[1:] if destinataire.startswith("0") \
+            else destinataire
+        statut, corps = self._transport(
+            "POST", f"{self._base}/messages",
+            corps={"to": international, "from": expediteur, "text": message},
+            entetes={"Authorization": f"Bearer {self._cle}",
+                     "Content-Type": "application/json"},
+            delai=self._delai)
+        if statut not in (200, 201, 202):
+            raise RuntimeError(f"passerelle SMS : HTTP {statut} — {corps}")
+        return {"identifiant": corps.get("id") or corps.get("identifiant"),
+                "accuse_de_remise": bool(corps.get("delivered")
+                                         or corps.get("accuse_de_remise"))}
+
+
+class TransporteurConsigne:
+    """N'envoie rien, et le dit. Pour un pilote sans passerelle.
+
+    On garde la trace de ce qui **aurait** ete envoye — utile pour verifier les
+    messages avant de payer le premier. Et comme il ne rend aucun accuse de
+    remise, l'agent ne promet pas de SMS : la chaine entiere reste honnete sans
+    qu'on ait a la debrancher.
+    """
+
+    def __init__(self, consigner):
+        self._consigner = consigner
+
+    def envoyer(self, destinataire: str, message: str, expediteur: str) -> dict:
+        self._consigner({"destinataire": destinataire, "message": message,
+                         "expediteur": expediteur, "envoye": False})
+        return {"identifiant": None, "accuse_de_remise": False}

@@ -241,3 +241,33 @@ def test_le_jeton_de_synthese_est_rendu_entre_deux_fragments():
     assert max(debuts.values()) < 0.25, (
         f"le dernier appelant a attendu {max(debuts.values()):.2f} s "
         "avant le premier son : le plafond borne la lecture, pas la fabrication")
+
+
+def test_sans_expediteur_declare_aucun_sms_n_est_promis():
+    """Seconde revue (19/09) : `envoyeur_sms` n'était posé nulle part, donc la
+    promesse conditionnelle était conditionnée à une condition toujours fausse —
+    une réparation faite par le bas."""
+    from standard.demarrage import _envoyeur_sms
+
+    config = configuration_depuis_environnement(environnement())
+    assert _envoyeur_sms(environnement(), config) is None
+
+
+def test_un_expediteur_declare_branche_l_envoyeur():
+    from standard.demarrage import _envoyeur_sms
+
+    env = environnement(STANDARD_SMS_EXPEDITEUR="SalonEleg",
+                        STANDARD_SMS_NOM="Salon Élégance")
+    config = configuration_depuis_environnement(env)
+    assert _envoyeur_sms(env, config) is not None
+
+
+def test_un_expediteur_invalide_ne_branche_rien():
+    """Un expéditeur refusé par l'opérateur ferait tomber TOUS les messages :
+    mieux vaut n'en promettre aucun que les perdre tous."""
+    from standard.demarrage import _envoyeur_sms
+
+    env = environnement(STANDARD_SMS_EXPEDITEUR="PROMO2026",
+                        STANDARD_SMS_NOM="Salon Élégance")
+    config = configuration_depuis_environnement(env)
+    assert _envoyeur_sms(env, config) is None

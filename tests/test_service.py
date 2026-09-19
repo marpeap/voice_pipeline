@@ -187,3 +187,54 @@ def test_un_meme_incident_n_est_compte_qu_une_fois():
     supervision.absorber(1)
     supervision.absorber(0)
     assert supervision.etat()["confirmations_orphelines"] == 1
+
+
+# --- ce que le service doit transmettre à la session -------------------------
+
+def test_l_appel_suivi_expose_le_clavier():
+    """Seconde revue (19/09) : la session cherchait `basculer_clavier` sur
+    l'agent — mais l'agent réel est `AppelSuivi`, qui ne l'exposait pas. Le
+    `hasattr` échouait en silence, et la règle T7 n'était jamais armée."""
+    s = service()
+    s.demarrer()
+    appel = s.nouvel_appel("appel-1")
+    assert hasattr(appel, "basculer_clavier")
+    assert hasattr(appel, "numero_au_clavier")
+
+
+def test_poser_le_clavier_sur_l_appel_suivi_atteint_l_appel():
+    class EnvoyeurFactice:
+        def confirmer(self, telephone, rendez_vous):
+            from standard.sms import Envoi
+            return Envoi(True)
+
+    # Le clavier ne s'arme que si l'agent demande un numero — donc seulement
+    # quand un SMS peut partir. Sans envoyeur, la question ne se pose pas.
+    s = Service(configuration(), client_modele=ModeleFactice(), base=BaseFactice(),
+                envoyeur_sms=EnvoyeurFactice())
+    s.demarrer()
+    appel = s.nouvel_appel("appel-1")
+    temoin = []
+    appel.basculer_clavier = lambda: temoin.append(True)
+    appel.tour("JE VOUDRAIS JEUDI A QUINZE HEURES TRENTE")
+    appel.tour("oui")
+    appel.tour("zéro six douze")
+    appel.tour("je ne sais plus")
+    assert temoin, "la bascule posée sur l'agent n'atteint pas l'appel"
+
+
+def test_l_envoyeur_de_sms_est_transmis_quand_il_existe():
+    class EnvoyeurFactice:
+        def confirmer(self, telephone, rendez_vous):
+            from standard.sms import Envoi
+            return Envoi(True)
+
+    envoyeur = EnvoyeurFactice()
+    s = Service(configuration(), client_modele=ModeleFactice(), base=BaseFactice(),
+                envoyeur_sms=envoyeur)
+    s.demarrer()
+    appel = s.nouvel_appel("appel-1")
+    reponse = appel.tour("JE VOUDRAIS JEUDI A QUINZE HEURES TRENTE")
+    reponse = appel.tour("oui")
+    assert "numéro" in reponse.phrase.lower(), \
+        "sans envoyeur transmis, l'agent ne demande jamais le numéro"

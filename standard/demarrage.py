@@ -102,6 +102,52 @@ def verifier_le_deploiement(environnement: Mapping[str, str] | None = None) -> d
     }
 
 
+def _envoyeur_sms(env, config):
+    """L'envoyeur, ou rien du tout — jamais un envoyeur qui ne peut pas envoyer.
+
+    Sans expediteur declare, on ne branche rien : l'agent ne demandera pas le
+    numero et ne promettra pas de SMS. Avec un expediteur mais sans passerelle,
+    on consigne ce qui aurait ete envoye — ce qui permet de relire les messages
+    avant de payer le premier, sans que l'agent promette quoi que ce soit.
+    """
+    from standard.sms import (
+        Envoyeur,
+        MessageRefuse,
+        TransporteurConsigne,
+        TransporteurHttp,
+    )
+
+    expediteur = env.get("STANDARD_SMS_EXPEDITEUR")
+    if not expediteur:
+        return None
+
+    nom = (env.get("STANDARD_SMS_NOM")
+           or config.reponses.get("A1")
+           or config.tenant)
+    base, cle = env.get("STANDARD_SMS_BASE"), env.get("STANDARD_SMS_CLE")
+    if base and cle:
+        import json as _json
+        import urllib.request
+
+        def transport(methode, url, corps=None, entetes=None, delai=None):
+            requete = urllib.request.Request(
+                url, data=_json.dumps(corps).encode(), headers=entetes or {},
+                method=methode)
+            with urllib.request.urlopen(requete, timeout=delai) as reponse:
+                return reponse.status, _json.load(reponse)
+
+        transporteur = TransporteurHttp(transport, base=base, cle=cle)
+    else:
+        transporteur = TransporteurConsigne(lambda trace: None)
+
+    try:
+        return Envoyeur(transporteur, expediteur=expediteur, nom_commercial=nom)
+    except MessageRefuse:
+        # Un expediteur refuse par l'operateur ferait tomber TOUS les messages :
+        # mieux vaut n'en promettre aucun que les perdre tous.
+        return None
+
+
 def _synthese_tolerante(env, fabrique=None):
     """La synthese, bornee, paresseuse, et tolerante a son absence.
 
@@ -158,7 +204,8 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
     service = Service(config,
                       client_modele=ModeleHorsLigne(aujourd_hui=config.aujourd_hui),
                       base=depot.pour(config.tenant),
-                      creneaux_pris=creneaux_pris)
+                      creneaux_pris=creneaux_pris,
+                      envoyeur_sms=_envoyeur_sms(env, config))
     service.demarrer()
 
     journal = JournalDAppels(depot)

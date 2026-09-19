@@ -87,6 +87,20 @@ class AppelSuivi:
         self._supervision.appels += 1
         self._orphelines_comptees = 0
 
+    # La session cherche ces deux-la sur l'agent. L'agent reel, c'est CET objet :
+    # sans delegation, le `hasattr` echouait en silence et la regle T7 — le
+    # clavier apres deux echecs — n'etait jamais armee.
+    @property
+    def basculer_clavier(self):
+        return self._appel.basculer_clavier
+
+    @basculer_clavier.setter
+    def basculer_clavier(self, fonction):
+        self._appel.basculer_clavier = fonction
+
+    def numero_au_clavier(self, numero: str):
+        return self._appel.numero_au_clavier(numero)
+
     @property
     def etat(self):
         return self._appel.etat
@@ -167,13 +181,15 @@ class Service:
     def __init__(self, configuration: Configuration, client_modele,
                  base, fabrique_connexion: Callable[[], Any] | None = None,
                  maintenir: Callable[[Any], None] | None = None,
-                 creneaux_pris: Callable[[], dict[str, set[str]]] | None = None):
+                 creneaux_pris: Callable[[], dict[str, set[str]]] | None = None,
+                 envoyeur_sms: Any = None):
         self.configuration = configuration
         self.client_modele = client_modele
         self.base = base
         # Sans cette fonction, l'agenda ignore les rendez-vous deja pris et
         # propose au deuxieme appelant le creneau du premier.
         self.creneaux_pris = creneaux_pris or dict
+        self.envoyeur_sms = envoyeur_sms
         self.metriques = Supervision()
         self.reserve = ReserveDeConnexions(
             fabrique=fabrique_connexion or (lambda: object()),
@@ -245,4 +261,5 @@ class Service:
                       tenant=self.configuration.tenant, identifiant=identifiant,
                       modele=self.configuration.modele,
                       parametres=self.configuration.parametres or None)
+        appel.envoyeur_sms = self.envoyeur_sms
         return AppelSuivi(appel, self._annonce(), self.metriques)
