@@ -112,3 +112,47 @@ def test_un_numero_de_rappel_mal_dit_bascule_au_clavier(tmp_path):
     assert final.genre == "message"
     messages = base.messages("salon-1")
     assert messages[0]["telephone"] == "0612345678"
+
+
+# --- corriger le nom après la confirmation ----------------------------------
+# Banc du 19/09 : le moteur rend « Le Fora » pour « Lefevre ». L'agent redit le
+# nom, l'appelant corrige — et la correction doit atteindre la base.
+
+def conversation_avec_rdv(base):
+    from standard.appel import Appel
+
+    appel = Appel(client_modele=ModeleHorsLigne(aujourd_hui=MARDI),
+                  agenda=Agenda(aujourd_hui=MARDI, creneaux={"15:30"}, jours_fermes=(6, 0)),
+                  base=base, memoire="", consignes_communes="c",
+                  tenant="salon-1", identifiant="appel-1")
+    appel.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    appel.tour("oui c'est parfait")
+    appel.tour("au nom de Le Fora")
+    return appel
+
+
+def test_le_nom_se_corrige_apres_la_confirmation(tmp_path):
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation_avec_rdv(base.pour("salon-1"))
+    assert base.lister("salon-1")[0]["nom"] == "Le Fora"
+
+    reponse = appel.tour("non c'est au nom de Lefevre")
+    assert "Lefevre" in reponse.phrase
+    assert base.lister("salon-1")[0]["nom"] == "Lefevre"
+    assert len(base.lister("salon-1")) == 1, "la correction a créé un second rendez-vous"
+
+
+def test_un_refus_sans_nom_fait_redemander_le_nom(tmp_path):
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation_avec_rdv(base.pour("salon-1"))
+    reponse = appel.tour("non ce n'est pas ça")
+    assert "nom" in reponse.phrase.lower()
+    appel.tour("Lefevre")
+    assert base.lister("salon-1")[0]["nom"] == "Lefevre"
+
+
+def test_un_au_revoir_ne_corrige_rien(tmp_path):
+    base = Depot(str(tmp_path / "essai.sqlite3"))
+    appel = conversation_avec_rdv(base.pour("salon-1"))
+    appel.tour("merci au revoir")
+    assert base.lister("salon-1")[0]["nom"] == "Le Fora"

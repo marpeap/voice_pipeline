@@ -28,7 +28,7 @@ from standard.decision import (
 from standard.assentiment import est_un_refus, est_un_oui
 from standard.fiche import repondre as repondre_depuis_la_fiche
 from standard.grammaire import enoncer_numero, lire_numero
-from standard.identite import lire_nom
+from standard.identite import lire_correction_de_nom, lire_nom
 from standard.locataire import lire_memoire
 from standard.regles import (
     RELANCES_MUETTES_AVANT_TRANSFERT,
@@ -104,6 +104,8 @@ class Appel:
         self._nom_abandonne = False
         self._message_en_cours: str | None = None
         self._message_dicte = ""
+        self._reference_ecrite: str | None = None
+        self._corrige_le_nom = False
         self.journal = Journal()
         self.numero_de_tour = 0
         self.envoyeur_sms = None                 # branché par le service, facultatif
@@ -139,6 +141,14 @@ class Appel:
                 self.etat.connu["telephone"] = numero
                 return self.confirmer()
             self._numero_propose = None          # il corrige : on reprend l'ecoute
+
+        # Juste apres la confirmation, l'agent a redit le nom a voix haute :
+        # c'est la seule occasion qu'a l'appelant de corriger ce que le moteur a
+        # compris — « Le Fora » pour « Lefevre » (banc du 19/09).
+        if self._reference_ecrite is not None:
+            corrigee = self._corriger_le_nom(transcription)
+            if corrigee is not None:
+                return corrigee
 
         if self._message_en_cours is not None:
             return self._poursuivre_le_message(transcription)
@@ -205,6 +215,48 @@ class Appel:
     @property
     def _attend_un_numero(self) -> bool:
         return self._en_attente is not None and self._demande_le_numero
+
+    # --- corriger le nom apres la confirmation ------------------------------
+
+    def _corriger_le_nom(self, transcription: str) -> Reponse | None:
+        """Rend une reponse si le tour corrigeait le nom, sinon `None`.
+
+        `None` renvoie l'appel au chemin normal : la plupart des tours qui
+        suivent une confirmation sont des remerciements, pas des corrections.
+        """
+        nom = lire_correction_de_nom(transcription)
+        if nom is None and self._corrige_le_nom:
+            lecture = lire_nom(transcription)
+            nom = lecture.nom if lecture.issue == "accepte" else None
+
+        if nom is None:
+            if self._corrige_le_nom or not est_un_refus(transcription):
+                self._corrige_le_nom = False
+                return None
+            # Un refus sans nom : on ne devine pas, on redemande.
+            self._corrige_le_nom = True
+            phrase = "Pardon. C'est à quel nom, alors ?"
+            self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
+            return Reponse("question", phrase)
+
+        self._corrige_le_nom = False
+        corriger = getattr(self.base, "corriger", None)
+        if not callable(corriger):
+            return None
+        relu = corriger(self._reference_ecrite, {"nom": nom})
+        if relu is None or relu.get("nom") != nom:
+            # On ne dit « corrige » que sur une relecture reussie, exactement
+            # comme on ne dit « enregistre » que sur une ecriture relue.
+            phrase = ("Je n'arrive pas à corriger votre nom. "
+                      "Le salon le fera, je le lui signale.")
+            self.journal.noter(transcription=transcription, genre="incertain", phrase=phrase)
+            return Reponse("incertain", phrase)
+
+        self.etat.connu["nom"] = nom
+        phrase = f"C'est corrigé : au nom de {nom}."
+        self.journal.noter(transcription=transcription, genre="correction", phrase=phrase,
+                           reference=self._reference_ecrite)
+        return Reponse("correction", phrase)
 
     # --- la prise de message (question D4) ----------------------------------
 
@@ -470,6 +522,7 @@ class Appel:
                  "phrase": ecriture.phrase, "reference": ecriture.reference}
 
         if genre == "confirmation":
+            self._reference_ecrite = ecriture.reference
             self._en_attente = None
             self._demande_le_numero = False
             # Le SMS suit l'ecriture relue, jamais la proposition : promettre un

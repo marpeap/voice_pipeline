@@ -86,6 +86,9 @@ class AccesLocataire:
     def annuler(self, reference: str) -> bool:
         return self._depot._annuler(self._tenant, reference)
 
+    def corriger(self, reference: str, champs: dict) -> dict | None:
+        return self._depot._corriger(self._tenant, reference, champs)
+
 
 class Depot:
     def __init__(self, chemin: str = ":memory:"):
@@ -146,6 +149,30 @@ class Depot:
                 "UPDATE rendez_vous SET annule = 1 WHERE tenant_id = ? AND reference = ?",
                 (tenant, reference))
             return curseur.rowcount > 0
+
+    def _corriger(self, tenant: str, reference: str, champs: dict) -> dict | None:
+        """Corrige des champs d'un rendez-vous existant, et rend la ligne relue.
+
+        Ni la date ni l'heure ne passent par ici : les deplacer touche a
+        l'unicite du creneau, et se fait en annulant puis en reecrivant. Ce
+        chemin sert a ce qui ne peut pas entrer en conflit — le nom, d'abord,
+        que le moteur rend « Le Fora » pour « Lefevre ».
+        """
+        interdits = {"date", "heure"} & set(champs)
+        if interdits:
+            raise ValueError(f"corriger ne deplace pas un rendez-vous : {sorted(interdits)}")
+        with self._verrou:
+            ligne = self._connexion.execute(
+                "SELECT donnees FROM rendez_vous WHERE tenant_id = ? AND reference = ? "
+                "AND annule = 0", (tenant, reference)).fetchone()
+            if ligne is None:
+                return None
+            donnees = {**json.loads(ligne["donnees"]), **champs}
+            self._connexion.execute(
+                "UPDATE rendez_vous SET donnees = ? WHERE tenant_id = ? AND reference = ?",
+                (json.dumps(donnees, ensure_ascii=False), tenant, reference))
+            self._connexion.commit()
+        return donnees
 
     def _enregistrer_message(self, tenant: str, donnees: dict) -> str:
         """Un message pris pour le salon. Il n'y a rien a relire : personne

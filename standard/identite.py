@@ -31,6 +31,24 @@ AMORCES = (
 CIVILITES = ("monsieur", "madame", "mademoiselle", "m", "mr", "mme", "mlle", "docteur")
 HESITATIONS = ("euh", "heu", "hum", "ben", "bah", "alors", "voila", "oui", "non")
 
+# Un nom ne peut pas etre une formule de politesse. Sans cette garde, « merci
+# au revoir » devenait « Merci Au Revoir » sur l'agenda du salon.
+POLITESSES = ("merci", "revoir", "bonjour", "bonsoir", "salut", "journee",
+              "parfait", "accord", "bien", "pardon", "excusez")
+
+# Ce qui annonce explicitement un nom. Une correction ne se devine pas : on
+# n'accepte un nouveau nom que si l'appelant dit qu'il en donne un.
+AMORCES_EXPLICITES = ("c'est au nom de", "au nom de", "c'est de la part de",
+                      "de la part de", "je m'appelle", "mon nom c'est",
+                      "mon nom est", "mon nom", "moi c'est")
+
+
+def _racine(mot: str) -> str:
+    """De quoi rapprocher « journee » de « journée » sans table d'exceptions."""
+    from standard.texte import sans_accents
+
+    return sans_accents(mot).lower().strip("'-")
+
 
 @dataclass(frozen=True)
 class LectureNom:
@@ -64,6 +82,8 @@ def lire_nom(transcription: str) -> LectureNom:
             break
 
     mots = [mot for mot in re.split(r"[\s,.;!?]+", texte) if mot]
+    if any(_racine(mot) in POLITESSES for mot in mots):
+        return LectureNom("refus")
     while mots and mots[0].lower().strip(".") in CIVILITES + HESITATIONS:
         mots.pop(0)
 
@@ -78,3 +98,32 @@ def lire_nom(transcription: str) -> LectureNom:
     if not LONGUEUR_NOM_MIN <= len(nom) <= LONGUEUR_NOM_MAX:
         return LectureNom("refus")
     return LectureNom("accepte", nom)
+
+
+def lire_correction_de_nom(transcription: str) -> str | None:
+    """Le nom que l'appelant corrige, ou `None` si ce n'en est pas un.
+
+    L'agent redit le nom a voix haute avant de confirmer (regle E1 etendue au
+    nom) : c'est la que l'appelant corrige, et c'est le seul moment ou il peut
+    le faire avant que le salon ne lise sa fiche. On exige une amorce explicite
+    — « c'est au nom de », « je m'appelle » — parce qu'un nom devine dans les
+    mots qui suivent un « non » serait pire que pas de correction du tout.
+    """
+    texte = (transcription or "").strip()
+    if not texte:
+        return None
+
+    plat = texte.lower()
+    for refus in ("non, ", "non "):      # « non c'est Lefevre » : le refus se retire
+        if plat.startswith(refus):
+            plat = plat[len(refus):]
+            break
+    plat = plat.strip()
+    for amorce in AMORCES_EXPLICITES:
+        if plat.startswith(amorce):
+            lecture = lire_nom(plat)
+            return lecture.nom if lecture.issue == "accepte" else None
+    if plat.startswith("c'est "):
+        lecture = lire_nom(plat)
+        return lecture.nom if lecture.issue == "accepte" else None
+    return None

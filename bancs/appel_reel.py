@@ -118,6 +118,18 @@ SCENARIOS = {
         {"message": "COLORATION", "telephone": "0612345678"},
         {"STANDARD_REPONSES": '{"A1": "Salon Elegance", "D4": "message"}'},
     ),
+    # Le moteur rend « Le Fora » pour « Lefevre » : l'agent redit le nom, et la
+    # correction doit atteindre la base sans créer un second rendez-vous.
+    "correction-du-nom": (
+        ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
+         "oui c'est parfait",
+         "au nom de Dupond",
+         "non c'est au nom de Martin",
+         # Le moteur rend parfois « NON S'ÉTONNANT DE MARTIN » : l'agent
+         # redemande le nom seul, et l'appelant le redit.
+         "Martin"],
+        {"date": "2026-09-17", "heure": "15:30", "nom": "Martin"},
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],
