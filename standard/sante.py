@@ -39,6 +39,7 @@ def etat_du_serveur(serveur) -> dict:
         "archivages_perdus": getattr(serveur, "archivages_perdus", 0),
         "demarchages_filtres": getattr(serveur, "demarchages_filtres", 0),
         "appels_refuses": getattr(serveur, "appels_refuses", 0),
+        "lignes_rendues": getattr(serveur, "lignes_rendues", 0),
         "appels_simultanes_max": getattr(serveur, "appels_simultanes_max", None),
     }
     if service is not None:

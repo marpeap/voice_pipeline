@@ -31,7 +31,9 @@ from standard.audiosocket import (
 )
 from standard.ecoute import TamponDePreRoll, estimer_rsb_db
 from standard.regles import (
+    DUREE_MAXIMALE_D_APPEL_S,
     DUREE_MINIMALE_POUR_UNE_RELANCE_MS,
+    SILENCE_AVANT_DE_RENDRE_LA_LIGNE_S,
     SEUIL_BRUITE_DB,
     SEUIL_PAROLE,
     SILENCE_DE_FIN_MS,
@@ -111,6 +113,8 @@ class SessionTelephonique:
     fin_demandee: bool = False      # l'agent a rendu la ligne
     raison_de_fin: str = ""         # « demarchage » ou « fin » : ce n'est pas pareil
     numero_connu: object = None     # rend l'identifiant d'appelant, s'il existe
+    horloge: object = time.monotonic
+    _dernier_mot: float = 0.0       # quand l'appelant a parle pour la derniere fois
     pannes: int = 0
     transfert_demande: bool = False
     preuve_d_annonce: dict | None = None
@@ -149,6 +153,12 @@ class SessionTelephonique:
         """
         if hasattr(self.agent, "basculer_clavier"):
             self.agent.basculer_clavier = self.attendre_un_numero
+
+    def __post_init__(self):
+        # L'horloge est injectable (les tests avancent le temps a la main) : le
+        # depart doit venir d'ELLE, sinon les bornes comparent deux horloges.
+        self.debut = self.horloge()
+        self._dernier_mot = self.debut
 
     def ouvrir(self) -> list[bytes]:
         """Joue l'annonce, et **en garde la preuve**.
@@ -285,6 +295,12 @@ class SessionTelephonique:
         self._frequence_entrante = trame.frequence() or self._frequence_entrante
         self.audio_recu += len(trame.charge)
 
+        maintenant = self.horloge()
+        if not self._dernier_mot:
+            self._dernier_mot = self.debut
+        if self._borne_depassee(maintenant):
+            return self._rendre_la_ligne()
+
         if _amplitude(trame.charge) >= SEUIL_PAROLE:
             if not self._a_parle:
                 # Le pre-roll part AVANT la premiere syllabe : mesure 9, un
@@ -294,6 +310,7 @@ class SessionTelephonique:
                 if garde:
                     self._audio.extend(garde)
             self._a_parle = True
+            self._dernier_mot = maintenant
             self._silence_ms = 0
             self._audio.extend(trame.charge)
             self._parole_continue_ms += DUREE_PAQUET_MS
@@ -328,6 +345,26 @@ class SessionTelephonique:
         # centiemes, et un arrondi au dixieme le ramenait a zero — c'est-a-dire
         # a la valeur ecrite en dur qu'on vient de corriger.
         return round(time.monotonic() - self.debut, 2)
+
+    def _borne_depassee(self, maintenant: float) -> bool:
+        """Deux bornes, et elles ne se confondent pas : le silence du debut
+        (personne n'a parle) et la duree totale (quelque chose est coince)."""
+        if maintenant - self._dernier_mot >= SILENCE_AVANT_DE_RENDRE_LA_LIGNE_S:
+            self._motif_de_borne = "silence"
+            return True
+        if maintenant - self.debut >= DUREE_MAXIMALE_D_APPEL_S:
+            self._motif_de_borne = "trop long"
+            return True
+        return False
+
+    def _rendre_la_ligne(self) -> list[bytes]:
+        """On prend conge — poliment, parce qu'un client peut etre revenu juste
+        au moment ou l'on raccroche — et le serveur ferme."""
+        if self.fin_demandee:
+            return []
+        self.fin_demandee = True
+        self.raison_de_fin = getattr(self, "_motif_de_borne", "silence")
+        return self._jouer("Je ne vous entends plus. Bonne journée !")
 
     def _fin_de_tour(self) -> list[bytes]:
         """L'appelant a fini de parler : on transcrit, on repond, on rejoue."""

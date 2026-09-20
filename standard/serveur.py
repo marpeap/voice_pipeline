@@ -54,6 +54,7 @@ class ServeurAudioSocket:
         self.archivages_perdus = 0     # un appel fini dont le journal n'a pas voulu
         self.demarchages_filtres = 0   # non factures au salon (docs/06)
         self.appels_refuses = 0        # au-dela du plafond : la ligne est rendue
+        self.lignes_rendues = 0        # silence complet, ou appel interminable
         # Comment chaque appel s'est termine, pour que le plan de numerotation
         # puisse le demander : sans cette reponse, un transfert raccroche au nez
         # de l'appelant et un demarchage filtre repart vers le salon.
@@ -174,6 +175,11 @@ class ServeurAudioSocket:
                 if session.fin_demandee and not session.en_train_de_parler:
                     if session.raison_de_fin == "demarchage":
                         self.demarchages_filtres += 1
+                    elif session.raison_de_fin in ("silence", "trop long"):
+                        # Une poche, un faux numero, un appel coince : ce n'est
+                        # ni un demarchage ni un appel servi, et le confondre
+                        # fausserait les deux chiffres.
+                        self.lignes_rendues += 1
                     break
                 try:
                     morceau = connexion.recv(TAILLE_LECTURE)

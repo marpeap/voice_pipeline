@@ -119,6 +119,17 @@ SEUIL_BRUITE_DB = 15
 """Mesure 10 : a 10-15 dB — la rue, la voiture — le WER double, et il double sur
 les entites. En dessous de ce seuil, la strategie de capture change."""
 
+SILENCE_AVANT_DE_RENDRE_LA_LIGNE_S = 30
+"""Personne n'a dit un mot depuis trente secondes : ce n'est pas un appelant qui
+hesite, c'est un telephone au fond d'une poche, un faux numero, ou quelqu'un qui
+est parti. La relance muette ne peut rien pour lui : elle suppose qu'on a
+entendu de la parole. Sans cette borne, la ligne restait ouverte indefiniment,
+avec son fil et sa place sous le plafond d'appels simultanes."""
+
+DUREE_MAXIMALE_D_APPEL_S = 600
+"""Dix minutes. Un rendez-vous se prend en moins de deux ; au-dela, quelque
+chose est coince, et le dire vaut mieux que de le laisser tourner."""
+
 RELANCES_MUETTES_AVANT_TRANSFERT = 2
 """Deux relances, puis un humain. Banc du 19/09 : un « oui » de six dixiemes de
 seconde revient vide du moteur — et l'agent restait muet, ligne ouverte, ce qui
