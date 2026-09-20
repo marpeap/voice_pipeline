@@ -124,3 +124,12 @@ def test_une_ligne_sans_detail_ne_laisse_pas_de_trou():
         {"date": AUJOURD_HUI.isoformat(), "heure": "09:00", "nom": "Martin"},
     ]))
     assert "<p></p>" not in contenu
+
+
+def test_le_pied_de_page_ne_renvoie_pas_a_la_page_ouverte():
+    """Un lien vers la page qu'on regarde est un lien mort : il fait douter le
+    gérant d'avoir cliqué."""
+    _, agenda = page(console())
+    assert "href='/agenda'" not in agenda
+    _, fil = page(console(), "/")
+    assert "href='/agenda'" in fil

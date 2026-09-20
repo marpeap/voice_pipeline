@@ -346,13 +346,20 @@ class Console:
                 f"{'s' if len(manquantes) > 1 else ''} au questionnaire — "
                 "<a class=numero href='/reglages'>y répondre</a>.</div>")
 
-    def _pied_de_page(self) -> str:
-        """La suite utile, sur chaque écran : B10, aucune fin en cul-de-sac."""
+    def _pied_de_page(self, sauf: str = "") -> str:
+        """La suite utile, sur chaque écran : B10, aucune fin en cul-de-sac.
+
+        Jamais un lien vers la page qu'on regarde : un lien mort fait douter le
+        gérant d'avoir cliqué.
+        """
         if self.pack is None:
             return ""
-        return ("<p class=legende><a href='/agenda'>Vos rendez-vous</a> · "
-                "<a href='/reglages'>Les réponses de votre agent</a> · "
-                "<a href='/essayer'>L'essayer</a></p>")
+        liens = [("/agenda", "Vos rendez-vous"),
+                 ("/reglages", "Les réponses de votre agent"),
+                 ("/essayer", "L'essayer")]
+        rendus = [f"<a href='{chemin}'>{libelle}</a>"
+                  for chemin, libelle in liens if chemin != sauf]
+        return f"<p class=legende>{' · '.join(rendus)}</p>"
 
     # --- les réglages (docs/05) ---------------------------------------------
 
@@ -532,7 +539,8 @@ class Console:
                      "</strong><br>Dès que votre agent en prendra un, il "
                      "apparaîtra ici, avec le nom et le numéro du client.</div>")
             return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
-                "Agenda", f"<h1>Vos rendez-vous</h1>{corps}{self._pied_de_page()}")
+                "Agenda", f"<h1>Vos rendez-vous</h1>{corps}"
+                          f"{self._pied_de_page(sauf='/agenda')}")
 
         sections = ""
         for jour in sorted(par_jour):
@@ -543,7 +551,8 @@ class Console:
                          f"<ul class=fil>{lignes}</ul>")
 
         return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
-            "Agenda", f"<h1>Vos rendez-vous</h1>{sections}{self._pied_de_page()}")
+            "Agenda", f"<h1>Vos rendez-vous</h1>{sections}"
+                      f"{self._pied_de_page(sauf='/agenda')}")
 
     def _titre_du_jour(self, jour: str, aujourd_hui) -> str:
         """« Aujourd'hui », « Demain », puis la date. Tous les agendas du monde
