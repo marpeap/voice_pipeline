@@ -355,6 +355,14 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
             "interruptions": getattr(session, "interruptions", 0),
             "preuve_annonce": session.preuve_d_annonce or {"conforme": False},
             "confirmations_orphelines": journal_appel.confirmations_orphelines,
+            # Combien de fois l'agenda tiers n'a pas pu etre lu PENDANT cet
+            # appel. Le compteur vivant en memoire meurt a chaque redemarrage,
+            # et le service redemarre a chaque deploiement — or c'est la SEULE
+            # trace qu'un calage a eu lieu : l'hote repond 200 meme quand il
+            # cale, ses journaux n'en gardent rien. Une trace qui ne survit pas
+            # a un redemarrage ne prouve rien le lendemain.
+            "lectures_agenda_perdues": getattr(
+                getattr(agent, "agenda", None), "lectures_hote_perdues", 0),
             "tours": tours,
             # T6 : une ligne par tour, avec ses latences et son identifiant.
             "mesures": list(getattr(session, "mesures", [])),

@@ -312,3 +312,59 @@ def test_les_lectures_d_agenda_perdues_remontent_a_l_etat_de_sante():
     supervision.absorber_lectures_perdues(3)
     supervision.absorber_lectures_perdues(1)
     assert supervision.etat()["lectures_agenda_perdues"] == 4
+
+
+def test_une_degradation_d_agenda_survit_au_redemarrage_du_service():
+    """Le compteur en mémoire meurt à chaque déploiement — et le service
+    redémarre à chaque déploiement.
+
+    Or c'est la SEULE trace qu'un calage de l'agenda tiers a eu lieu : l'hôte
+    répond 200 même quand il cale, vérifié avec la session qui le tient. Une
+    trace qui ne survit pas à un redémarrage ne prouve rien le lendemain : la
+    dégradation se pose donc sur la ligne d'appel, en base.
+    """
+    import json
+    import os
+
+    from standard.demarrage import construire_serveur
+    from standard.depot import Depot
+
+    racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "..", "essai-degradation.sqlite3")
+    if os.path.exists(base):
+        os.remove(base)
+    serveur = construire_serveur({
+        "STANDARD_TENANT": "salon-1",
+        "STANDARD_PACK": os.path.join(racine, "packs", "coiffure.json"),
+        "STANDARD_REPONSES": '{"A1": "Salon Elegance"}',
+        "STANDARD_CRENEAUX": "09:00,15:30",
+        "STANDARD_AUJOURDHUI": "2026-09-15",
+        "STANDARD_PORT": "0", "STANDARD_PORT_SANTE": "0", "STANDARD_PORT_TOILE": "0",
+        "STANDARD_BASE": base, "STANDARD_STT": "muet", "STANDARD_TTS": "muet",
+    })
+    try:
+        suivi = serveur.fabrique_agent()
+        suivi._appel.agenda.libres_du_jour = lambda jour: (_ for _ in ()).throw(
+            TimeoutError("the read operation timed out"))
+        suivi.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+
+        class SessionFactice:
+            agent = suivi
+            identifiant = "appel-essai"
+            preuve_d_annonce = {"conforme": True}
+            duree_s = 12
+            interruptions = 0
+            premiers_fragments_ms = []
+            mesures = []
+
+        serveur.sur_fin(SessionFactice())
+
+        from standard.journal import JournalDAppels
+
+        enregistre = JournalDAppels(Depot(base)).lister("salon-1")[0]
+        assert enregistre["lectures_agenda_perdues"] > 0, (
+            "la dégradation n'est écrite nulle part : elle meurt au redémarrage")
+    finally:
+        if os.path.exists(base):
+            os.remove(base)

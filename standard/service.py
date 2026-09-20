@@ -91,6 +91,15 @@ class AppelSuivi:
     # sans delegation, le `hasattr` echouait en silence et la regle T7 — le
     # clavier apres deux echecs — n'etait jamais armee.
     @property
+    def agenda(self):
+        """L'agenda de l'appel, pour qui archive : c'est lui qui compte les fois
+        ou l'agenda tiers n'a pas pu etre lu. Sans cette delegation, l'archiveur
+        cherchait l'attribut sur CET objet, ne le trouvait pas, et ecrivait zero
+        dans chaque ligne d'appel — un compteur toujours a zero est pire que pas
+        de compteur : il fait conclure que rien ne cale."""
+        return self._appel.agenda
+
+    @property
     def memoire(self) -> str:
         """Ce que l'agent sait — utile au diagnostic, et verifiable par un test."""
         return self._appel.memoire
