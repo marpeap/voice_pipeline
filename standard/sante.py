@@ -65,6 +65,21 @@ class ServeurDeSante:
 
         class Poignee(BaseHTTPRequestHandler):
             def do_GET(self):
+                if self.path.startswith("/issue/"):
+                    # Le plan de numerotation demande comment l'appel s'est
+                    # termine : « transfert » le renvoie au poste du salon,
+                    # « demarchage » ou « fin » raccrochent. Une reponse en
+                    # texte brut, parce qu'un dialplan ne lit pas du JSON.
+                    identifiant = self.path[len("/issue/"):].strip("/")
+                    issue = getattr(source, "issues", {}).get(identifiant, "inconnu")
+                    octets = issue.encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("Content-Length", str(len(octets)))
+                    self.end_headers()
+                    self.wfile.write(octets)
+                    return
                 if self.path.rstrip("/") not in ("/sante", "/health"):
                     self.send_response(404)
                     self.send_header("Content-Length", "0")

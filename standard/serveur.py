@@ -21,6 +21,10 @@ import time
 from typing import Callable
 
 from standard.regles import APPELS_SIMULTANES_MAX
+
+MEMOIRE_DES_ISSUES = 500
+"""Le plan interroge dans la seconde qui suit : garder plus serait un journal,
+et le journal existe deja."""
 from standard.session import DUREE_PAQUET_MS, SessionTelephonique
 
 TAILLE_LECTURE = 4096
@@ -50,6 +54,10 @@ class ServeurAudioSocket:
         self.archivages_perdus = 0     # un appel fini dont le journal n'a pas voulu
         self.demarchages_filtres = 0   # non factures au salon (docs/06)
         self.appels_refuses = 0        # au-dela du plafond : la ligne est rendue
+        # Comment chaque appel s'est termine, pour que le plan de numerotation
+        # puisse le demander : sans cette reponse, un transfert raccroche au nez
+        # de l'appelant et un demarchage filtre repart vers le salon.
+        self.issues: dict[str, str] = {}
 
         self.appels_en_cours = 0
         self.appels_total = 0
@@ -191,6 +199,7 @@ class ServeurAudioSocket:
                 connexion.close()
             except OSError:
                 pass
+            self._retenir_l_issue(session)
             if self.sur_fin:
                 try:
                     self.sur_fin(session)
@@ -202,6 +211,24 @@ class ServeurAudioSocket:
                     self.archivages_perdus += 1
             with self._verrou:
                 self.appels_en_cours -= 1
+
+    def _retenir_l_issue(self, session) -> None:
+        """Garde les dernieres issues, et seulement elles : c'est un relais vers
+        le plan de numerotation, pas un journal."""
+        identifiant = getattr(session, "identifiant", None)
+        if not identifiant:
+            return
+        if session.transfert_demande:
+            issue = "transfert"
+        elif getattr(session, "fin_demandee", False):
+            issue = "demarchage"
+        else:
+            issue = "fin"
+        with self._verrou:
+            self.issues[identifiant] = issue
+            if len(self.issues) > MEMOIRE_DES_ISSUES:
+                for vieux in list(self.issues)[:-MEMOIRE_DES_ISSUES]:
+                    del self.issues[vieux]
 
     def _emettre_en_continu(self, connexion: socket.socket,
                             session: SessionTelephonique,
