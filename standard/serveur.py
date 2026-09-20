@@ -20,6 +20,7 @@ import threading
 import time
 from typing import Callable
 
+from standard.regles import APPELS_SIMULTANES_MAX
 from standard.session import DUREE_PAQUET_MS, SessionTelephonique
 
 TAILLE_LECTURE = 4096
@@ -35,7 +36,8 @@ class ServeurAudioSocket:
                  hote: str = "0.0.0.0", port: int = 8090,
                  seuil_bruite_db: int | None = None,
                  rythme: bool = True,
-                 sur_fin: Callable[[SessionTelephonique], None] | None = None):
+                 sur_fin: Callable[[SessionTelephonique], None] | None = None,
+                 appels_simultanes_max: int | None = APPELS_SIMULTANES_MAX):
         self.fabrique_agent = fabrique_agent
         self.transcrire = transcrire
         self.synthetiser = synthetiser
@@ -44,8 +46,10 @@ class ServeurAudioSocket:
         self.seuil_bruite_db = seuil_bruite_db
         self.rythme = rythme          # respecter 20 ms entre paquets ; faux en test
         self.sur_fin = sur_fin
+        self.appels_simultanes_max = appels_simultanes_max
         self.archivages_perdus = 0     # un appel fini dont le journal n'a pas voulu
         self.demarchages_filtres = 0   # non factures au salon (docs/06)
+        self.appels_refuses = 0        # au-dela du plafond : la ligne est rendue
 
         self.appels_en_cours = 0
         self.appels_total = 0
@@ -107,6 +111,21 @@ class ServeurAudioSocket:
                 continue
             except OSError:
                 break
+            if self.appels_simultanes_max is not None:
+                with self._verrou:
+                    complet = self.appels_en_cours >= self.appels_simultanes_max
+                    if complet:
+                        self.appels_refuses += 1
+                if complet:
+                    # On rend la ligne TOUT DE SUITE : le bord telephonique peut
+                    # alors basculer sur le poste du salon. Un appel qui gresille
+                    # ou qui attend une voix est pire qu'un appel rendu.
+                    try:
+                        connexion.close()
+                    except OSError:
+                        pass
+                    continue
+
             fil = threading.Thread(target=self._servir, args=(connexion,), daemon=True)
             with self._verrou:
                 self._fils_d_appel = [f for f in self._fils_d_appel if f.is_alive()]

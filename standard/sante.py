@@ -38,6 +38,8 @@ def etat_du_serveur(serveur) -> dict:
         "pannes_pendant_appel": getattr(serveur, "pannes_pendant_appel", 0),
         "archivages_perdus": getattr(serveur, "archivages_perdus", 0),
         "demarchages_filtres": getattr(serveur, "demarchages_filtres", 0),
+        "appels_refuses": getattr(serveur, "appels_refuses", 0),
+        "appels_simultanes_max": getattr(serveur, "appels_simultanes_max", None),
     }
     if service is not None:
         etat.update(service.supervision())

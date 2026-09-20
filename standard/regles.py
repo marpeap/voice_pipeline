@@ -61,6 +61,14 @@ PARALLELISME_SYNTHESE = 4
 """Mesure 13 : au-dela de quatre syntheses simultanees, le premier son passe
 400 ms sur une machine a quatre coeurs."""
 
+APPELS_SIMULTANES_MAX = 2 * PARALLELISME_SYNTHESE
+"""Au-dela, la machine ne tient plus la promesse de 400 ms.
+
+La mesure 13 plafonne la synthese a quatre voix simultanees ; au-dela, les
+appels attendent leur tour de parole. Le double laisse respirer les tours ou
+personne ne parle, et rend la ligne au-dela — mieux vaut un appel que le bord
+telephonique renvoie vers le poste du salon qu'un appel qui gresille."""
+
 # --- l'ecoute (mesures 9 et 10) ---------------------------------------------
 
 PREROLL_MS = 300

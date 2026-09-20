@@ -1,0 +1,44 @@
+; Un salon, une unité : `systemctl enable --now standard@salon-elegance`.
+;
+; Un fichier d'unité figé ne sert qu'un salon ; le deuxième s'installe en le
+; recopiant à la main, et les deux divergent au premier changement. Le gabarit
+; évite ça : `%i` est le nom du salon, et c'est lui qui nomme sa configuration,
+; sa base et ses ports.
+
+[Unit]
+Description=Standard téléphonique automatique — %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=standard
+WorkingDirectory=/opt/standard
+; Le commun d'abord, le salon ensuite : ce qui est propre au salon gagne.
+EnvironmentFile=/etc/standard/commun
+EnvironmentFile=/etc/standard/%i
+Environment=STANDARD_TENANT=%i
+Environment=STANDARD_BASE=/var/lib/standard/%i.sqlite3
+ExecStartPre=/opt/standard/.venv/bin/python -m standard verifier
+ExecStart=/opt/standard/.venv/bin/python -m standard servir
+Restart=always
+RestartSec=2
+; Cinq démarrages en dix secondes suffisent à faire abandonner systemd :
+; un standard téléphonique doit réessayer plus longtemps que ça.
+StartLimitBurst=20
+StartLimitIntervalSec=300
+
+; Durcissement — volontairement partiel, et c'est expliqué :
+; MemoryDenyWriteExecute tue ONNX, donc le détecteur de parole et la détection
+; de tour ; RestrictRealtime introduit de la gigue audio. Les deux sont absents.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/standard
+; Un salon qui sature sa mémoire ne doit pas emporter les autres : la limite
+; est par unité, donc par salon.
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

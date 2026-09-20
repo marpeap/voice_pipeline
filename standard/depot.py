@@ -117,6 +117,16 @@ class Depot:
         # transactions explicites au lieu de les laisser s'emboiter.
         self._verrou = threading.RLock()
         with self._verrou:
+            # WAL : plusieurs salons tournent sur la meme machine, un service
+            # par salon, un seul fichier. Sans lui, la console d'un salon qui
+            # lit bloque le standard d'un autre qui ecrit — et un rendez-vous se
+            # perd sur un « database is locked ». `busy_timeout` laisse le temps
+            # a l'ecrivain d'en finir plutot que d'echouer tout de suite.
+            # En memoire, WAL n'existe pas : on ne l'y demande pas.
+            if chemin != ":memory:":
+                self._connexion.execute("PRAGMA journal_mode=WAL")
+                self._connexion.execute("PRAGMA busy_timeout=5000")
+                self._connexion.execute("PRAGMA synchronous=NORMAL")
             self._connexion.executescript(SCHEMA)
 
     def pour(self, tenant: str) -> AccesLocataire:
