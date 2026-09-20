@@ -4,6 +4,7 @@
     python -m standard servir     # écoute les appels d'Asterisk
     python -m standard console    # la console du commerçant, sur la boucle locale
     python -m standard registre   # le registre des traitements (RGPD art. 30)
+    python -m standard effacer --tenant X --confirmer X   # droit à l'effacement
 """
 
 from __future__ import annotations
@@ -33,6 +34,16 @@ def main(arguments: list[str]) -> int:
     except FileNotFoundError as absent:
         print(f"fichier introuvable : {absent}", file=sys.stderr)
         return 1
+
+
+def _option(arguments: list[str], nom: str) -> str | None:
+    """La valeur qui suit une option, ou `None`. Pas d'argparse ici : la
+    commande doit rester lisible dans un journal systemd."""
+    if nom in arguments:
+        rang = arguments.index(nom) + 1
+        if rang < len(arguments):
+            return arguments[rang]
+    return None
 
 
 def _cle_fournie(trousseau, tenant: str, secret: str):
@@ -65,6 +76,32 @@ def _executer(arguments: list[str]) -> int:
             print(json.dumps(registre, indent=2, ensure_ascii=False))
         else:
             print(rendre_en_texte(registre))
+        return 0
+
+    if commande == "effacer":
+        # L'accord de test promet la suppression a la demande, le RGPD aussi
+        # (art. 17). Le nom se retape : une commande qui efface ne doit pas
+        # s'executer par une erreur de fleche haute.
+        import os
+
+        from standard.depot import Depot
+
+        tenant = _option(arguments, "--tenant")
+        confirme = _option(arguments, "--confirmer")
+        if not tenant or confirme != tenant:
+            print("pour effacer, retapez le nom du locataire :", file=sys.stderr)
+            print(f"  python -m standard effacer --tenant {tenant or '<locataire>'} "
+                  f"--confirmer {tenant or '<locataire>'}", file=sys.stderr)
+            return 1
+
+        depot = Depot(os.environ.get("STANDARD_BASE", "standard.sqlite3"))
+        # La trace part AVANT l'effacement, et sur la sortie standard : la piste
+        # d'audit de ce locataire va disparaitre avec le reste, c'est le journal
+        # du service qui garde la preuve.
+        print(f"effacement demande pour « {tenant} »", flush=True)
+        efface = depot.effacer_le_locataire(tenant)
+        print(json.dumps(efface, indent=2, ensure_ascii=False))
+        print(f"total : {sum(efface.values())} ligne(s) effacee(s)")
         return 0
 
     if commande == "servir":

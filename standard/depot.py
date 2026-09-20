@@ -230,6 +230,36 @@ class Depot:
                 "SELECT donnees FROM reponses WHERE tenant_id = ?", (tenant,)).fetchone()
         return json.loads(ligne["donnees"]) if ligne else {}
 
+    def effacer_le_locataire(self, tenant: str | None) -> dict[str, int]:
+        """Efface tout ce qui appartient a ce locataire, et dit quoi.
+
+        L'accord de test remis au salon pilote (docs/18) promet la suppression
+        « sous sept jours » a la demande, et le RGPD dit la meme chose (art. 17).
+        Rien ne savait le faire : il aurait fallu ouvrir la base a la main,
+        table par table, en esperant n'en oublier aucune.
+
+        On ne nomme donc AUCUNE table : on parcourt celles qui portent un
+        `tenant_id`. Une table ajoutee demain sera effacee sans que personne y
+        pense — c'est exactement la faute qu'on evite ici, et une table oubliee
+        est une promesse trahie.
+        """
+        if not tenant:
+            raise ValueError("effacer sans locataire : refuse, pour ne pas tout effacer")
+        efface: dict[str, int] = {}
+        with self._verrou:
+            tables = [ligne["name"] for ligne in self._connexion.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'")]
+            for table in tables:
+                colonnes = [c["name"] for c in self._connexion.execute(
+                    f"PRAGMA table_info({table})")]
+                if "tenant_id" not in colonnes:
+                    continue
+                curseur = self._connexion.execute(
+                    f"DELETE FROM {table} WHERE tenant_id = ?", (tenant,))
+                efface[table] = curseur.rowcount
+            self._connexion.commit()
+        return efface
+
     def messages(self, tenant: str | None) -> list[dict[str, Any]]:
         """Les messages d'un locataire, du plus recent au plus ancien."""
         if not tenant:

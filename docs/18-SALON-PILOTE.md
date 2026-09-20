@@ -67,12 +67,13 @@ Entre [SALON], représenté par ________, et Marpeap Digitals.
    pendant [DURÉE], afin de mesurer la qualité de compréhension du
    français au téléphone.
 
-2. CE QUI EST ENREGISTRÉ. Les appels reçus sur le numéro de test.
-   Chaque appelant est informé dès la première phrase qu'il parle à un
-   assistant automatique et que l'appel est enregistré.
+2. CE QUI EST TRAITÉ. Les appels reçus sur le numéro de test. Chaque
+   appelant est informé dès la première phrase qu'il parle à un
+   assistant automatique.
 
-3. CE QUI EST CONSERVÉ. La transcription écrite. L'audio est supprimé
-   après transcription, et au plus tard sous 30 jours.
+3. CE QUI EST CONSERVÉ. La transcription écrite, quatre-vingt-dix jours
+   au plus. L'audio n'est JAMAIS conservé : il est transcrit au vol et
+   rien n'en est écrit sur disque.
 
 4. CE QUI N'EST PAS FAIT. Aucune donnée n'est vendue, cédée, ni utilisée
    pour autre chose que la mise au point de l'agent. Aucun appel n'est
@@ -83,7 +84,10 @@ Entre [SALON], représenté par ________, et Marpeap Digitals.
    supprimés sous 7 jours.
 
 6. RÔLES. Le salon est responsable de traitement, Marpeap Digitals
-   sous-traitant au sens de l'article 28 du RGPD.
+   sous-traitant au sens de l'article 28 du RGPD. Le registre des
+   traitements est remis sur demande : il est produit par le logiciel
+   lui-même (`python -m standard registre`), à partir de la
+   configuration réellement en service.
 
 Fait à ______, le ______.        Signatures :
 ```
@@ -112,3 +116,11 @@ Trois phrases, et aucune ne promet quoi que ce soit :
 | Faire relire l'accord par un juriste | **Adnan** |
 | Dépouiller la feuille et corriger le chiffrage | moi, dès réception |
 | Préparer le numéro de test et l'annonce | moi, au lot L1 |
+
+> **Ce que le logiciel sait faire, et qui rend l'accord vrai** : l'annonce
+> automatique est non désactivable et sa preuve est datée à chaque appel ; la
+> purge des transcriptions tourne avec le service, pas dans un cron qu'on
+> oublie ; et l'effacement complet d'un salon est une commande
+> (`python -m standard effacer --tenant … --confirmer …`) qui parcourt **toutes**
+> les tables portant un locataire — une table oubliée serait une promesse
+> trahie.
