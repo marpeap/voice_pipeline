@@ -58,6 +58,10 @@ class ServeurAudioSocket:
         # puisse le demander : sans cette reponse, un transfert raccroche au nez
         # de l'appelant et un demarchage filtre repart vers le salon.
         self.issues: dict[str, str] = {}
+        # Les identifiants d'appelant deposes par le plan de numerotation, en
+        # attente de l'appel qui les portera. Meme duree de vie que les issues :
+        # c'est un relais, pas un fichier client.
+        self.numeros_appelants: dict[str, str] = {}
 
         self.appels_en_cours = 0
         self.appels_total = 0
@@ -149,6 +153,7 @@ class ServeurAudioSocket:
         session = SessionTelephonique(
             agent=self.fabrique_agent(), transcrire=self.transcrire,
             synthetiser=self.synthetiser,
+            numero_connu=lambda identifiant: self.numeros_appelants.pop(identifiant, None),
             **({"seuil_bruite_db": self.seuil_bruite_db}
                if self.seuil_bruite_db is not None else {}))
         fini = threading.Event()
@@ -212,6 +217,27 @@ class ServeurAudioSocket:
                     self.archivages_perdus += 1
             with self._verrou:
                 self.appels_en_cours -= 1
+
+    def retenir_le_numero(self, identifiant: str, numero: str) -> bool:
+        """Garde le numero d'un appel a venir, s'il ressemble a un numero.
+
+        Asterisk envoie « anonymous », « unknown » ou du vide quand l'appelant
+        masque son identite : on ne garde que ce que la grammaire francaise
+        accepte — dix chiffres, pas de 08.
+        """
+        from standard.grammaire import lire_numero
+
+        if not identifiant:
+            return False
+        lecture = lire_numero(numero or "")
+        if lecture.issue != "accepte":
+            return False
+        with self._verrou:
+            self.numeros_appelants[identifiant] = lecture.numero
+            if len(self.numeros_appelants) > MEMOIRE_DES_ISSUES:
+                for vieux in list(self.numeros_appelants)[:-MEMOIRE_DES_ISSUES]:
+                    del self.numeros_appelants[vieux]
+        return True
 
     def _retenir_l_issue(self, session) -> None:
         """Garde les dernieres issues, et seulement elles : c'est un relais vers

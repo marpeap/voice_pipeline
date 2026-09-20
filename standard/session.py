@@ -110,6 +110,7 @@ class SessionTelephonique:
     annonce_delivree: bool = False
     fin_demandee: bool = False      # l'agent a rendu la ligne
     raison_de_fin: str = ""         # « demarchage » ou « fin » : ce n'est pas pareil
+    numero_connu: object = None     # rend l'identifiant d'appelant, s'il existe
     pannes: int = 0
     transfert_demande: bool = False
     preuve_d_annonce: dict | None = None
@@ -259,6 +260,14 @@ class SessionTelephonique:
             return []
         if trame.est_uuid:
             self.identifiant = trame.uuid()
+            # Le plan de numerotation a pu deposer l'identifiant d'appelant
+            # avant de brancher l'audio : c'est le seul moment ou l'on peut le
+            # relier a cet appel-ci.
+            if self.numero_connu is not None:
+                numero = self.numero_connu(self.identifiant)
+                poser = getattr(self.agent, "poser_le_numero", None)
+                if numero and callable(poser):
+                    poser(numero)
             return []
         if trame.est_dtmf:
             return self._chiffre(trame.chiffre())

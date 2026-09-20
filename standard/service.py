@@ -123,6 +123,14 @@ class AppelSuivi:
         """Ce que le serveur empeche de dire, quelle que soit la phrase."""
         return self._appel.interdits
 
+    def poser_le_numero(self, numero: str) -> None:
+        """L'identifiant d'appelant transmis par l'operateur.
+
+        Il ne remplace jamais une relecture : il evite seulement de demander ce
+        que l'on sait deja. L'agent le redira avant tout SMS.
+        """
+        self._appel.etat.connu.setdefault("telephone", numero)
+
     def rien_entendu(self):
         """La session la cherche ici : sans delegation, l'agent resterait muet."""
         return self._appel.rien_entendu()

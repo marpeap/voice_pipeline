@@ -70,6 +70,25 @@ class ServeurDeSante:
 
         class Poignee(BaseHTTPRequestHandler):
             def do_GET(self):
+                if self.path.startswith("/appelant/"):
+                    # Le plan de numerotation depose l'identifiant d'appelant
+                    # AVANT de brancher l'audio : AudioSocket ne le transporte
+                    # pas, et l'agent ne peut pas le lire sur un ecran. Quand il
+                    # est la, ne pas s'en servir coute deux tours par appel.
+                    from urllib.parse import parse_qs, urlsplit
+
+                    decoupe = urlsplit(self.path)
+                    identifiant = decoupe.path[len("/appelant/"):].strip("/")
+                    numero = (parse_qs(decoupe.query).get("numero") or [""])[0]
+                    retenu = source.retenir_le_numero(identifiant, numero) \
+                        if hasattr(source, "retenir_le_numero") else False
+                    octets = (b"ok" if retenu else b"ignore")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.send_header("Content-Length", str(len(octets)))
+                    self.end_headers()
+                    self.wfile.write(octets)
+                    return
                 if self.path.startswith("/issue/"):
                     # Le plan de numerotation demande comment l'appel s'est
                     # termine : « transfert » le renvoie au poste du salon,
