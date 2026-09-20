@@ -232,16 +232,33 @@ class ServeurDeToile:
                                      audio[debut:debut + PAQUET_20MS]))
 
     def _emettre(self, connexion: socket.socket, session, fini: threading.Event) -> None:
-        """La voix de l'agent, au rythme du canal — comme au téléphone."""
+        """La voix de l'agent, au rythme du canal — comme au téléphone.
+
+        La session fabrique des trames AudioSocket : trois octets d'en-tete
+        devant l'audio. Le navigateur, lui, attend du PCM nu — il fait
+        `new Int16Array(octets)`, et 323 octets n'est pas un multiple de deux :
+        il levait « byte length of Int16Array should be a multiple of 2 » a
+        chaque paquet, et l'appelant n'entendait rien. On enleve l'en-tete ICI,
+        au bord : la session garde un seul format pour les deux transports.
+        """
         import time
 
+        from standard.audiosocket import Decodeur, TYPE_AUDIO_8K
+
+        decodeur = Decodeur()
         while not fini.is_set():
             paquet = session.emettre()
             if paquet is None:
                 time.sleep(0.01)
                 continue
-            try:
-                connexion.sendall(encoder_une_trame(paquet, OPCODE_BINAIRE))
-            except OSError:
-                return
+            for trame in decodeur.avaler(paquet):
+                # Une trame vide — ou d'un autre type que l'audio — n'a rien a
+                # faire sur le canal du navigateur : il la jouerait comme un
+                # blanc, ou s'y casserait.
+                if trame.type != TYPE_AUDIO_8K or not trame.charge:
+                    continue
+                try:
+                    connexion.sendall(encoder_une_trame(trame.charge, OPCODE_BINAIRE))
+                except OSError:
+                    return
             time.sleep(PAQUET_20MS / 2 / 8000)

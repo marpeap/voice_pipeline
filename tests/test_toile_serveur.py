@@ -51,6 +51,13 @@ def serveur(tmp_path):
     })
     serveur.transcrire = lambda audio, frequence: \
         "je voudrais un rendez-vous jeudi à quinze heures trente"
+    # La synthèse « muette » rend `b""` : AUCUN son. Un test qui compte les
+    # octets reçus mesurait alors la taille d'une annonce vide et se disait
+    # vert. Ici la voix produit du vrai PCM — c'est la seule façon de voir la
+    # forme de ce qui part vers le navigateur.
+    voix = lambda texte: iter([bytes(3200)])          # 0,2 s à 8 kHz
+    serveur.synthetiser = voix
+    serveur.toile.synthetiser = voix
     serveur.demarrer()
     yield serveur
     serveur.arreter()
@@ -99,6 +106,28 @@ def ecouter(prise, duree_s=2.0):
     return bytes(audio)
 
 
+def ecouter_les_trames(prise, duree_s=2.0):
+    """Les paquets UN PAR UN. `ecouter` les recolle, et un défaut de forme —
+    un en-tête resté collé, une longueur impaire — disparaît dans la colle."""
+    trames, tampon, fin = [], b"", time.time() + duree_s
+    prise.settimeout(0.2)
+    while time.time() < fin:
+        try:
+            morceau = prise.recv(65536)
+        except socket.timeout:
+            continue
+        if not morceau:
+            break
+        tampon += morceau
+        while True:
+            opcode, charge, tampon = decoder_une_trame(tampon)
+            if opcode is None:
+                break
+            if opcode == OPCODE_BINAIRE:
+                trames.append(charge)
+    return trames
+
+
 # --- la page ----------------------------------------------------------------
 
 def test_la_page_se_sert_et_demande_le_micro(serveur):
@@ -142,6 +171,36 @@ def test_l_annonce_part_des_la_connexion(serveur):
     try:
         audio = ecouter(prise, 2.0)
         assert len(audio) > 0, "rien n'a été envoyé au navigateur"
+    finally:
+        prise.close()
+
+
+def test_le_navigateur_recoit_du_pcm_nu_et_non_des_trames_audiosocket(serveur):
+    """Ce que la page peut JOUER, pas seulement ce qu'elle reçoit.
+
+    Le transport web envoyait les paquets tels que la session les fabrique :
+    encodés AudioSocket, en-tête de trois octets compris. La page fait
+    `new Int16Array(octets)` — sur 323 octets, longueur impaire, le navigateur
+    lève « byte length of Int16Array should be a multiple of 2 » à CHAQUE
+    paquet, et l'appelant n'entend rien. Les tests passaient : ils comptaient
+    les octets reçus, jamais leur forme. C'est un navigateur piloté qui l'a vu.
+    """
+    from standard.audiosocket import TAILLE_ENTETE, TYPE_AUDIO_8K
+
+    prise, _ = brancher(serveur)
+    try:
+        trames = ecouter_les_trames(prise, 2.0)
+        assert trames, "rien n'a été envoyé au navigateur"
+        for charge in trames:
+            assert len(charge) % 2 == 0, (
+                f"longueur impaire ({len(charge)}) : injouable en Int16Array")
+            assert len(charge) == PAQUET_20MS, (
+                f"{len(charge)} octets au lieu de {PAQUET_20MS} : "
+                "en-tête AudioSocket resté collé à l'audio")
+            entete_audiosocket = bytes([TYPE_AUDIO_8K]) + (
+                PAQUET_20MS).to_bytes(TAILLE_ENTETE - 1, "big")
+            assert not charge.startswith(entete_audiosocket), (
+                "le paquet porte encore son en-tête AudioSocket")
     finally:
         prise.close()
 
@@ -219,6 +278,23 @@ def test_le_front_end_sait_ou_joindre_l_agent_sans_redeployer():
     page = (Path(RACINE) / "toile" / "index.html").read_text()
     assert "URLSearchParams" in page and "agent" in page
     assert "CONFIGURATION" in page
+
+
+def test_un_canal_qui_ne_s_ouvre_jamais_ne_se_dit_pas_termine():
+    """Ce test lit la FORME du code de la page, faute de moteur JS dans la
+    suite : c'est une garde, pas une preuve. La preuve est venue d'un navigateur
+    piloté, qui a affiché « Appel terminé. Merci — vous pouvez rappeler. » alors
+    que Chrome avait refusé le canal (page publique vers réseau privé). Le
+    `onclose` passait après le `onerror` et écrasait la panne par une politesse.
+    """
+    page = open(os.path.join(RACINE, "toile", "index.html"), encoding="utf-8").read()
+    assert "let enLigne" in page, "rien ne distingue un appel abouti d'un appel manqué"
+    apres_onclose = page.split("canal.onclose")[1][:600]
+    assert "enLigne" in apres_onclose, (
+        "la fermeture annonce la même chose qu'un appel ait eu lieu ou non")
+    assert "Impossible de joindre" in page, "aucun message pour un canal jamais ouvert"
+    assert "Adresse essayée" in page, (
+        "une panne de canal sans l'adresse essayée ne se diagnostique pas")
 
 
 def test_la_page_refuse_un_canal_en_clair_depuis_une_page_chiffree():

@@ -70,6 +70,11 @@ const niveau = document.getElementById('niveau');
 
 let canal = null, contexte = null, micro = null, source = null, worklet = null;
 let prochainSon = 0;
+// Un appel qui n'a JAMAIS abouti ne se termine pas : il échoue. Sans ces deux
+// drapeaux, `onclose` passait après `onerror` et écrasait la panne par « Appel
+// terminé. Merci » — l'écran disait poliment le contraire de ce qui s'était
+// passé, et personne ne savait quoi réessayer.
+let enLigne = false, echec = false;
 
 function dire(quoi, pourquoi) {
   titre.textContent = quoi;
@@ -125,12 +130,14 @@ async function appeler() {
     return;
   }
 
+  enLigne = false; echec = false;
   contexte = new AudioContext();
   await contexte.resume();
   canal = new WebSocket(AGENT);
   canal.binaryType = 'arraybuffer';
 
   canal.onopen = () => {
+    enLigne = true;
     dire('En ligne.', 'Parlez normalement : l’agent vous entend et vous répond.');
     raccrocher.hidden = false;
     source = contexte.createMediaStreamSource(micro);
@@ -161,8 +168,21 @@ async function appeler() {
   };
 
   canal.onmessage = (evenement) => jouer(evenement.data);
-  canal.onclose = () => terminer('Appel terminé.', 'Merci — vous pouvez rappeler.');
-  canal.onerror = () => terminer('Connexion perdue.', 'Réessayez dans un instant.');
+  canal.onclose = () => {
+    if (echec) return;                       // la panne est déjà à l'écran
+    if (enLigne) return terminer('Appel terminé.', 'Merci — vous pouvez rappeler.');
+    echec = true;
+    terminer('Impossible de joindre l’agent.',
+      'Le canal ne s’est jamais ouvert. Adresse essayée : ' + AGENT
+      + '. Si cette page est publique et l’agent sur un réseau privé, '
+      + 'le navigateur refuse le canal : ouvrez la page depuis le même réseau.');
+  };
+  canal.onerror = () => {
+    echec = true;
+    terminer(enLigne ? 'Connexion perdue.' : 'Impossible de joindre l’agent.',
+      enLigne ? 'Réessayez dans un instant.'
+              : 'Adresse essayée : ' + AGENT);
+  };
 }
 
 function terminer(quoi, pourquoi) {
