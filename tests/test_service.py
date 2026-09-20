@@ -295,3 +295,20 @@ def test_les_corrections_actives_entrent_dans_la_memoire_de_l_agent():
     s.demarrer()
     appel = s.nouvel_appel("appel-1")
     assert "place de parking" in appel.memoire
+
+
+def test_les_lectures_d_agenda_perdues_remontent_a_l_etat_de_sante():
+    """Quand l'agenda tiers cale, il n'en garde aucune trace.
+
+    Vérifié avec la session qui tient marpeap/crenolo : ses journaux montrent
+    toutes les requêtes en 200, y compris celle qui a calé chez moi. Le
+    compteur de dégradations du standard est donc la SEULE trace qu'un
+    ralentissement a eu lieu — il doit sortir dans `/sante`, sinon personne ne
+    le lira jamais.
+    """
+    from standard.service import Supervision
+
+    supervision = Supervision()
+    supervision.absorber_lectures_perdues(3)
+    supervision.absorber_lectures_perdues(1)
+    assert supervision.etat()["lectures_agenda_perdues"] == 4

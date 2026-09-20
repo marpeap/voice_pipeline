@@ -85,6 +85,7 @@ class AppelSuivi:
         self._supervision = supervision
         self._supervision.appels += 1
         self._orphelines_comptees = 0
+        self._lectures_comptees = 0
 
     # La session cherche ces deux-la sur l'agent. L'agent reel, c'est CET objet :
     # sans delegation, le `hasattr` echouait en silence et la regle T7 — le
@@ -171,6 +172,9 @@ class AppelSuivi:
         total = self._appel.journal.confirmations_orphelines
         self._supervision.absorber(total - self._orphelines_comptees)
         self._orphelines_comptees = total
+        perdues = getattr(self._appel.agenda, "lectures_hote_perdues", 0)
+        self._supervision.absorber_lectures_perdues(perdues - self._lectures_comptees)
+        self._lectures_comptees = perdues
 
 
 @dataclass
@@ -185,6 +189,11 @@ class Supervision:
     appels_bruites: int = 0
     confirmations_orphelines: int = 0
     premiers_fragments_ms: list[float] = field(default_factory=list)
+    # Combien de fois l'agenda tiers n'a pas pu etre lu, toutes conversations
+    # confondues. L'hote n'en garde AUCUNE trace : ses journaux montrent 200
+    # meme quand une requete cale chez lui (verifie le 20/09). Ce compteur est
+    # donc la seule preuve qu'un ralentissement a eu lieu.
+    lectures_agenda_perdues: int = 0
 
     def absorber(self, nouvelles: int) -> None:
         """On ADDITIONNE des incidents NOUVEAUX, jamais un total.
@@ -197,6 +206,10 @@ class Supervision:
         """
         self.confirmations_orphelines += max(0, nouvelles)
 
+    def absorber_lectures_perdues(self, nouvelles: int) -> None:
+        """Un ECART, jamais un total — meme raison qu'`absorber`."""
+        self.lectures_agenda_perdues += max(0, nouvelles)
+
     def etat(self) -> dict[str, Any]:
         import statistics
         part = (100.0 * self.appels_bruites / self.appels) if self.appels else 0.0
@@ -204,6 +217,7 @@ class Supervision:
             "appels": self.appels,
             "part_bruitee_pct": round(part, 1),
             "confirmations_orphelines": self.confirmations_orphelines,
+            "lectures_agenda_perdues": self.lectures_agenda_perdues,
             "premier_fragment_p50_ms": (round(statistics.median(self.premiers_fragments_ms))
                                         if self.premiers_fragments_ms else None),
         }
