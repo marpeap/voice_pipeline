@@ -562,10 +562,16 @@ class Appel:
             annule, reste = False, a_annuler
 
         if not annule or reste is not None:
-            phrase = ("Je n'arrive pas à vérifier que votre rendez-vous est bien "
-                      "annulé. Le salon vous rappellera pour le confirmer.")
-            self.journal.noter(transcription=transcription, genre="incertain", phrase=phrase)
-            return Reponse("incertain", phrase)
+            # Pas de « le salon vous rappellera » : c'est une promesse faite au
+            # nom du salon, que rien ne garantit — et l'agenda de l'hote peut
+            # tout simplement interdire l'annulation en ligne (Crenolo :
+            # `self_cancellation` a False, 403). Le client est au telephone :
+            # on lui passe quelqu'un maintenant plutot que de l'ecarter.
+            phrase = ("Je n'arrive pas à annuler ce rendez-vous moi-même. "
+                      "Je préfère vous passer quelqu'un du salon.")
+            self.journal.noter(transcription=transcription, genre="transfert",
+                               phrase=phrase)
+            return Reponse("transfert", phrase)
 
         quand = f"{enoncer_date(a_annuler['date'])} à {enoncer_heure(a_annuler['heure'])}"
         phrase = f"C'est annulé : votre rendez-vous du {quand} n'est plus dans l'agenda."

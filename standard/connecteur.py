@@ -23,14 +23,43 @@ from typing import Any, Callable, Protocol
 DELAI_PAR_DEFAUT_S = 3.0        # un appel téléphonique n'attend pas davantage
 
 # Les refus de l'hôte, ramenés à des codes que l'agent sait dire à voix haute.
+#
+# Ils correspondent à la taxonomie réelle de Crenolo — quinze refus documentés
+# en tête de `api/services/reservation.py`, confirmés le 21/09 par la session
+# qui tient ce dépôt. Ce qui compte n'est pas leur nombre : c'est de ne jamais
+# confondre un refus **définitif**, un refus **contournable** en proposant autre
+# chose, et une **indisponibilité** de l'hôte.
 CODES_DE_REFUS = {
-    409: "creneau_pris",
-    422: "donnees_refusees",
-    403: "acces_refuse",
-    404: "inconnu",
-    429: "trop_de_demandes",
+    409: "creneau_pris",             # « Time slot no longer available »
+    422: "donnees_refusees",         # jour fermé, hors horaires, délai, praticien…
+    403: "acces_refuse",             # facturation fermée, client bloqué, annulation coupée
+    404: "inconnu",                  # prestation ou établissement inconnu
+    429: "trop_de_reservations",     # trois rendez-vous actifs pour ce client
     400: "demande_malformee",
 }
+
+PHRASES_DE_REFUS = {
+    # Contournables : il reste des créneaux, l'agent en propose.
+    "creneau_pris": "Ce créneau vient d'être pris.",
+    "donnees_refusees": "Le salon ne prend pas de rendez-vous à ce moment-là.",
+    # Définitifs : insister ne changera rien, et faire répéter un appelant à qui
+    # l'on ne peut rien offrir est la pire réponse. On passe la main.
+    "acces_refuse": "Je ne peux pas faire cela par téléphone pour ce salon. "
+                    "Je vous passe quelqu'un.",
+    "inconnu": "Je ne trouve pas cette prestation chez eux. "
+               "Je vous passe quelqu'un du salon.",
+    "trop_de_reservations": "Vous avez déjà plusieurs rendez-vous en attente. "
+                            "Je vous passe quelqu'un du salon.",
+    "demande_malformee": "Je n'arrive pas à transmettre cette demande. "
+                         "Je vous passe quelqu'un du salon.",
+}
+"""Un code HTTP ne se dit pas au téléphone, et « erreur 422 » encore moins."""
+
+
+def phrase_de_refus(code: str) -> str:
+    """Ce que l'appelant entend. Jamais un code, jamais le mot « erreur »."""
+    return PHRASES_DE_REFUS.get(
+        code, "Je n'arrive pas à faire cela. Je vous passe quelqu'un du salon.")
 
 # Jamais transmis, même si ça traîne dans les données : le produit ne collecte
 # pas d'adresse électronique, il n'a donc aucune raison d'en propager une.

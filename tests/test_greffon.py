@@ -191,3 +191,90 @@ def test_le_service_pose_toujours_le_filet_local(tmp_path):
     })
     assert serveur.service.secours is not None
     assert hasattr(serveur.service.secours, "enregistrer_message")
+
+
+# --- la taxonomie réelle de Crenolo (session marpeap-ea, 21/09) -------------
+# Quinze refus possibles, dans l'ordre où ils tombent, documentés en tête de
+# `api/services/reservation.py`. Ce qui compte pour l'agent n'est pas leur
+# nombre : c'est de ne jamais confondre un refus définitif, un refus qu'on peut
+# contourner, et une indisponibilité.
+
+@pytest.mark.parametrize("statut, detail, attendu", [
+    (409, "Time slot no longer available", "creneau_pris"),
+    (422, "Horaires", "donnees_refusees"),
+    (404, "Service inconnu", "inconnu"),
+    (403, "Facturation fermée", "acces_refuse"),
+    (429, "3 réservations actives", "trop_de_reservations"),
+])
+def test_chaque_refus_de_crenolo_a_son_sens(statut, detail, attendu):
+    from standard.connecteur import CODES_DE_REFUS, Refus
+
+    assert CODES_DE_REFUS[statut] == attendu
+
+    adaptee = base(HoteFactice(statut_reservation=statut))
+    # Le créneau pris traverse l'adaptateur sous le nom que l'agent sait dire :
+    # c'est le seul refus qu'il contourne en proposant autre chose.
+    attendue = ChevauchementRefuse if attendu == "creneau_pris" else Refus
+    with pytest.raises(attendue) as refus:
+        adaptee.inserer("cle-1", {"date": "2026-09-17", "heure": "15:30"})
+    if attendue is Refus:
+        assert refus.value.code == attendu
+
+
+def test_un_plafond_de_reservations_n_est_pas_un_creneau_pris():
+    """429 : le client a déjà trois rendez-vous en attente. Lui proposer un
+    autre créneau ne servirait à rien — c'est lui qu'il faut renvoyer au salon."""
+    from standard.connecteur import Refus
+
+    adaptee = base(HoteFactice(statut_reservation=429))
+    with pytest.raises(Refus) as refus:
+        adaptee.inserer("cle-1", {"date": "2026-09-17", "heure": "15:30"})
+    assert refus.value.code != "creneau_pris"
+
+
+def test_ce_que_l_appelant_entend_pour_chaque_refus(tmp_path):
+    """Un code HTTP ne se dit pas au téléphone. Chaque refus a sa phrase, et
+    aucune ne prétend que le rendez-vous existe."""
+    from standard.connecteur import phrase_de_refus
+
+    for code in ("creneau_pris", "donnees_refusees", "acces_refuse", "inconnu",
+                 "trop_de_reservations"):
+        phrase = phrase_de_refus(code)
+        assert phrase and phrase[0].isupper(), code
+        assert "erreur" not in phrase.lower(), code
+        assert "http" not in phrase.lower(), code
+
+
+def test_un_salon_qui_refuse_l_annulation_par_telephone_le_dit(tmp_path):
+    """`self_cancellation` est à False chez Nail Beauté Nguyen : l'API rend un
+    403. L'agent ne doit pas dire « c'est annulé », ni faire répéter."""
+    from standard.appel import Appel
+    from standard.decision import Agenda
+    from standard.depot import Depot
+    from standard.hors_ligne import ModeleHorsLigne
+
+    class HoteQuiRefuseL_Annulation(HoteFactice):
+        def __call__(self, methode, url, corps=None, entetes=None, delai=None):
+            if "/annulation" in url or methode == "DELETE":
+                return 403, {"detail": "Annulation en ligne désactivée"}
+            return super().__call__(methode, url, corps, entetes, delai)
+
+    depot = Depot(str(tmp_path / "essai.sqlite3"))
+    depot.pour("salon-1").inserer("cle-1", {"date": "2026-09-17", "heure": "15:30",
+                                            "telephone": "0612345678"})
+    adaptee = depot.pour("salon-1")
+    adaptee.annuler = lambda reference: False
+
+    appel = Appel(client_modele=ModeleHorsLigne(aujourd_hui=MARDI),
+                  agenda=Agenda(aujourd_hui=MARDI, creneaux={"15:30"}, jours_fermes=(6, 0)),
+                  base=adaptee, memoire="", consignes_communes="c",
+                  tenant="salon-1", identifiant="appel-1")
+    appel.fiche = {"reservation": {"nom": "non"}}
+    appel.etat.connu["telephone"] = "0612345678"
+    appel.tour("je voudrais annuler mon rendez-vous")
+    phrase = appel.tour("oui c'est bien ça").phrase
+    assert "annulé" not in phrase.lower() or "n'arrive pas" in phrase.lower()
+    # Pas de « le salon vous rappellera » ici : c'est une promesse faite au nom
+    # du salon, et rien ne la garantit. Pour une annulation ratée, on passe la
+    # main tout de suite — le client est au téléphone, autant en profiter.
+    assert "passe" in phrase.lower()

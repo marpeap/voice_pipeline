@@ -105,7 +105,10 @@ def test_un_rejeu_ne_cree_pas_un_second_rendez_vous():
     (422, {"erreur": "invalid_phone"}, "donnees_refusees"),
     (403, {"erreur": "forbidden"}, "acces_refuse"),
     (404, {"erreur": "not_found"}, "inconnu"),
-    (429, {"erreur": "rate_limited"}, "trop_de_demandes"),
+    # 429 chez Crenolo : « trois réservations actives pour ce client », pas un
+    # débit trop rapide. Les deux mènent au même geste — passer la main —, et
+    # le nom suit le sens que lui donne l'hôte réel (confirmé le 21/09).
+    (429, {"erreur": "rate_limited"}, "trop_de_reservations"),
 ])
 def test_chaque_refus_a_un_code_machine(statut, corps, code):
     """Dix-huit refus possibles côté hôte : l'agent doit savoir lequel il essuie,

@@ -1,0 +1,59 @@
+# Le canal chiffré entre la page publiée et le standard.
+#
+# La page vit sur Vercel, en HTTPS. Un navigateur en HTTPS **refuse** un
+# WebSocket en clair, et le message qu'il affiche ne dit pas pourquoi : il faut
+# donc `wss://`, donc ce proxy.
+#
+# Installation, sur la machine qui fait tourner le standard :
+#
+#   sudo cp agent-toile.nginx /etc/nginx/sites-available/agent.marpeap.com
+#   sudo ln -s /etc/nginx/sites-available/agent.marpeap.com /etc/nginx/sites-enabled/
+#   sudo certbot --nginx -d agent.marpeap.com     # c'est certbot qui écrit les
+#                                                 # lignes ssl_certificate
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# Le certificat n'est écrit nulle part ici : un chemin en dur qui n'existe que
+# sur une machine est une panne qui attend son tour.
+
+server {
+    listen 80;
+    server_name agent.marpeap.com;
+    # certbot pose lui-même la redirection vers 443 ; avant son passage, cette
+    # règle sert la validation ACME et rien d'autre.
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name agent.marpeap.com;
+
+    # ssl_certificate / ssl_certificate_key : écrits par certbot.
+
+    # Le canal audio, et lui seul. La page est servie par Vercel : deux
+    # exemplaires publics auraient divergé, et on ne saurait plus lequel on
+    # regarde.
+    location /parler {
+        proxy_pass http://127.0.0.1:8093;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Le défaut de nginx est soixante secondes : un appelant qui cherche
+        # son agenda met plus longtemps, et l'appel mourrait sans un mot.
+        proxy_read_timeout 900s;
+        proxy_send_timeout 900s;
+
+        # Vingt millisecondes par paquet : mis en tampon, cela s'entend. La
+        # voix partirait par blocs, et l'appelant croirait que ça saccade.
+        proxy_buffering off;
+    }
+
+    # Tout le reste n'existe pas ici. En particulier, le point d'état
+    # (`/sante`) est joignable sans jeton : il reste sur la boucle locale de la
+    # machine, et n'a rien à faire sur Internet.
+    location / { return 404; }
+}
