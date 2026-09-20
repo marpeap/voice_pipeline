@@ -1066,3 +1066,46 @@ faux depuis qu'il existait.
 ```bash
 .venv/bin/python bancs/latence.py
 ```
+
+---
+
+## Mesure 25 — ce que le standard occupe en mémoire (21/09)
+
+Quatorze appels joués contre le serveur complet, sur le poste de travail, en
+lisant la RSS **courante** (`/proc/self/statm`) et non le pic.
+
+| Configuration | Au chargement des moteurs | Pic | Oscille ensuite entre |
+|---|---|---|---|
+| Moteurs locaux (sherpa + Piper) | 329 Mo | **620 Mo** | 473 et 619 Mo |
+| Transcription distante (Piper seul) | 145 Mo | **432 Mo** | 363 et 432 Mo |
+
+**Ce que ces chiffres décident :**
+
+1. **Pas de fuite.** La RSS monte jusqu'au sixième appel, puis **redescend** —
+   473 Mo au douzième après 619 au dixième. C'est l'allocateur qui garde ses
+   arènes et les rend, pas le produit qui oublie. Trois appels ne suffisaient
+   pas à le voir : la courbe montait encore.
+2. **Le standard ne tient pas sur `petites-claques` à côté de l'API.** 1 Go au
+   total, l'API Marpeap et sa base déjà en place : ajouter 430 à 620 Mo n'est
+   pas raisonnable. Il lui faut sa propre machine, ou une machine plus grande.
+   C'est la mesure qui décide où poser `wss://agent.marpeap.com`, pas une
+   préférence.
+3. **La transcription distante paie trois fois** : elle enlève 185 Mo au
+   chargement et près de 190 Mo au pic, en plus du taux d'erreur (mesure 20) et
+   des 200 ms de latence (mesure 24). Les trois arguments pointent dans la même
+   direction.
+
+### Deux pièges rencontrés en mesurant
+
+- **`ru_maxrss` est un pic** : il ne peut que monter, et ne dit donc rien d'une
+  fuite. Mesurer avec lui aurait conclu « la mémoire ne redescend jamais », ce
+  qui est faux.
+- **Trois points ne font pas une courbe.** La première version du banc s'arrêtait
+  à trois appels et montrait une montée continue ; elle se stabilise au sixième.
+
+### Rejouer
+
+```bash
+.venv/bin/python bancs/empreinte.py                                 # moteurs locaux
+VARIANTE_STT=muet APPELS=14 .venv/bin/python bancs/empreinte.py     # Piper seul
+```
