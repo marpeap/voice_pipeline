@@ -182,8 +182,18 @@ class Appel:
             if est_un_oui(transcription):
                 numero, self._numero_propose = self._numero_propose, None
                 self.etat.connu["telephone"] = numero
+                self._demande_le_numero = False
+                if self._reference_ecrite:
+                    # Le rendez-vous est deja ecrit : le numero le rejoint, et
+                    # c'est maintenant que le SMS peut partir.
+                    return self._attacher_le_numero(numero)
                 return self.confirmer()
             self._numero_propose = None          # il corrige : on reprend l'ecoute
+
+        # Quand l'agent VIENT de demander le nom, c'est une reponse, pas une
+        # correction : sans cet ordre, les deux chemins se disputent le tour.
+        if self._demande_le_nom:
+            return self._entendre_un_nom(transcription)
 
         # Juste apres la confirmation, l'agent a redit le nom a voix haute :
         # c'est la seule occasion qu'a l'appelant de corriger ce que le moteur a
@@ -198,9 +208,6 @@ class Appel:
 
         if self._message_en_cours is not None:
             return self._poursuivre_le_message(transcription)
-
-        if self._demande_le_nom:
-            return self._entendre_un_nom(transcription)
 
         if self._attend_un_numero:
             return self._entendre_un_numero(transcription)
@@ -281,7 +288,9 @@ class Appel:
 
     @property
     def _attend_un_numero(self) -> bool:
-        return self._en_attente is not None and self._demande_le_numero
+        # Plus de `_en_attente` ici : depuis que l'accord ecrit tout de suite,
+        # la proposition est deja consommee quand le numero arrive.
+        return self._demande_le_numero
 
     # --- corriger le nom apres la confirmation ------------------------------
 
@@ -639,44 +648,121 @@ class Appel:
         if lecture.issue == "accepte":
             self._demande_le_nom = False
             self.etat.connu["nom"] = lecture.nom
+            if self._reference_ecrite:
+                # Le rendez-vous existe deja : le nom le rejoint.
+                if self._attacher({"nom": lecture.nom}):
+                    phrase = f"C'est noté, au nom de {lecture.nom}."
+                else:
+                    phrase = ("Je n'arrive pas à noter votre nom sur le "
+                              "rendez-vous. Le salon le fera.")
+                self.journal.noter(transcription=transcription, genre="confirmation",
+                                   phrase=phrase)
+                return self._peut_etre_le_numero(phrase)
             return self._apres_accord()
 
         self._echecs_nom += 1
         if self._echecs_nom >= 2:
             # On abandonne le nom, pas l'appel — et on ne le redemande plus,
-            # sans quoi la conversation tournerait en rond.
+            # sans quoi la conversation tournerait en rond. Le rendez-vous, lui,
+            # est deja ecrit : rien n'est perdu.
             self._demande_le_nom = False
             self._nom_abandonne = True
+            if self._reference_ecrite:
+                return self._peut_etre_le_numero(
+                    "Tant pis pour le nom, votre rendez-vous est enregistré.")
             return self._apres_accord()
         phrase = "Je n'ai pas saisi votre nom. Pouvez-vous me le redonner ?"
         self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
         return Reponse("question", phrase)
 
     def _apres_accord(self) -> Reponse:
-        """L'appelant a dit oui. Reste a savoir a quel nom, et ou confirmer.
+        """L'appelant a dit oui : **on ecrit tout de suite**, on demande ensuite.
 
-        L'agent ne peut pas lire le numero sur son ecran : l'Arcep recommande aux
-        operateurs de masquer l'identifiant d'appelant sur les renvois complexes
-        (docs/19). Il le demande donc — mais seulement s'il en fera quelque chose.
+        Banc du 20/09 : trois echecs sur quatre venaient du tour du nom. Le
+        client avait donne son accord et le rendez-vous n'existait pas encore —
+        un moteur qui abime « au nom de Dupont », ou un appelant qui raccroche
+        la, perdait une reservation que le salon avait accordee.
+
+        Le nom et le numero rejoignent la ligne ensuite, par correction. Rien
+        n'est promis avant d'etre ecrit ET relu : c'est `confirmer` qui parle.
         """
+        reponse = self.confirmer()
+        if reponse.genre != "confirmation":
+            # Creneau pris entre-temps, ou ecriture incertaine : la phrase dit
+            # deja quoi faire, on n'y ajoute pas une question.
+            return reponse
+
         if (self._demande_du_nom() and not self.etat.connu.get("nom")
                 and not self._nom_abandonne):
             self._demande_le_nom = True
-            phrase = "Très bien. C'est à quel nom ?"
-            self.journal.noter(transcription="[accord de l'appelant]", genre="question",
-                               phrase=phrase)
-            return Reponse("question", phrase)
+            return Reponse("confirmation", f"{reponse.phrase} C'est à quel nom ?",
+                           reponse.entites)
 
-        if self.envoyeur_sms is None or self.etat.connu.get("telephone"):
-            return self.confirmer()
-        self._demande_le_numero = True
-        # Formulation choisie pour ne rien affirmer : a ce stade, RIEN n'est
-        # encore ecrit en base, et le garde de sortie refuserait « c'est note ».
-        phrase = ("Parfait. À quel numéro de mobile puis-je vous envoyer "
-                  "la confirmation ?")
-        self.journal.noter(transcription="[accord de l'appelant]", genre="question",
-                           phrase=phrase)
-        return Reponse("question", phrase)
+        if self.envoyeur_sms is not None and not self.etat.connu.get("telephone"):
+            self._demande_le_numero = True
+            return Reponse("confirmation",
+                           f"{reponse.phrase} À quel numéro de mobile puis-je "
+                           "vous envoyer la confirmation ?", reponse.entites)
+        return reponse
+
+    def _attacher(self, champs: dict) -> bool:
+        """Complete le rendez-vous deja ecrit. Rend vrai si la relecture le dit.
+
+        On ne dit « c'est note » que sur une relecture reussie, exactement comme
+        pour l'ecriture elle-meme.
+        """
+        corriger = getattr(self.base, "corriger", None)
+        if not callable(corriger) or not self._reference_ecrite:
+            return False
+        try:
+            relu = corriger(self._reference_ecrite, champs)
+        except Exception as erreur:
+            self.journal.noter(transcription="[complement]", genre="incertain",
+                               phrase="", erreur=str(erreur))
+            return False
+        return bool(relu) and all(relu.get(cle) == valeur
+                                  for cle, valeur in champs.items())
+
+    def _attacher_le_numero(self, numero: str) -> Reponse:
+        """Pose le numero sur le rendez-vous deja ecrit, puis envoie le SMS.
+
+        Le SMS suit l'ecriture relue, jamais la proposition : promettre un
+        message pour un rendez-vous qui n'existe pas serait doubler la faute.
+        """
+        if not self._attacher({"telephone": numero}):
+            phrase = ("Je n'arrive pas à noter votre numéro sur le rendez-vous. "
+                      "Il est enregistré, le salon vous rappellera si besoin.")
+            self.journal.noter(transcription="[numéro]", genre="incertain", phrase=phrase)
+            return Reponse("incertain", phrase)
+
+        phrase = "C'est noté."
+        peut_promettre = (self.envoyeur_sms is not None
+                          and getattr(self.envoyeur_sms, "peut_promettre", True))
+        if peut_promettre:
+            donnees = self.base.relire(self._reference_ecrite) or {}
+            envoi = self.envoyeur_sms.confirmer(numero, {**donnees,
+                                                         "salon": self.nom_salon})
+            trace = {"transcription": "[numéro]", "genre": "confirmation",
+                     "phrase": phrase, "sms": "envoyé" if envoi.envoye else "échec"}
+            if envoi.envoye:
+                phrase = "C'est noté. Vous recevrez un SMS de confirmation."
+                trace["phrase"] = phrase
+            if envoi.reserve:
+                trace["sms_reserve"] = envoi.reserve
+            self.journal.noter(**trace)
+            return Reponse("confirmation", phrase)
+
+        self.journal.noter(transcription="[numéro]", genre="confirmation", phrase=phrase)
+        return Reponse("confirmation", phrase)
+
+    def _peut_etre_le_numero(self, phrase: str) -> Reponse:
+        """Enchaine sur le numero s'il sert a quelque chose, sinon s'arrete la."""
+        if self.envoyeur_sms is not None and not self.etat.connu.get("telephone"):
+            self._demande_le_numero = True
+            return Reponse("confirmation",
+                           f"{phrase} À quel numéro de mobile puis-je vous "
+                           "envoyer la confirmation ?")
+        return Reponse("confirmation", phrase)
 
     def _entendre_un_numero(self, transcription: str) -> Reponse:
         """Lit le numero sous contrainte, et le fait relire. Jamais de supposition."""
@@ -739,6 +825,8 @@ class Appel:
             return Reponse("question", phrase)
         self.etat.connu["telephone"] = lecture.numero
         self._demande_le_numero = False
+        if self._reference_ecrite:
+            return self._attacher_le_numero(lecture.numero)
         return self.confirmer()
 
     def _garde_de_sortie(self, phrase: str) -> str:

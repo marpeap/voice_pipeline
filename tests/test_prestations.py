@@ -105,6 +105,7 @@ def test_la_confirmation_nomme_la_prestation(tmp_path):
     })
     appel = serveur.service.nouvel_appel("appel-1")
     appel.tour("je voudrais une coupe jeudi à quinze heures trente")
-    appel.tour("oui")
-    phrase = appel.tour("au nom de Dupont").phrase
+    # L'accord écrit tout de suite : c'est CETTE phrase qui nomme la prestation,
+    # le nom arrive au tour suivant.
+    phrase = appel.tour("oui").phrase
     assert "coupe" in phrase.lower()

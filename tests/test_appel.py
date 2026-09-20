@@ -51,6 +51,7 @@ INVENTIONS = [
 ]
 
 from standard.regles import VERBES_DE_CONFIRMATION as INTERDITS
+from standard.regles import contient_une_confirmation
 
 
 class ModeleQuiInvente:
@@ -83,6 +84,14 @@ class BaseFactice:
 
     def relire(self, reference):
         return self.lignes.get(reference)
+
+    def corriger(self, reference, champs):
+        """Le vrai dépôt sait compléter une ligne : la doublure aussi, sinon
+        elle testerait un produit qui n'existe pas."""
+        if reference not in self.lignes:
+            return None
+        self.lignes[reference].update(champs)
+        return self.lignes[reference]
 
 
 def agenda():
@@ -370,10 +379,11 @@ def test_un_creneau_pris_pendant_l_appel_ne_devient_pas_une_incertitude():
 # le nôtre écrivait des rendez-vous anonymes.
 
 def test_apres_l_accord_l_agent_demande_le_nom():
+    """Et il le demande APRÈS avoir écrit : la phrase confirme et enchaîne."""
     conversation = hors_ligne()
     conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
     reponse = conversation.tour("oui c'est parfait")
-    assert reponse.genre == "question"
+    assert reponse.genre == "confirmation"
     assert "nom" in reponse.phrase.lower()
 
 
@@ -386,6 +396,7 @@ def test_le_nom_donne_est_ecrit_avec_le_rendez_vous():
     assert reponse.genre == "confirmation"
     assert "Dupont" in reponse.phrase
     assert list(base.lignes.values())[0]["nom"] == "Dupont"
+    assert len(base.lignes) == 1
 
 
 def test_un_nom_incomprehensible_est_redemande_puis_abandonne():
@@ -406,3 +417,40 @@ def test_le_salon_peut_decider_de_ne_pas_demander_le_nom():
     conversation.fiche = {"reservation": {"nom": "non"}}
     conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
     assert conversation.tour("oui c'est parfait").genre == "confirmation"
+
+
+# --- l'accord écrit, le nom suit -------------------------------------------
+# Banc du 20/09 : trois échecs sur quatre venaient du tour du nom. L'appelant
+# avait dit oui, et le rendez-vous n'existait pas encore : un moteur qui abîme
+# « au nom de Dupont », ou un appelant qui raccroche là, perdait la réservation
+# que le salon avait pourtant accordée.
+
+def test_l_accord_ecrit_le_rendez_vous_avant_de_demander_le_nom():
+    base = BaseFactice()
+    conversation = appel(ModeleHorsLigne(aujourd_hui=MARDI), base=base)
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    reponse = conversation.tour("oui c'est parfait")
+
+    assert base.lignes, "le créneau accordé n'est pas réservé"
+    assert "nom" in reponse.phrase.lower()
+    assert contient_une_confirmation(reponse.phrase), \
+        "l'appelant doit savoir que son créneau est pris"
+
+
+def test_le_nom_donne_ensuite_rejoint_le_rendez_vous_deja_ecrit():
+    base = BaseFactice()
+    conversation = appel(ModeleHorsLigne(aujourd_hui=MARDI), base=base)
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    conversation.tour("oui c'est parfait")
+    conversation.tour("c'est au nom de Dupont")
+    assert list(base.lignes.values())[0]["nom"] == "Dupont"
+    assert len(base.lignes) == 1, "le nom a créé un second rendez-vous"
+
+
+def test_un_appelant_qui_raccroche_au_nom_garde_son_rendez_vous():
+    base = BaseFactice()
+    conversation = appel(ModeleHorsLigne(aujourd_hui=MARDI), base=base)
+    conversation.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+    conversation.tour("oui c'est parfait")
+    # … et il raccroche. Le rendez-vous reste, sans nom.
+    assert len(base.lignes) == 1

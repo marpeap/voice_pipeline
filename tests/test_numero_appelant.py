@@ -45,6 +45,13 @@ class Base:
     def relire(self, reference):
         return list(self.lignes.values())[int(reference.split("-")[1]) - 1]
 
+    def corriger(self, reference, champs):
+        """Le vrai dépôt complète une ligne écrite : la doublure aussi, sinon
+        elle teste un produit qui n'existe pas."""
+        ligne = self.relire(reference)
+        ligne.update(champs)
+        return ligne
+
 
 class EnvoyeurFactice:
     def __init__(self):
@@ -77,7 +84,8 @@ def test_apres_l_accord_l_agent_demande_le_numero():
     appel = conversation(envoyeur=EnvoyeurFactice())
     appel.tour("JEUDI QUINZE HEURES TRENTE")
     reponse = appel.tour("oui c'est parfait")
-    assert reponse.genre == "question"
+    # Depuis le 20/09, l'accord écrit d'abord : la phrase confirme ET demande.
+    assert reponse.genre == "confirmation"
     assert "numéro" in reponse.phrase.lower()
 
 
