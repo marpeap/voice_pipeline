@@ -3,6 +3,7 @@
 <meta charset=utf-8>
 <meta name=viewport content='width=device-width,initial-scale=1'>
 <title>Parler à l'agent — {{SALON}}</title>
+<script src=config.js onerror="window.CONFIGURATION={}"></script>
 <style>
 :root { color-scheme: light; --paper:#F2F0EB; --ink:#0A0A0C; --electric:#0A0AEA;
         --mute:#6A6765; --rule:#A19E99; }
@@ -52,6 +53,14 @@ button.raccrocher { background:transparent; color:var(--ink);
 // réglé sur ce rythme-là ; changer de format ici ferait diverger les deux
 // transports, et un défaut n'apparaîtrait que d'un côté.
 const TAUX = 8000, PAQUET = 160;
+
+// Où joindre l'agent. Trois sources, dans cet ordre : le paramètre `?agent=`
+// (pour essayer un autre serveur sans redéployer), la configuration injectée au
+// déploiement, puis l'hôte qui sert cette page — c'est le cas quand le standard
+// la sert lui-même, en local.
+const AGENT = new URLSearchParams(location.search).get('agent')
+  || (window.CONFIGURATION && window.CONFIGURATION.agent)
+  || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/parler`;
 
 const bouton = document.getElementById('appeler');
 const raccrocher = document.getElementById('raccrocher');
@@ -108,10 +117,17 @@ async function appeler() {
     return;
   }
 
+  if (!AGENT.startsWith('wss://') && location.protocol === 'https:') {
+    // Un navigateur en https refuse un canal en clair, et le message qu'il
+    // affiche ne dit pas pourquoi.
+    terminer('Agent injoignable.', 'Cette page est servie en HTTPS : le serveur '
+      + 'de l’agent doit l’être aussi. Adresse essayée : ' + AGENT);
+    return;
+  }
+
   contexte = new AudioContext();
   await contexte.resume();
-  const protocole = location.protocol === 'https:' ? 'wss' : 'ws';
-  canal = new WebSocket(`${protocole}://${location.host}/parler`);
+  canal = new WebSocket(AGENT);
   canal.binaryType = 'arraybuffer';
 
   canal.onopen = () => {

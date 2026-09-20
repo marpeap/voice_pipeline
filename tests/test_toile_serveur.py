@@ -198,3 +198,33 @@ def test_l_appel_par_la_toile_atterrit_au_journal(serveur):
     appels = serveur.journal.lister("salon-marpeap")
     assert appels, "un appel par la toile doit se journaliser comme les autres"
     assert appels[0]["preuve_annonce"]["conforme"] is True
+
+
+def test_la_page_publiee_et_la_page_servie_sont_le_meme_fichier():
+    """Deux copies auraient divergé dès la première correction — et le défaut
+    n'apparaîtrait que d'un côté, c'est-à-dire chez le client qui essaie."""
+    from pathlib import Path
+
+    depuis_le_depot = Path(RACINE) / "toile" / "index.html"
+    assert depuis_le_depot.exists()
+    assert not (Path(RACINE) / "standard" / "toile").exists(), (
+        "il ne doit rester qu'un seul exemplaire de la page")
+
+
+def test_le_front_end_sait_ou_joindre_l_agent_sans_redeployer():
+    """`?agent=wss://…` : essayer un autre serveur ne doit pas demander une
+    publication — sinon on ne l'essaie pas."""
+    from pathlib import Path
+
+    page = (Path(RACINE) / "toile" / "index.html").read_text()
+    assert "URLSearchParams" in page and "agent" in page
+    assert "CONFIGURATION" in page
+
+
+def test_la_page_refuse_un_canal_en_clair_depuis_une_page_chiffree():
+    """Un navigateur en HTTPS refuse un WebSocket en clair, et son message ne
+    dit pas pourquoi. La page le dit à sa place."""
+    from pathlib import Path
+
+    page = (Path(RACINE) / "toile" / "index.html").read_text()
+    assert "wss://" in page and "HTTPS" in page

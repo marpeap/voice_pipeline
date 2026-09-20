@@ -49,8 +49,11 @@ class ServeurDeToile:
         self.transcrire = transcrire
         self.synthetiser = synthetiser
         self.nom_du_salon = nom_du_salon
+        # La page a UNE source : celle que Vercel publie. Le standard sert le
+        # meme fichier, avec le nom du salon substitue — deux copies auraient
+        # diverge des la premiere correction.
         self.page = Path(page) if page else (
-            Path(__file__).resolve().parent / "toile" / "parler.html")
+            Path(__file__).resolve().parent.parent / "toile" / "index.html")
         self.hote, self.port = hote, port
         self.sur_fin = sur_fin
         self.seuil_bruite_db = seuil_bruite_db
