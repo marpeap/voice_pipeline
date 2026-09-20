@@ -522,3 +522,26 @@ def test_un_appelant_qui_tape_son_numero_sans_qu_on_lui_demande_est_entendu():
     for touche in "0612345678":
         s.recevoir(encoder(TYPE_DTMF, touche.encode()))
     assert getattr(agent, "recu", None) == "0612345678"
+
+
+def test_le_delai_du_premier_fragment_mesure_bien_la_synthese():
+    """Mesuré le 21/09 sur le banc : neuf tours à « 0 ms », alors que Piper met
+    250 ms. La mesure lisait la file d'attente, pas la synthèse — quand des
+    paquets de la phrase précédente restaient, le compteur tombait à zéro.
+
+    C'est l'indicateur de la mesure 13, celui qui dit qu'une machine est pleine
+    bien avant la charge processeur : faux, il ne dit plus rien.
+    """
+    import time as horloge
+
+    def synthese_lente(texte):
+        horloge.sleep(0.05)
+        yield texte.encode()
+
+    s = SessionTelephonique(agent=AgentFactice(),
+                            transcrire=lambda audio, frequence: "une phrase",
+                            synthetiser=synthese_lente)
+    s.ouvrir()                       # l'annonce reste en file, non lue
+    assert s.reste_a_emettre > 0
+    s._jouer("une deuxième phrase")
+    assert s.premiers_fragments_ms[-1] >= 40, s.premiers_fragments_ms

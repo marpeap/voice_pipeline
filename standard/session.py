@@ -131,7 +131,6 @@ class SessionTelephonique:
     _attend_un_numero: bool = False
     _a_dire: list[bytes] = field(default_factory=list, repr=False)
     _annonce_en_cours: bool = False
-    _amorcage: bool = False
     _source: object = None                      # synthese en cours, consommee au fil de l'eau
     # Un verrou, parce que DEUX fils touchent a la parole : celui qui lit la
     # socket (et qui declenche une nouvelle phrase) et celui qui emet. Sans lui,
@@ -220,8 +219,11 @@ class SessionTelephonique:
             # L'annonce legale est delivree quand son DERNIER paquet est parti —
             # pas quand la file se vide pendant l'amorcage de la synthese, ou le
             # premier paquet est aussitot remis dans la file par `_jouer`.
-            if (self._annonce_en_cours and not self._amorcage
-                    and not self._a_dire and self._source is None):
+            # L'annonce est delivree quand son dernier paquet est parti. Plus
+            # besoin de garder un drapeau d'amorcage : `_jouer` ne passe plus
+            # par la file pour tirer son premier fragment.
+            if (self._annonce_en_cours and not self._a_dire
+                    and self._source is None):
                 self._annonce_en_cours = False
                 self.annonce_delivree = True
             return paquet
@@ -515,23 +517,23 @@ class SessionTelephonique:
         with self._parole_verrou:
             depart = time.perf_counter()
             self._annonce_en_cours = annonce
-            self._source = iter(self.synthetiser(texte))
-            # On amorce un premier paquet tout de suite : le reste suivra a la
-            # demande, pendant que l'agent parle deja.
-            self._amorcage = True
-            try:
-                premier = self.emettre()
-            finally:
-                self._amorcage = False
-            # C'est CE delai qui dit qu'une machine est pleine — bien avant la
-            # charge processeur, qui reste basse jusqu'au bout (mesure 13).
+            source = iter(self.synthetiser(texte))
+            self._source = source
+            # On tire le premier fragment DE CETTE PHRASE, sans passer par la
+            # file : mesure du 21/09, quand des paquets de la phrase precedente
+            # restaient en attente, `emettre` les rendait sans toucher a la
+            # synthese et le compteur tombait a zero. C'est l'indicateur de la
+            # mesure 13 — celui qui dit qu'une machine est pleine bien avant la
+            # charge processeur —, et il ne disait plus rien.
+            premier = next(source, None)
             self.premiers_fragments_ms.append((time.perf_counter() - depart) * 1000)
             if premier is None:
+                self._source = None
                 if annonce:
                     self.annonce_delivree = True   # rien a dire : rien a proteger
                     self._annonce_en_cours = False
                 return []
-            self._a_dire.insert(0, premier)
+            self._empiler(premier)
             return list(self._a_dire)
 
     def _empiler(self, fragment: bytes) -> None:

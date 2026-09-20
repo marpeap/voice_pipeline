@@ -1019,3 +1019,50 @@ Composer le `memoire.md` **réel** d'un salon à partir du pack coiffure et de d
 ```bash
 GROQ_API_KEY=... cd bancs && PYTHONPATH=. ~/bancs-stt/bin/python taille_memoire.py
 ```
+
+---
+
+## Mesure 24 — la latence réelle d'un tour, moteurs locaux (21/09)
+
+Neuf tours joués contre le serveur complet, voix synthétisée dégradée en 8 kHz,
+transcription `sherpa-onnx` locale, synthèse Piper — les mêmes moteurs que le
+banc d'appel réel, sur le poste de travail.
+
+| Étape | p50 | p95 |
+|---|---|---|
+| Transcription | **184 à 270 ms** | 382 à 449 ms |
+| Décision de l'agent | **1 à 3 ms** | 3 à 7 ms |
+| Premier fragment de synthèse | **227 à 271 ms** | 325 à 353 ms |
+| **Total, fin de parole → premier son** | **472 à 532 ms** | **765 à 969 ms** |
+
+> Deux passages, neuf tours chacun : les fourchettes sont l'écart entre les deux.
+> Sur une machine de bureau qui fait autre chose en même temps, c'est l'ordre de
+> grandeur qui compte, pas la troisième décimale.
+
+**Ce que ces chiffres disent :**
+
+1. **Le modèle n'est pas le coupable ici** : 1 à 3 ms. Toute la latence est dans les
+   deux moteurs, à parts presque égales. C'est l'inverse de la mesure 14, où la
+   variance venait entièrement du fournisseur distant — parce qu'ici il n'y a pas
+   de fournisseur : le repli hors ligne décide seul.
+2. **Le seuil de Doherty (400 ms) n'est pas tenu en p50** sur cette machine.
+   L'appelant perçoit en plus le silence de fin de tour (700 ms, mesure 8) :
+   environ **1,2 s** entre sa dernière syllabe et la première de l'agent.
+3. **C'est le deuxième argument pour le moteur distant**, après le taux d'erreur
+   (mesure 20) : la transcription locale coûte 184 ms de plus qu'un moteur en
+   flux, qui rend son texte pendant que l'appelant parle encore.
+
+### Ce que cette mesure a d'abord révélé
+
+Le compteur `premier_fragment_ms` affichait **zéro sur les neuf tours**. Il
+lisait la file d'attente, pas la synthèse : quand des paquets de la phrase
+précédente restaient à jouer, `emettre` les rendait sans toucher au moteur et le
+chronomètre ne mesurait rien. L'indicateur de la mesure 13 — celui qui dit
+qu'une machine est pleine **avant** que la charge processeur ne bouge — était
+faux depuis qu'il existait.
+
+### Rejouer
+
+```bash
+.venv/bin/python bancs/latence.py
+```
