@@ -280,6 +280,28 @@ def test_le_front_end_sait_ou_joindre_l_agent_sans_redeployer():
     assert "CONFIGURATION" in page
 
 
+def test_le_standard_sert_aussi_le_config_js_que_la_page_demande(serveur):
+    """La page cherche `config.js` — l'adresse de l'agent, écrite au déploiement
+    sur l'hébergeur statique. Servie par le standard, elle le demandait aussi et
+    recevait du HTML : « Unexpected token '<' » dans la console du navigateur.
+    Vu en pilotant un vrai navigateur, invisible pour la suite.
+    """
+    prise = socket.create_connection(("127.0.0.1", serveur.toile.port), timeout=5)
+    try:
+        prise.sendall(b"GET /config.js HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n")
+        prise.settimeout(5)
+        reponse = b""
+        while b"\r\n\r\n" not in reponse:
+            reponse += prise.recv(4096)
+        entete, _, debut = reponse.partition(b"\r\n\r\n")
+        assert b"application/javascript" in entete, (
+            "servi comme autre chose que du JavaScript : le navigateur refuse")
+        assert not debut.lstrip().startswith(b"<"), "c'est du HTML, pas du script"
+        assert b"CONFIGURATION" in debut
+    finally:
+        prise.close()
+
+
 def test_un_canal_qui_ne_s_ouvre_jamais_ne_se_dit_pas_termine():
     """Ce test lit la FORME du code de la page, faute de moteur JS dans la
     suite : c'est une garde, pas une preuve. La preuve est venue d'un navigateur

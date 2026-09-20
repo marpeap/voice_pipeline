@@ -126,9 +126,10 @@ class ServeurDeToile:
                     cle, _, valeur = ligne.partition(":")
                     entetes[cle.strip().lower()] = valeur.strip()
 
+            demande = lignes[0].split(" ")[1] if " " in lignes[0] else "/"
             reponse = poignee_de_main(entetes)
             if reponse is None:
-                self._servir_la_page(connexion)
+                self._servir_la_page(connexion, demande.split("?")[0])
                 return
             connexion.sendall(reponse)
             self._conversation(connexion)
@@ -152,11 +153,23 @@ class ServeurDeToile:
                 return None
         return tampon.split(b"\r\n\r\n", 1)[0]
 
-    def _servir_la_page(self, connexion: socket.socket) -> None:
-        corps = self.page.read_text(encoding="utf-8").replace(
-            "{{SALON}}", self.nom_du_salon).encode("utf-8")
+    def _servir_la_page(self, connexion: socket.socket, chemin: str = "/") -> None:
+        if chemin == "/config.js":
+            # La page publiee sur un hebergeur statique lit son adresse d'agent
+            # dans ce fichier, ecrit au deploiement. Servie ICI, la page le
+            # demandait aussi — et recevait le HTML, faute de route : le
+            # navigateur le lisait comme du JavaScript et levait « Unexpected
+            # token '<' ». Servi par le standard, le canal part vers le meme
+            # hote : la configuration est vide, et c'est la bonne reponse.
+            corps = (b"// Servi par le standard lui-meme : meme hote, meme port.\n"
+                     b"window.CONFIGURATION = {\"agent\": \"\"};\n")
+            type_mime = b"application/javascript; charset=utf-8"
+        else:
+            corps = self.page.read_text(encoding="utf-8").replace(
+                "{{SALON}}", self.nom_du_salon).encode("utf-8")
+            type_mime = b"text/html; charset=utf-8"
         connexion.sendall(
-            b"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n"
+            b"HTTP/1.1 200 OK\r\nContent-Type: " + type_mime + b"\r\n"
             + f"Content-Length: {len(corps)}\r\n".encode()
             + b"Cache-Control: no-store\r\nConnection: close\r\n\r\n" + corps)
 
