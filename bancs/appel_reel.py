@@ -166,6 +166,18 @@ SCENARIOS = {
         (0, {"date": "2026-09-17", "heure": "15:30", "nom": "Dupont",
              "telephone": "0612345678"}),
     ),
+    # Une prestation nommée : elle doit atteindre la ligne écrite, et sa durée
+    # doit occuper ce qu'elle dure.
+    "prestation-nommee": (
+        ["bonjour je voudrais une coloration jeudi à dix heures trente",
+         "oui c'est parfait",
+         "au nom de Dupont"],
+        {"date": "2026-09-17", "heure": "10:30", "prestation": "coloration"},
+        # La coloration n'est pas cochée par défaut dans le pack : c'est le
+        # salon qui décide de ce que l'agent sait réserver.
+        {"STANDARD_REPONSES": '{"A1": "Salon Elegance", '
+                              '"C1": ["coupe", "brushing", "coloration"]}'},
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],

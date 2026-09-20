@@ -265,6 +265,13 @@ class Service:
                 self.corrections.actives(), reponses, corps)
         texte = composer_memoire(self.configuration.pack, reponses, corps)
         self._memoire = (texte, lire_memoire(texte))
+
+        # Le modele hors ligne ne connait le catalogue que si on le lui donne :
+        # sans lui, il rendait toujours `prestation: None`, la duree n'etait
+        # jamais appliquee et le salon se double-bookait malgre tout.
+        catalogue = tuple(self._memoire[1].frontmatter.get("prestations") or ())
+        if hasattr(self.client_modele, "prestations"):
+            self.client_modele.prestations = catalogue
         # `empreinte` est facultative : un registre fige (banc, test) n'en a
         # pas, et il n'a rien a relire non plus.
         empreinte = getattr(self.corrections, "empreinte", None)

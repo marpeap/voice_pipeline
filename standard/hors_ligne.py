@@ -55,6 +55,9 @@ class ModeleHorsLigne:
     """Meme interface qu'un fournisseur : il se branche exactement au meme endroit."""
 
     aujourd_hui: date
+    # Le catalogue du salon. Sans lui, on ne devine RIEN : inventer un
+    # vocabulaire de metier ferait ecrire « massage » sur l'agenda d'un coiffeur.
+    prestations: tuple[str, ...] = ()
 
     # --- interface de fournisseur ------------------------------------------
 
@@ -70,19 +73,49 @@ class ModeleHorsLigne:
         jour = self._lire_date(mots)
         heure = self._lire_heure(mots)
         intention = self._lire_intention(mots, jour, heure)
+        prestation = self._lire_prestation(mots)
         return {
             "intention": intention,
             "date": jour,
             "heure": heure,
-            "prestation": None,
+            "prestation": prestation,
             "confiance": {
                 "intention": 0.9 if intention != "inconnu" else 0.0,
                 "date": 0.9 if jour else 0.0,
                 "heure": 0.9 if heure else 0.0,
+                "prestation": 0.9 if prestation else 0.0,
             },
             "manque": [champ for champ, valeur in (("date", jour), ("heure", heure))
                        if valeur is None],
         }
+
+    def _lire_prestation(self, mots: list[str]) -> str | None:
+        """La prestation nommee par l'appelant, si elle est AU CATALOGUE.
+
+        Le modele hors ligne rendait toujours `None` : la confirmation disait
+        « votre rendez-vous » au lieu de « votre coloration », la duree n'etait
+        jamais appliquee — donc le salon se double-bookait — et l'agenda ne
+        disait pas ce qu'il fallait preparer.
+
+        On tolere ce que le canal abime en fin de mot (« colorations »), avec la
+        meme regle que le calendrier, et on refuse des que deux prestations
+        correspondent : « coupe » et « coupe enfant » ne se devinent pas.
+        """
+        if not self.prestations:
+            return None
+        catalogue = [sans_accents(p).lower() for p in self.prestations]
+        for mot in mots:
+            rang = indice_dans(sans_accents(mot).lower(), catalogue, SIMPLES)
+            if rang is not None:
+                return self.prestations[rang]
+        # Les prestations en plusieurs mots (« coupe enfant ») : on essaie les
+        # paires avant d'abandonner.
+        for premier, second in zip(mots, mots[1:]):
+            colle = sans_accents(f"{premier} {second}").lower()
+            rang = indice_dans(colle, catalogue, SIMPLES)
+            if rang is not None:
+                return self.prestations[rang]
+        return None
 
     # --- les jours ----------------------------------------------------------
 
