@@ -149,3 +149,62 @@ Le corpus existe déjà (`bancs/corpus.py`, 79 énoncés, 11 familles). La porte
 5. `pass^5`, pas `pass^1` : un scénario réussi 4 fois sur 5 est un scénario **échoué**.
 
 **Le lot n'est fini que si la porte passe deux fois d'affilée.**
+
+---
+
+## 7. Les trente-neuf modules, et le test qui les prouve
+
+> Ce document décrivait cinq modules alors que le dépôt en portait trente-neuf.
+> Un document exhaustif qui ment par omission envoie le prochain lecteur dans le
+> mur — et ce lecteur, c'est souvent soi-même trois jours plus tard.
+>
+> **Cette table ne se maintient pas à la main** : `tests/test_carte_des_modules.py`
+> échoue dès qu'un module manque ici, dès qu'un module décrit ici n'existe pas,
+> et dès qu'un module n'est importé par aucun test. La règle du document —
+> « chaque module naît avec le test qui l'échoue » — est ainsi vérifiée plutôt
+> qu'affirmée.
+
+| Module | Ce dont il répond | Le test qui le prouve |
+|---|---|---|
+| `acces` | clés par locataire, rotation sans coupure, limitation d'usage | `test_acces.py` |
+| `appel` | l'assemblage, et l'endroit ou les regles tiennent | `test_appel.py` |
+| `assentiment` | la moitié la plus courte d'une conversation, et la plus décisive | `test_assentiment.py` |
+| `audiosocket` | le protocole AudioSocket d'Asterisk | `test_audiosocket.py` |
+| `audit` | qui a changé quoi, et quand | `test_audit.py` |
+| `comprehension` | le seul endroit du produit ou vit le modele de langage | `test_comprehension.py` |
+| `conformite` | La conformité, vérifiée par le produit plutôt que promise par un document | `test_conformite.py` |
+| `connecteur` | brancher l'agent sur le logiciel que le commerçant utilise déjà | `test_connecteur.py` |
+| `console` | voir ses appels, corriger en trois gestes | `test_console.py` |
+| `console_http` | un serveur HTTP sur la boucle locale | `test_console_http.py` |
+| `correction` | une faute choisie, jamais une phrase ecrite | `test_correction.py` |
+| `decision` | La machine a etats : le modele propose, la machine dispose | `test_decision.py` |
+| `demarchage` | et ne rien lui promettre | `test_demarchage.py` |
+| `demarrage` | variables d'environnement, vérification, arrêt propre | `test_demarrage.py` |
+| `depot` | des rendez-vous, cloisonnes par locataire, sans chevauchement | `test_depot.py` |
+| `echecs` | Les quatre règles de détection d'échec (T6 de `docs/17`) | `test_instrumentation.py` |
+| `ecoute` | de l'audio au texte, sans perdre le premier mot | `test_ecoute.py` |
+| `ecriture` | la seule piece du produit qui ait le droit de dire que c'est fait | `test_ecriture.py` |
+| `entretien` | ce qui rend vraie la durée annoncée au registre | `test_entretien.py` |
+| `fermetures` | jours fériés et congés, que le pack ne savait pas dire | `test_fermetures.py` |
+| `fiche` | et seulement quand la fiche le permet | `test_fiche.py` |
+| `grammaire` | la piece qui decide si le rendez-vous existe | `test_grammaire.py` |
+| `hors_ligne` | pour demontrer, et pour tenir quand le modele tombe | `test_hors_ligne.py` |
+| `identite` | Le nom de l'appelant : ce que le salon lira sur son agenda | `test_identite.py` |
+| `journal` | ce qui reste quand l'appel est fini | `test_journal.py` |
+| `langue` | servir à moitié est pire que passer la main | `test_langue.py` |
+| `locataire` | du questionnaire au fichier de connaissance de l'agent | `test_locataire.py` |
+| `modele` | celui qui manquait au chemin réel | `test_modele.py` |
+| `moteurs` | brancher la voix réelle, ou dire clairement qu'elle manque | `test_moteurs.py` |
+| `parole` | le dernier metre, et celui qui fixe la capacite d'une machine | `test_parole.py` |
+| `rappels` | la seule chose qui fasse baisser les absences | `test_rappels.py` |
+| `registre` | Le registre des traitements (RGPD art. 30), dérivé de ce qui tourne | `test_registre.py` |
+| `regles` | une seule source, jamais recopiee | `test_appel.py` |
+| `sante` | le seul moyen qu'a une machine de savoir que ça tourne | `test_sante.py` |
+| `serveur` | ce qui manquait pour qu'un appel réel puisse arriver | `test_serveur.py` |
+| `service` | ce qui demarre, ce qui refuse de demarrer, et ce qu'il sait dire | `test_service.py` |
+| `session` | le protocole branche sur le pipeline | `test_session.py` |
+| `sms` | premier poste de coût, et piège réglementaire | `test_sms.py` |
+| `texte` | une seule fois pour tout le produit | `test_texte.py` |
+
+Les sections 1 à 5 gardent le détail des cinq pièces du chemin de parole, celles
+dont le contrat a été dérivé des mesures avant d'écrire une ligne.
