@@ -1,0 +1,12 @@
+# Les moteurs réels — plusieurs centaines de mégaoctets, et inutiles pour
+# essayer le produit : `demonstration.py` et toute la suite de tests tournent
+# sans eux. On ne les met donc pas dans `requirements.txt`, sinon personne
+# n'essaie.
+#
+#   .venv/bin/pip install -r requirements-moteurs.txt
+#
+# Il faut en plus les fichiers de voix et de modèle, qui ne s'installent pas
+# par pip : voir docs/24-EXPLOITATION.md.
+piper-tts
+sherpa-onnx
+numpy

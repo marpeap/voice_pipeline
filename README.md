@@ -15,6 +15,10 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python demonstration.py
 ```
 
+Deux dépendances, deux secondes : `demonstration.py` et **toute la suite de
+tests** tournent sans moteur de voix. Les vrais moteurs pèsent des centaines de
+mégaoctets et vivent dans `requirements-moteurs.txt` — sinon personne n'essaie.
+
 Un appel entier se rejoue : ni téléphone, ni clé d'API, ni dépense. Trois autres
 scénarios montrent ce qui compte vraiment :
 
@@ -31,6 +35,10 @@ scénarios montrent ce qui compte vraiment :
 .venv/bin/python bancs/porte.py --passages 2  # la porte de non-régression
 .venv/bin/python bancs/porte.py --base salon.sqlite3   # + les corrections du salon
 .venv/bin/python bancs/appel_reel.py          # douze appels joués avec les vrais moteurs
+```
+
+```bash
+.venv/bin/pip install -r requirements-moteurs.txt   # piper, sherpa-onnx, numpy
 ```
 
 **`bancs/appel_reel.py` est le banc qui a trouvé ce qu'aucun test ne voyait.**

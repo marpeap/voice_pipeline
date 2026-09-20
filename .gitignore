@@ -2,3 +2,14 @@ __pycache__/
 *.pyc
 corpus/
 .venv/
+
+# Ce qu'un service produit en tournant : une base ne se livre jamais. Celle du
+# 21/09 etait vide ; la prochaine porterait des noms, des numeros et des
+# transcriptions de vrais clients, dans une archive remise a un tiers.
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Reecrit a chaque passage de la porte, donc plusieurs fois par jour : le
+# suivre transforme chaque verification en modification.
+bancs/porte-resultats.json

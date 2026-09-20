@@ -36,6 +36,20 @@ def main(arguments: list[str]) -> int:
         return 1
 
 
+def _dire_la_base() -> None:
+    """Quel fichier sert, en absolu.
+
+    Le chemin par defaut est relatif au repertoire courant : lancee d'ailleurs,
+    la console ouvre un AUTRE fichier, vide, et le commercant croit avoir tout
+    perdu. C'est ainsi qu'un `standard.sqlite3` s'est retrouve commite dans le
+    depot — personne ne voyait quel fichier servait.
+    """
+    import os
+
+    chemin = os.environ.get("STANDARD_BASE", "standard.sqlite3")
+    print(f"base : {os.path.abspath(chemin)}", flush=True)
+
+
 def _option(arguments: list[str], nom: str) -> str | None:
     """La valeur qui suit une option, ou `None`. Pas d'argparse ici : la
     commande doit rester lisible dans un journal systemd."""
@@ -108,6 +122,7 @@ def _executer(arguments: list[str]) -> int:
         serveur = construire_serveur()
         serveur.demarrer()
         print(f"en écoute sur {serveur.hote}:{serveur.port}", flush=True)
+        _dire_la_base()
         sante = getattr(serveur, "sante", None)
         if sante is not None:
             print(f"état sur http://{sante.hote}:{sante.port}/sante", flush=True)
@@ -170,6 +185,7 @@ def _executer(arguments: list[str]) -> int:
                                  trousseau=trousseau, portee="console",
                                  port=int(os.environ.get("STANDARD_PORT_CONSOLE", "8091")))
         serveur.demarrer()
+        _dire_la_base()
         adresse = f"http://{serveur.hote}:{serveur.port}"
         if trousseau is not None and not os.environ.get("STANDARD_CONSOLE_CLE"):
             # Affichee UNE fois, au demarrage : elle n'est stockee qu'en
