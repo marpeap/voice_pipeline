@@ -127,6 +127,17 @@ def test_a_travers_le_serveur_la_ligne_se_libere_apres_le_refus(tmp_path):
             prise.sendall(encoder(TYPE_AUDIO_8K, parole))
         for _ in range(50):
             prise.sendall(encoder(TYPE_AUDIO_8K, bytes(320)))
+        # D'ABORD attendre que l'appel COMMENCE. Sans cette attente, le test
+        # mesurait « zéro appel en cours » avant même que le serveur n'ait
+        # accepté la connexion, concluait que la ligne s'était libérée, et
+        # cherchait un démarchage que personne n'avait encore eu le temps de
+        # refuser. Il passait sur une machine au repos et échouait sur une
+        # machine chargée — le pire des tests : vert par chance.
+        for _ in range(200):
+            if serveur.appels_total >= 1:
+                break
+            time.sleep(0.05)
+        assert serveur.appels_total == 1, "le serveur n'a jamais pris l'appel"
         # Jusqu'à dix secondes : sous la charge de la suite entière, l'annonce
         # met plus longtemps à se dire. Un test qui échoue au hasard apprend à
         # ignorer la porte, ce qui est pire que pas de test.
