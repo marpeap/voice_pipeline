@@ -150,6 +150,8 @@ class Console:
             return self._detail(chemin.removeprefix("/appel/"))
         if methode == "GET" and chemin.rstrip("/") == "/agenda":
             return self._agenda()
+        if methode == "POST" and chemin.rstrip("/") == "/agenda/ajouter":
+            return self._ajouter_un_rendez_vous(corps or {})
         if methode == "POST" and chemin.rstrip("/") == "/agenda/annuler":
             return self._annuler_un_rendez_vous(corps or {})
         if methode == "GET" and chemin.rstrip("/") == "/essayer":
@@ -539,7 +541,7 @@ class Console:
                      "</strong><br>Dès que votre agent en prendra un, il "
                      "apparaîtra ici, avec le nom et le numéro du client.</div>")
             return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
-                "Agenda", f"<h1>Vos rendez-vous</h1>{corps}"
+                "Agenda", f"<h1>Vos rendez-vous</h1>{corps}{self._formulaire_d_ajout()}"
                           f"{self._pied_de_page(sauf='/agenda')}")
 
         sections = ""
@@ -552,6 +554,7 @@ class Console:
 
         return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
             "Agenda", f"<h1>Vos rendez-vous</h1>{sections}"
+                      f"{self._formulaire_d_ajout()}"
                       f"{self._pied_de_page(sauf='/agenda')}")
 
     def _titre_du_jour(self, jour: str, aujourd_hui) -> str:
@@ -585,6 +588,70 @@ class Console:
         precision = f"<p>{detail}</p>" if detail else ""
         return (f"<li class=message><strong>{heure}</strong> {qui} {rappel}"
                 f"{precision}{annuler}</li>")
+
+    def _formulaire_d_ajout(self) -> str:
+        """De quoi écrire un rendez-vous pris au comptoir.
+
+        Sans lui, l'agenda est faux par construction : un client qui entre dans
+        le salon n'existe nulle part pour l'agent, qui propose donc son créneau
+        au premier appelant venu. Deux clients à la même heure, et le gérant
+        débranche l'agent.
+        """
+        creneaux = "".join(
+            f"<option value='{html.escape(heure)}'>{_texte(enoncer_heure(heure))}"
+            "</option>" for heure in sorted(self.creneaux))
+        prestations = "".join(
+            f"<option value='{html.escape(p)}'>{_texte(p)}</option>"
+            for p in (self._reponses().get("C1") or []))
+        return (
+            "<h2>Ajouter un rendez-vous</h2>"
+            "<p class=legende>Celui qu'on vous a demandé au comptoir, ou sur "
+            "votre ligne directe. L'agent ne proposera plus ce créneau.</p>"
+            "<form method=post action='/agenda/ajouter'>"
+            "<label for=aj_date>Le jour</label>"
+            f"<input id=aj_date name=date type=date "
+            f"value='{self._aujourd_hui().isoformat()}'>"
+            "<label for=aj_heure>L'heure</label>"
+            f"<select id=aj_heure name=heure>{creneaux}</select>"
+            "<label for=aj_nom>Le nom</label>"
+            "<input id=aj_nom name=nom type=text>"
+            + ("<label for=aj_prestation>La prestation</label>"
+               f"<select id=aj_prestation name=prestation>"
+               f"<option value=''>—</option>{prestations}</select>"
+               if prestations else "")
+            + "<button type=submit>Ajouter</button></form>")
+
+    def _ajouter_un_rendez_vous(self, corps: dict):
+        jour, heure = corps.get("date", ""), corps.get("heure", "")
+        if not jour or not heure or self.depot is None:
+            # On n'invente ni un jour ni une heure : sans les deux, il n'y a
+            # rien a ecrire.
+            self._message = "Il faut un jour et une heure pour ajouter un rendez-vous."
+            return 303, {"Location": "/agenda"}, ""
+
+        from standard.depot import ChevauchementRefuse
+
+        donnees = {"date": jour, "heure": heure,
+                   "nom": (corps.get("nom") or "").strip() or None,
+                   "prestation": corps.get("prestation") or None,
+                   "origine": "comptoir"}
+        durees = self._reponses().get("C3") or {}
+        if donnees["prestation"] and donnees["prestation"] in durees:
+            donnees["duree_minutes"] = durees[donnees["prestation"]]
+        cle = f"comptoir-{jour}-{heure}"
+        try:
+            self.depot.pour(self.tenant).inserer(cle, donnees)
+        except ChevauchementRefuse:
+            # La base tranche, comme pour un appel : deux rendez-vous a la meme
+            # heure ne s'ecrivent pas, meme de la main du gerant.
+            self._message = "Ce créneau est déjà pris."
+            return 303, {"Location": "/agenda"}, ""
+
+        if self.audit is not None:
+            self.audit.noter(self.tenant, acteur=self.acteur, action="agenda.ajoute",
+                             cible=cle, detail={"date": jour, "heure": heure})
+        self._message = "C'est ajouté. L'agent ne proposera plus ce créneau."
+        return 303, {"Location": "/agenda"}, ""
 
     def _annuler_un_rendez_vous(self, corps: dict):
         reference = corps.get("reference", "")
