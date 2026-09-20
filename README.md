@@ -27,7 +27,7 @@ scénarios montrent ce qui compte vraiment :
 ## Vérifier
 
 ```bash
-.venv/bin/python -m pytest tests/ -q          # la suite complète (770 tests)
+.venv/bin/python -m pytest tests/ -q          # la suite complète (950 tests)
 .venv/bin/python bancs/porte.py --passages 2  # la porte de non-régression
 .venv/bin/python bancs/porte.py --base salon.sqlite3   # + les corrections du salon
 .venv/bin/python bancs/appel_reel.py          # douze appels joués avec les vrais moteurs
@@ -37,12 +37,13 @@ scénarios montrent ce qui compte vraiment :
 Rien n'y est simulé sauf la ligne : la voix de l'appelant est synthétisée puis
 dégradée en 8 kHz comme le ferait le réseau, envoyée en trames AudioSocket sur
 une vraie socket, transcrite par le moteur local, et le rendez-vous est relu en
-base. Dix-sept scénarios : créneau explicite, jour fermé, **congés**, heure hors
+base. Dix-neuf scénarios : créneau explicite, jour fermé, **congés**, heure hors
 créneaux, refus puis accord, « oui » trop court pour le moteur, créneau pris par
 un autre pendant l'appel, question d'horaires, prise de message, correction du
-nom, démarchage refusé, annulation, report, **prestation nommée**, numéro dicté
-puis composé au clavier avec SMS. **Quinze à dix-sept sur dix-sept selon les
-caprices du moteur local** — deux sur cinq avant les correctifs du 19.
+nom, démarchage refusé, annulation, report, prestation nommée, **congés**,
+**vérification d'un rendez-vous**, **renseignements sans rendez-vous**, numéro
+dicté puis composé au clavier avec SMS. **Seize à dix-neuf sur dix-neuf selon
+les caprices du moteur local** — deux sur cinq avant les correctifs du 19.
 
 **La porte rejoue les fautes mesurées contre le produit**, en `pass^5` : un
 scénario réussi quatre fois sur cinq est un scénario **échoué**. Le lot n'est fini
