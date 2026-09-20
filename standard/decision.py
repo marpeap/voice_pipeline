@@ -54,6 +54,20 @@ class Agenda:
     # feries et conges. Sans eux, l'agent prenait des rendez-vous le 25 decembre.
     fermetures: tuple = ()
     ferme_les_feries: bool = True
+    # Combien de fois l'hote n'a pas pu etre lu pendant cet appel. Zero est la
+    # normale ; un chiffre qui monte dit que l'agenda tiers cale, avant que le
+    # commercant ne s'en plaigne.
+    lectures_hote_perdues: int = 0
+    # Ce que l'hote a repondu, et quand. Un tour de parole reconstruit TOUT le
+    # calendrier : horizon de quatorze jours, donc quinze lectures pour une
+    # seule phrase. L'hote limite la lecture publique a 120 requetes par minute
+    # et par IP — huit tours saturaient le quota, et l'agent prenait des 429 qui
+    # n'ont rien a voir avec un refus de reservation. Une memoire tres courte
+    # suffit : ce qu'un agenda dit d'un jour ne change pas en une seconde de
+    # conversation, et la fenetre reste assez breve pour qu'un creneau pris
+    # ailleurs soit vu au tour suivant.
+    memoire_hote_s: float = 5.0
+    _memoire_hote: dict = field(default_factory=dict, repr=False)
 
     def statut(self, jour_iso: str) -> str:
         """hors horizon · ferme · ouvert — trois reponses, jamais une seule.
@@ -123,9 +137,34 @@ class Agenda:
 
     def _libres_sans_duree(self, jour_iso: str) -> list[str]:
         if self.libres_du_jour is not None:
+            import time
+
+            garde = self._memoire_hote.get(jour_iso)
+            if garde is not None and (time.monotonic() - garde[0]) < self.memoire_hote_s:
+                depuis_l_hote = list(garde[1])
+                ouverts = self._ouverts(jour_iso)
+                return sorted(set(depuis_l_hote) & ouverts) if ouverts \
+                    else sorted(depuis_l_hote)
+            try:
+                depuis_l_hote = list(self.libres_du_jour(jour_iso))
+                self._memoire_hote[jour_iso] = (time.monotonic(), list(depuis_l_hote))
+            except Exception:
+                # Un hote injoignable ne doit JAMAIS faire taire l'agent. La
+                # lecture etait appelee nue : une lecture qui expire remontait
+                # en exception jusqu'au serveur, ou elle se comptait en panne —
+                # et l'appelant n'entendait rien du tout. La machine qui sert
+                # l'agenda tiers a un seul coeur et swappe : une requete peut
+                # caler plusieurs secondes sans qu'aucune erreur ne soit
+                # journalisee de son cote.
+                #
+                # On retombe sur la fiche du salon, ce que la machine sait
+                # d'elle-meme. Un creneau propose qui serait pris chez l'hote se
+                # fera refuser a l'ecriture, et l'agent proposera autre chose :
+                # c'est un desagrement. Le silence, lui, est une panne.
+                self.lectures_hote_perdues += 1
+                return sorted(self._ouverts(jour_iso) - self.pris.get(jour_iso, set()))
             # On garde l'intersection : l'hote peut proposer un creneau que le
             # salon a ferme dans sa fiche, et c'est la fiche qui commande.
-            depuis_l_hote = list(self.libres_du_jour(jour_iso))
             ouverts = self._ouverts(jour_iso)
             if ouverts:
                 return sorted(set(depuis_l_hote) & ouverts)

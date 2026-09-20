@@ -226,3 +226,79 @@ def test_une_heure_de_la_grille_deja_prise_se_dit_occupee():
                       "manque": []}, Etat(),
                      agenda_avec({"2026-09-17": {"15:30"}}))
     assert "pas libre" in sortie.phrase, sortie.phrase
+
+
+def test_un_hote_qui_cale_ne_rend_pas_l_agent_muet():
+    """Un hôte injoignable doit dégrader, jamais faire taire l'agent.
+
+    La lecture de l'hôte était appelée nue. Une lecture qui expire remontait
+    donc en exception jusqu'au serveur, où elle se comptait en
+    `pannes_pendant_appel` — et l'appelant n'entendait RIEN. Mesuré le 20/09 :
+    `TimeoutError: the read operation timed out`, aucune phrase.
+
+    Ce n'est pas théorique : la machine qui sert l'agenda tiers a un seul vCPU
+    et swappe (mesure de la session Crenolo : load 5,68 à 3 h du matin). Une
+    requête peut caler plusieurs secondes sans qu'aucune erreur ne soit
+    journalisée côté hôte.
+
+    On retombe alors sur la fiche du salon — ce que la machine sait d'elle-même.
+    Un créneau proposé qui serait pris chez l'hôte se fera refuser à l'écriture,
+    et l'agent proposera autre chose : c'est un désagrément, le silence est une
+    panne.
+    """
+    from datetime import date
+
+    from standard.decision import Agenda
+
+    def hote_qui_cale(jour_iso):
+        raise TimeoutError("the read operation timed out")
+
+    agenda = Agenda(aujourd_hui=date(2026, 9, 15), creneaux={"09:00", "15:30"},
+                    jours_fermes=(6, 0), libres_du_jour=hote_qui_cale)
+
+    libres = agenda.libres("2026-09-17")
+    assert libres == ["09:00", "15:30"], "l'agent doit garder la parole"
+    assert agenda.lectures_hote_perdues == 1, "la dégradation doit se compter"
+
+
+def test_une_lecture_d_hote_reussie_ne_compte_aucune_perte():
+    from datetime import date
+
+    from standard.decision import Agenda
+
+    agenda = Agenda(aujourd_hui=date(2026, 9, 15), creneaux={"09:00", "15:30"},
+                    jours_fermes=(6, 0), libres_du_jour=lambda jour: ["15:30"])
+    assert agenda.libres("2026-09-17") == ["15:30"]
+    assert agenda.lectures_hote_perdues == 0
+
+
+def test_l_hote_n_est_pas_relu_quinze_fois_par_tour_de_parole():
+    """Un tour de parole reconstruit tout le calendrier : horizon de 14 jours,
+    donc quinze lectures de l'hôte. Mesuré le 20/09 : 14 lectures pour UNE
+    phrase. Crenolo limite la lecture publique à 120 requêtes/minute par IP :
+    huit tours de parole saturaient le quota, et l'agent aurait pris des 429
+    qui n'ont rien à voir avec un refus de réservation.
+
+    Une mémoire très courte suffit : ce qu'un agenda dit d'un jour ne change pas
+    en une seconde de conversation, et la fenêtre reste assez brève pour qu'un
+    créneau pris ailleurs soit vu au tour suivant.
+    """
+    from datetime import date
+
+    from standard.decision import Agenda
+
+    appels = []
+
+    def hote(jour_iso):
+        appels.append(jour_iso)
+        return ["09:00", "15:30"]
+
+    agenda = Agenda(aujourd_hui=date(2026, 9, 15), creneaux={"09:00", "15:30"},
+                    jours_fermes=(6, 0), libres_du_jour=hote)
+
+    for _ in range(5):
+        agenda.libres("2026-09-17")
+    assert len(appels) == 1, f"{len(appels)} lectures là où une suffit"
+
+    agenda.libres("2026-09-18")
+    assert len(appels) == 2, "un autre jour est une autre question"
