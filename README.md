@@ -27,7 +27,7 @@ scénarios montrent ce qui compte vraiment :
 ## Vérifier
 
 ```bash
-.venv/bin/python -m pytest tests/ -q          # la suite complète (647 tests)
+.venv/bin/python -m pytest tests/ -q          # la suite complète (695 tests)
 .venv/bin/python bancs/porte.py --passages 2  # la porte de non-régression
 .venv/bin/python bancs/porte.py --base salon.sqlite3   # + les corrections du salon
 .venv/bin/python bancs/appel_reel.py          # douze appels joués avec les vrais moteurs
@@ -37,11 +37,11 @@ scénarios montrent ce qui compte vraiment :
 Rien n'y est simulé sauf la ligne : la voix de l'appelant est synthétisée puis
 dégradée en 8 kHz comme le ferait le réseau, envoyée en trames AudioSocket sur
 une vraie socket, transcrite par le moteur local, et le rendez-vous est relu en
-base. Treize scénarios : créneau explicite, jour fermé, heure hors créneaux, refus
+base. Quinze scénarios : créneau explicite, jour fermé, heure hors créneaux, refus
 puis accord, « oui » trop court pour le moteur, créneau pris par un autre
 pendant l'appel, question d'horaires, prise de message, correction du nom,
-démarchage refusé, numéro dicté puis composé au clavier avec SMS. **Douze ou
-treize sur treize selon les caprices du moteur local** — deux sur cinq avant les
+démarchage refusé, **annulation**, **report**, numéro dicté puis composé au
+clavier avec SMS. **Quinze sur quinze au 20/09** — deux sur cinq avant les
 correctifs du 19.
 
 **La porte rejoue les fautes mesurées contre le produit**, en `pass^5` : un
@@ -72,7 +72,13 @@ python -m standard verifier   # dit si le service peut décrocher, et ce qui man
 python -m standard servir     # écoute les appels d'Asterisk (AudioSocket)
 python -m standard console    # la console du commerçant, sur la boucle locale
 python -m standard registre   # le registre des traitements (RGPD art. 30)
+python -m standard effacer --tenant X --confirmer X   # droit à l'effacement
 ```
+
+La console du commerçant porte le **questionnaire** (`/reglages` — il ne voit
+jamais un prompt), l'**essai** de son agent avant de brancher le numéro
+(`/essayer`, rien n'atteint l'agenda réel), le fil des appels, les messages à
+rappeler et la correction en trois gestes.
 
 En service, `GET http://127.0.0.1:8092/sante` rend les chiffres qui disent si ça
 va : appels, part bruitée, **confirmations orphelines** (cible zéro), délai avant
