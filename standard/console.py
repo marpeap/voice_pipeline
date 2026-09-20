@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from standard.decision import enoncer_date, enoncer_heure
 from standard.echecs import libelle as libelle_d_echec
 from standard.locataire import paliers_manquants
 from standard.regles import JOURS
@@ -79,6 +80,12 @@ button {{ min-height:44px; padding:12px 24px; border:0; background:{ELECTRIQUE};
   color:{PAPIER}; font-size:1rem; font-weight:600; cursor:pointer; }}
 button:focus-visible {{ outline:3px solid {ENCRE}; outline-offset:2px; }}
 .succes {{ border:1px solid {ELECTRIQUE}; padding:12px; margin-bottom:24px; }}
+/* L'annulation est destructive : 24 px la séparent du reste de la ligne (B3),
+   et elle reste un bouton fantôme — une seule emphase forte par vue (B6). */
+form.annuler {{ margin:24px 0 0; }}
+form.annuler button {{ background:transparent; color:{ENCRE};
+  border:1px solid {FILET}; font-weight:400; }}
+form.annuler button:hover {{ border-color:{ENCRE}; }}
 @media (prefers-reduced-motion: reduce) {{ * {{ transition:none !important; }} }}
 """
 
@@ -129,6 +136,7 @@ class Console:
     depot: Any = None               # pour lire les messages pris pendant un appel
     pack: Any = None                # le questionnaire : sans lui, pas de réglages
     creneaux: tuple = ()            # pour l'essai : ce que le salon propose
+    aujourd_hui: Any = None         # injectable, pour que les tests aient une date
     _essai: Any = None              # la conversation d'essai en cours
     acteur: str = "console"
     _message: str | None = None
@@ -140,6 +148,10 @@ class Console:
             return 200, {"Content-Type": "text/html; charset=utf-8"}, self._fil()
         if methode == "GET" and chemin.startswith("/appel/"):
             return self._detail(chemin.removeprefix("/appel/"))
+        if methode == "GET" and chemin.rstrip("/") == "/agenda":
+            return self._agenda()
+        if methode == "POST" and chemin.rstrip("/") == "/agenda/annuler":
+            return self._annuler_un_rendez_vous(corps or {})
         if methode == "GET" and chemin.rstrip("/") == "/essayer":
             return self._ecran_d_essai()
         if methode == "POST" and chemin.split("?")[0].rstrip("/") == "/essayer":
@@ -338,8 +350,9 @@ class Console:
         """La suite utile, sur chaque écran : B10, aucune fin en cul-de-sac."""
         if self.pack is None:
             return ""
-        return ("<p class=legende><a href='/reglages'>Les réponses de votre "
-                "agent</a> · <a href='/essayer'>L'essayer</a></p>")
+        return ("<p class=legende><a href='/agenda'>Vos rendez-vous</a> · "
+                "<a href='/reglages'>Les réponses de votre agent</a> · "
+                "<a href='/essayer'>L'essayer</a></p>")
 
     # --- les réglages (docs/05) ---------------------------------------------
 
@@ -484,6 +497,100 @@ class Console:
         self._message = ("C'est enregistré. Votre agent en tient compte au "
                          "prochain appel.")
         return 303, {"Location": "/"}, ""
+
+    # --- l'agenda du commerçant ---------------------------------------------
+
+    JOURS_D_AGENDA = 7
+    """Une semaine : au-dela, un gerant regarde son planning, pas sa console."""
+
+    def _aujourd_hui(self):
+        from datetime import date
+
+        return self.aujourd_hui() if callable(self.aujourd_hui) else date.today()
+
+    def _agenda(self):
+        if self.depot is None:
+            return 404, {"Content-Type": "text/html; charset=utf-8"}, _page(
+                "Agenda", "<h1>Aucun agenda</h1>")
+
+        from datetime import timedelta
+
+        aujourd_hui = self._aujourd_hui()
+        limite = (aujourd_hui + timedelta(days=self.JOURS_D_AGENDA)).isoformat()
+        par_jour: dict = {}
+        for ligne in self.depot.lister(self.tenant):
+            jour = ligne.get("date") or ""
+            # Le passe ne pollue pas la journee : un gerant ouvre sa console
+            # entre deux clients, il regarde devant.
+            if not (aujourd_hui.isoformat() <= jour <= limite):
+                continue
+            par_jour.setdefault(jour, []).append(ligne)
+
+        if not par_jour:
+            # B9 : un etat vide dit quoi faire.
+            corps = ("<div class=vide><strong>Aucun rendez-vous pour le moment."
+                     "</strong><br>Dès que votre agent en prendra un, il "
+                     "apparaîtra ici, avec le nom et le numéro du client.</div>")
+            return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
+                "Agenda", f"<h1>Vos rendez-vous</h1>{corps}{self._pied_de_page()}")
+
+        sections = ""
+        for jour in sorted(par_jour):
+            lignes = ""
+            for rendez_vous in sorted(par_jour[jour], key=lambda r: r.get("heure", "")):
+                lignes += self._ligne_d_agenda(rendez_vous)
+            sections += (f"<h2>{_texte(self._titre_du_jour(jour, aujourd_hui))}</h2>"
+                         f"<ul class=fil>{lignes}</ul>")
+
+        return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
+            "Agenda", f"<h1>Vos rendez-vous</h1>{sections}{self._pied_de_page()}")
+
+    def _titre_du_jour(self, jour: str, aujourd_hui) -> str:
+        """« Aujourd'hui », « Demain », puis la date. Tous les agendas du monde
+        font ainsi, et un gerant ne compte pas les jours (B1)."""
+        from datetime import timedelta
+
+        if jour == aujourd_hui.isoformat():
+            return "Aujourd'hui"
+        if jour == (aujourd_hui + timedelta(days=1)).isoformat():
+            return "Demain"
+        return enoncer_date(jour).capitalize()
+
+    def _ligne_d_agenda(self, rendez_vous: dict) -> str:
+        heure = enoncer_heure(rendez_vous.get("heure", "")) \
+            if rendez_vous.get("heure") else "—"
+        qui = _texte(rendez_vous.get("nom") or "Sans nom")
+        quoi = _texte(rendez_vous.get("prestation") or "")
+        duree = rendez_vous.get("duree_minutes")
+        detail = " · ".join(morceau for morceau in
+                            (quoi, f"{duree} min" if duree else "") if morceau)
+        numero = rendez_vous.get("telephone")
+        rappel = (f"<a class=numero href='tel:{html.escape(numero)}'>"
+                  f"{_texte(ecrire_numero(numero))}</a>") if numero else ""
+        reference = html.escape(str(rendez_vous.get("reference", "")))
+        # L'annulation est une action destructive : elle est a l'ecart du reste
+        # (B3, 24 px de la voisine) et elle dit ce qu'elle fait, pas « OK ».
+        annuler = (f"<form method=post action='/agenda/annuler' class=annuler>"
+                   f"<input type=hidden name=reference value='{reference}'>"
+                   f"<button type=submit>Annuler</button></form>")
+        precision = f"<p>{detail}</p>" if detail else ""
+        return (f"<li class=message><strong>{heure}</strong> {qui} {rappel}"
+                f"{precision}{annuler}</li>")
+
+    def _annuler_un_rendez_vous(self, corps: dict):
+        reference = corps.get("reference", "")
+        annule = False
+        if reference and self.depot is not None:
+            annule = self.depot.pour(self.tenant).annuler(reference)
+        if annule and self.audit is not None:
+            # Qui a annule quoi : un rendez-vous disparu sans trace est une
+            # dispute entre le salon et son client.
+            self.audit.noter(self.tenant, acteur=self.acteur, action="agenda.annule",
+                             cible=reference, detail={})
+        self._message = ("Le rendez-vous est annulé. Le créneau est de nouveau "
+                         "proposable." if annule else
+                         "Ce rendez-vous n'existe plus.")
+        return 303, {"Location": "/agenda"}, ""
 
     # --- essayer son agent (confrontation du 20/09) -------------------------
 
