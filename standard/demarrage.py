@@ -32,6 +32,7 @@ from standard.entretien import Entretien
 from standard.journal import JournalDAppels
 from standard.rappels import Rappels
 from standard.sante import ServeurDeSante
+from standard.toile_serveur import ServeurDeToile
 from standard.hors_ligne import ModeleHorsLigne
 from standard.parole import FileDeSynthese
 from standard.regles import PARALLELISME_SYNTHESE
@@ -383,4 +384,17 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
     # machine passe par un proxy, pas par ce port.
     serveur.sante = ServeurDeSante(serveur, hote=env.get("STANDARD_HOTE_SANTE", "127.0.0.1"),
                                    port=int(env.get("STANDARD_PORT_SANTE", "8092")))
+
+    # La toile remplace l'operateur telephonique le temps qu'un numero arrive :
+    # meme session, meme annonce, meme journal — seul le transport change.
+    serveur.toile = ServeurDeToile(
+        fabrique_agent=fabrique_agent,
+        transcrire=lambda audio, frequence: serveur.transcrire(audio, frequence),
+        synthetiser=serveur.synthetiser,
+        nom_du_salon=(config.reponses.get("A1") or config.tenant),
+        hote=env.get("STANDARD_HOTE_TOILE", "127.0.0.1"),
+        port=int(env.get("STANDARD_PORT_TOILE", "8093")),
+        seuil_bruite_db=config.seuil_bruite_db,
+        appels_simultanes_max=serveur.appels_simultanes_max,
+        sur_fin=archiver)
     return serveur

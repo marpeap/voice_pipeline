@@ -152,9 +152,9 @@ Le corpus existe déjà (`bancs/corpus.py`, 79 énoncés, 11 familles). La porte
 
 ---
 
-## 7. Les trente-neuf modules, et le test qui les prouve
+## 7. Les 41 modules, et le test qui les prouve
 
-> Ce document décrivait cinq modules alors que le dépôt en portait trente-neuf.
+> Ce document décrivait cinq modules alors que le dépôt en portait 41.
 > Un document exhaustif qui ment par omission envoie le prochain lecteur dans le
 > mur — et ce lecteur, c'est souvent soi-même trois jours plus tard.
 >
@@ -205,6 +205,8 @@ Le corpus existe déjà (`bancs/corpus.py`, 79 énoncés, 11 familles). La porte
 | `session` | le protocole branche sur le pipeline | `test_session.py` |
 | `sms` | premier poste de coût, et piège réglementaire | `test_sms.py` |
 | `texte` | une seule fois pour tout le produit | `test_texte.py` |
+| `toile` | le même pipeline, sans opérateur téléphonique | `test_toile_protocole.py` |
+| `toile_serveur` | la page, et le canal audio qui la prolonge | `test_toile_serveur.py` |
 
 Les sections 1 à 5 gardent le détail des cinq pièces du chemin de parole, celles
 dont le contrat a été dérivé des mesures avant d'écrire une ligne.

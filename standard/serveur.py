@@ -89,7 +89,7 @@ class ServeurAudioSocket:
         # Le menage tourne avec le service, ou il ne tourne pas du tout : un cron
         # pose a la main sur un VPS recree est la facon habituelle dont une duree
         # de conservation devient fausse.
-        for accessoire in ("entretien", "sante"):
+        for accessoire in ("entretien", "sante", "toile"):
             compagnon = getattr(self, accessoire, None)
             if compagnon is not None:
                 compagnon.demarrer()
@@ -101,7 +101,7 @@ class ServeurAudioSocket:
         d'une phrase. La promesse etait dans `__main__` bien avant d'etre tenue.
         """
         self._arret.set()
-        for accessoire in ("entretien", "sante"):
+        for accessoire in ("entretien", "sante", "toile"):
             compagnon = getattr(self, accessoire, None)
             if compagnon is not None:
                 compagnon.arreter()

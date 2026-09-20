@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang=fr>
+<meta charset=utf-8>
+<meta name=viewport content='width=device-width,initial-scale=1'>
+<title>Parler à l'agent — {{SALON}}</title>
+<style>
+:root { color-scheme: light; --paper:#F2F0EB; --ink:#0A0A0C; --electric:#0A0AEA;
+        --mute:#6A6765; --rule:#A19E99; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--paper); color:var(--ink);
+  font:16px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+main { max-width:34rem; margin:0 auto; padding:24px 16px 64px; }
+h1 { font-size:2rem; letter-spacing:-.02em; margin:0 0 4px; }
+p.legende { color:var(--mute); margin:0 0 24px; }
+button { min-height:56px; width:100%; padding:16px 24px; border:0;
+  background:var(--electric); color:var(--paper); font-size:1.1rem;
+  font-weight:600; cursor:pointer; }
+button[disabled] { background:var(--rule); cursor:default; }
+button.raccrocher { background:transparent; color:var(--ink);
+  border:1px solid var(--rule); margin-top:8px; font-weight:400; }
+.etat { border:1px solid var(--rule); padding:16px; margin:24px 0 8px;
+  min-height:72px; }
+.etat strong { display:block; }
+.onde { height:4px; background:var(--rule); margin-top:12px; }
+.onde span { display:block; height:100%; width:0; background:var(--electric);
+  transition:width .1s linear; }
+.annonce { border-left:4px solid var(--electric); padding:8px 12px;
+  margin:24px 0; color:var(--mute); }
+@media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
+</style>
+<main>
+  <h1>Parler à l'agent</h1>
+  <p class=legende>{{SALON}} — prise de rendez-vous par téléphone, essayée ici
+    depuis votre navigateur.</p>
+
+  <p class=annonce>Vous allez parler à un <strong>assistant automatique</strong>.
+    Il vous le redira en décrochant. Rien n'est enregistré : seule la
+    transcription écrite est conservée, quatre-vingt-dix jours.</p>
+
+  <button id=appeler>Appeler</button>
+  <button id=raccrocher class=raccrocher hidden>Raccrocher</button>
+
+  <div class=etat id=etat>
+    <strong id=titre>Prêt.</strong>
+    <span id=detail>Votre micro ne s'ouvre qu'après avoir appuyé sur « Appeler ».</span>
+    <div class=onde><span id=niveau></span></div>
+  </div>
+</main>
+<script>
+// Le format est celui du téléphone : PCM 16 bits mono 8 kHz, paquets de 20 ms.
+// Tout le reste du produit — détection de parole, mesures, interruption — est
+// réglé sur ce rythme-là ; changer de format ici ferait diverger les deux
+// transports, et un défaut n'apparaîtrait que d'un côté.
+const TAUX = 8000, PAQUET = 160;
+
+const bouton = document.getElementById('appeler');
+const raccrocher = document.getElementById('raccrocher');
+const titre = document.getElementById('titre');
+const detail = document.getElementById('detail');
+const niveau = document.getElementById('niveau');
+
+let canal = null, contexte = null, micro = null, source = null, worklet = null;
+let prochainSon = 0;
+
+function dire(quoi, pourquoi) {
+  titre.textContent = quoi;
+  detail.textContent = pourquoi || '';
+}
+
+// Rééchantillonnage linéaire vers 8 kHz. Le navigateur donne du 44,1 ou du
+// 48 kHz selon la machine : on ne le choisit pas, on le convertit.
+function versHuitKhz(echantillons, tauxEntrant) {
+  const facteur = tauxEntrant / TAUX;
+  const sortie = new Int16Array(Math.floor(echantillons.length / facteur));
+  for (let i = 0; i < sortie.length; i++) {
+    const valeur = echantillons[Math.floor(i * facteur)] || 0;
+    sortie[i] = Math.max(-1, Math.min(1, valeur)) * 0x7fff;
+  }
+  return sortie;
+}
+
+function jouer(octets) {
+  // On enchaîne les paquets sur l'horloge du contexte audio : les empiler sans
+  // horloge produit des clics entre chaque paquet de vingt millisecondes.
+  const pcm = new Int16Array(octets);
+  const tampon = contexte.createBuffer(1, pcm.length, TAUX);
+  const canal0 = tampon.getChannelData(0);
+  for (let i = 0; i < pcm.length; i++) canal0[i] = pcm[i] / 0x8000;
+  const lecture = contexte.createBufferSource();
+  lecture.buffer = tampon;
+  lecture.connect(contexte.destination);
+  const maintenant = contexte.currentTime;
+  if (prochainSon < maintenant) prochainSon = maintenant + 0.05;
+  lecture.start(prochainSon);
+  prochainSon += tampon.duration;
+}
+
+async function appeler() {
+  bouton.disabled = true;
+  dire('Ouverture du micro…', 'Votre navigateur va vous demander l’autorisation.');
+  try {
+    micro = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 }
+    });
+  } catch (erreur) {
+    bouton.disabled = false;
+    dire('Micro refusé.', 'Sans micro, impossible de parler à l’agent — ' + erreur.name);
+    return;
+  }
+
+  contexte = new AudioContext();
+  await contexte.resume();
+  const protocole = location.protocol === 'https:' ? 'wss' : 'ws';
+  canal = new WebSocket(`${protocole}://${location.host}/parler`);
+  canal.binaryType = 'arraybuffer';
+
+  canal.onopen = () => {
+    dire('En ligne.', 'Parlez normalement : l’agent vous entend et vous répond.');
+    raccrocher.hidden = false;
+    source = contexte.createMediaStreamSource(micro);
+    // ScriptProcessor est déprécié mais universel : l'AudioWorklet demande un
+    // fichier séparé, donc une requête de plus et un point de panne de plus
+    // pour un essai qui doit marcher du premier coup.
+    worklet = contexte.createScriptProcessor(2048, 1, 1);
+    let reste = new Int16Array(0);
+    worklet.onaudioprocess = (evenement) => {
+      if (!canal || canal.readyState !== WebSocket.OPEN) return;
+      const entrant = evenement.inputBuffer.getChannelData(0);
+      let crete = 0;
+      for (let i = 0; i < entrant.length; i++) crete = Math.max(crete, Math.abs(entrant[i]));
+      niveau.style.width = Math.min(100, crete * 300) + '%';
+
+      const converti = versHuitKhz(entrant, contexte.sampleRate);
+      const total = new Int16Array(reste.length + converti.length);
+      total.set(reste); total.set(converti, reste.length);
+      let position = 0;
+      while (position + PAQUET <= total.length) {
+        canal.send(total.slice(position, position + PAQUET).buffer);
+        position += PAQUET;
+      }
+      reste = total.slice(position);
+    };
+    source.connect(worklet);
+    worklet.connect(contexte.destination);
+  };
+
+  canal.onmessage = (evenement) => jouer(evenement.data);
+  canal.onclose = () => terminer('Appel terminé.', 'Merci — vous pouvez rappeler.');
+  canal.onerror = () => terminer('Connexion perdue.', 'Réessayez dans un instant.');
+}
+
+function terminer(quoi, pourquoi) {
+  if (worklet) { worklet.disconnect(); worklet.onaudioprocess = null; worklet = null; }
+  if (source) { source.disconnect(); source = null; }
+  if (micro) { micro.getTracks().forEach(p => p.stop()); micro = null; }
+  if (canal && canal.readyState === WebSocket.OPEN) canal.close();
+  canal = null;
+  niveau.style.width = '0';
+  raccrocher.hidden = true;
+  bouton.disabled = false;
+  dire(quoi, pourquoi);
+}
+
+bouton.addEventListener('click', appeler);
+raccrocher.addEventListener('click', () => terminer('Vous avez raccroché.', ''));
+</script>
+</html>
