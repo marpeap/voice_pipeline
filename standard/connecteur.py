@@ -38,6 +38,14 @@ CODES_DE_REFUS = {
     400: "demande_malformee",
 }
 
+CODES_D_ETAT = (409, 429)
+"""Les refus qui dépendent de l'ÉTAT de l'agenda — donc de ce qu'on vient
+peut-être d'y écrire. 409 : le créneau est occupé ; 429 : le plafond de
+rendez-vous actifs est atteint. Notre propre écriture a pu produire les deux.
+Les autres (422 jour fermé, 403 accès coupé, 404 inconnu, 400 malformé) ne
+dépendent pas d'elle : les rendre incertains ferait transférer des appels que
+l'agent sait traiter."""
+
 PHRASES_DE_REFUS = {
     # Contournables : il reste des créneaux, l'agent en propose.
     "creneau_pris": "Ce créneau vient d'être pris.",
@@ -171,6 +179,19 @@ class ConnecteurHttp:
             if statut in (200, 201):
                 return corps.get("id") or corps.get("reference")
             if statut in CODES_DE_REFUS:
+                if tentative > 0 and statut in CODES_D_ETAT:
+                    # Le cas moche : la première tentative est peut-être passée,
+                    # et c'est sa réponse qui s'est perdue. L'hôte voit alors
+                    # NOTRE PROPRE ligne et répond 409 — indiscernable d'une
+                    # vraie course. Le prendre pour un « non » ferait proposer
+                    # un autre créneau, qui passerait : l'appelant repartirait
+                    # avec DEUX rendez-vous, dont un qu'il ignore. Tant que
+                    # l'hôte ne rejoue pas la réponse déjà rendue pour une clé
+                    # déjà servie, ce n'est pas un refus, c'est un « je ne sais
+                    # pas » — règle 1 de ce fichier.
+                    raise Indisponible(
+                        f"HTTP {statut} sur une reprise : impossible de "
+                        "distinguer notre propre écriture d'un refus réel")
                 # Un refus est définitif : le réessayer coûte une seconde de
                 # conversation et rend exactement le même « non ».
                 raise Refus(CODES_DE_REFUS[statut], corps.get("erreur"))

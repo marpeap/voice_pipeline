@@ -144,6 +144,51 @@ def test_un_refus_n_est_jamais_reessaye():
     assert len(transport.requetes) == 1
 
 
+def test_un_409_apres_une_reprise_n_est_pas_un_creneau_pris(tmp_path=None):
+    """Le cas moche, et il ne duplique pas le créneau : il duplique la PERSONNE.
+
+    Écriture partie, aboutie chez l'hôte, réponse perdue. La reprise rejoue la
+    même clé ; l'hôte, qui refuse les chevauchements, voit NOTRE PROPRE ligne et
+    répond 409. Ce 409 est indiscernable d'une vraie course — sauf qu'il est
+    contournable dans notre taxonomie : l'agent dirait « c'est pris » et
+    proposerait 15 h au lieu de 14 h. Celle-là passerait. L'appelant repartirait
+    avec DEUX rendez-vous, dont un qu'il ignore, et le plafond de l'hôte
+    compterait les deux.
+
+    Tant que l'hôte ne rejoue pas la réponse déjà rendue pour une clé déjà
+    servie, un 409 en reprise n'est pas un « non » : c'est un « je ne sais
+    pas ». Règle 1 du fichier. Sur une PREMIÈRE tentative, rien n'a été écrit :
+    le 409 y garde tout son sens.
+
+    Diagnostic dû à la session qui tient `marpeap/crenolo` (20/09).
+    """
+    connecteur, transport = connecteur_http(
+        [Indisponible("réponse perdue"), (409, {"erreur": "slot_taken"})])
+    with pytest.raises(Indisponible):
+        connecteur.reserver("cle-1", RDV, reessais=1)
+    assert len(transport.requetes) == 2, "la reprise doit bien avoir eu lieu"
+
+
+def test_un_429_apres_une_reprise_est_tout_aussi_ambigu():
+    """Le plafond de rendez-vous actifs est un ÉTAT : notre propre écriture a pu
+    le faire franchir. Même raisonnement que le 409."""
+    connecteur, _ = connecteur_http(
+        [Indisponible("réponse perdue"), (429, {"erreur": "too_many"})])
+    with pytest.raises(Indisponible):
+        connecteur.reserver("cle-1", RDV, reessais=1)
+
+
+def test_un_refus_deterministe_reste_un_refus_meme_en_reprise():
+    """422, 403, 404, 400 ne dépendent pas de ce qu'on vient d'écrire : jour
+    fermé, accès coupé, prestation inconnue. Les rendre incertains ferait
+    transférer des appels que l'agent sait traiter."""
+    connecteur, _ = connecteur_http(
+        [Indisponible("réponse perdue"), (422, {"erreur": "closed_day"})])
+    with pytest.raises(Refus) as refus:
+        connecteur.reserver("cle-1", RDV, reessais=1)
+    assert refus.value.code == "donnees_refusees"
+
+
 def test_le_delai_est_borne():
     connecteur, transport = connecteur_http([(201, {"id": "rdv-9"})])
     connecteur.reserver("cle-1", RDV)
