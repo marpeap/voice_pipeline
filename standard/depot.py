@@ -101,6 +101,10 @@ class AccesLocataire:
     def corriger(self, reference: str, champs: dict) -> dict | None:
         return self._depot._corriger(self._tenant, reference, champs)
 
+    def chercher(self, telephone: str | None = None, nom: str | None = None,
+                 a_partir_de: str | None = None) -> list[dict]:
+        return self._depot._chercher(self._tenant, telephone, nom, a_partir_de)
+
 
 class Depot:
     def __init__(self, chemin: str = ":memory:"):
@@ -229,6 +233,35 @@ class Depot:
             ligne = self._connexion.execute(
                 "SELECT donnees FROM reponses WHERE tenant_id = ?", (tenant,)).fetchone()
         return json.loads(ligne["donnees"]) if ligne else {}
+
+    def _chercher(self, tenant: str, telephone: str | None, nom: str | None,
+                  a_partir_de: str | None) -> list[dict]:
+        """Les rendez-vous a venir d'un appelant, du plus proche au plus loin.
+
+        Sert a l'annulation et au report : sans elle, l'agent demandait un
+        numero et n'en faisait rien. La comparaison porte sur les CHIFFRES du
+        numero — « 06 12 34 56 78 » et « 0612345678 » sont le meme numero, et
+        l'appelant ne sait pas lequel on a garde.
+        """
+        chiffres = "".join(c for c in (telephone or "") if c.isdigit())
+        plat = (nom or "").strip().lower()
+        with self._verrou:
+            lignes = self._connexion.execute(
+                "SELECT reference, donnees FROM rendez_vous WHERE tenant_id = ? "
+                "AND annule = 0 AND (? IS NULL OR date >= ?) ORDER BY date, heure",
+                (tenant, a_partir_de, a_partir_de)).fetchall()
+        trouves = []
+        for ligne in lignes:
+            # La reference vit dans la colonne, pas dans les donnees : sans elle
+            # on saurait retrouver un rendez-vous sans pouvoir l'annuler.
+            donnees = {**json.loads(ligne["donnees"]), "reference": ligne["reference"]}
+            son_numero = "".join(c for c in str(donnees.get("telephone") or "")
+                                 if c.isdigit())
+            if chiffres and son_numero == chiffres:
+                trouves.append(donnees)
+            elif plat and plat == str(donnees.get("nom") or "").strip().lower():
+                trouves.append(donnees)
+        return trouves
 
     def effacer_le_locataire(self, tenant: str | None) -> dict[str, int]:
         """Efface tout ce qui appartient a ce locataire, et dit quoi.

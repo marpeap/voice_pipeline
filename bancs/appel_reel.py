@@ -139,6 +139,19 @@ SCENARIOS = {
          "référencement sur internet"],
         None,
     ),
+    # Annuler : le deuxième motif d'appel d'un salon, et une impasse jusqu'au
+    # 20/09. Le rendez-vous est semé avant l'appel, comme s'il avait été pris
+    # la veille.
+    "annulation": (
+        ["bonjour je voudrais annuler mon rendez-vous",
+         "zéro six douze trente-quatre cinquante-six soixante-dix-huit",
+         CLAVIER + "0612345678#",       # si la voix se perd, le clavier prend
+         "oui c'est bien ça"],
+        {"annule": True},
+        None,
+        (0, {"date": "2026-09-17", "heure": "15:30", "nom": "Dupont",
+             "telephone": "0612345678"}),
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],
@@ -351,6 +364,12 @@ def jouer(nom: str, repliques, attendu, supplement=None, intrusion=None) -> bool
             print(f"ce que l'appelant a entendu [{index}] : {texte[:220]}")
 
     print(f"\nrendez-vous en base : {rendez_vous}")
+    if attendu and attendu.get("annule"):
+        if rendez_vous:
+            print(f"ÉCHEC : le rendez-vous est encore là — {rendez_vous}")
+            return False
+        print("SUCCÈS : le rendez-vous a bien été annulé.")
+        return True
     if attendu and "message" in attendu:
         messages = depot.messages("salon-1")
         print(f"messages en base : {messages}")

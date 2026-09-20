@@ -124,6 +124,12 @@ class Appel:
         self._message_dicte = ""
         self._rappel_propose: str | None = None
         self._relances_clavier = 0
+        # L'annulation : « numero » puis « relecture ». On n'annule jamais sans
+        # avoir relu le rendez-vous a voix haute et obtenu un accord — un
+        # rendez-vous annule par erreur est pire qu'un rendez-vous manque, le
+        # client se presente et la place a ete donnee a un autre.
+        self._annulation: str | None = None
+        self._a_annuler: dict | None = None
         self._reference_ecrite: str | None = None
         self._corrige_le_nom = False
         self._tours_depuis_ecriture = 0
@@ -184,6 +190,9 @@ class Appel:
             if corrigee is not None:
                 return corrigee
 
+        if self._annulation is not None:
+            return self._poursuivre_l_annulation(transcription)
+
         if self._message_en_cours is not None:
             return self._poursuivre_le_message(transcription)
 
@@ -229,6 +238,9 @@ class Appel:
                                    phrase=depuis_la_fiche, bruite=bruite,
                                    source="fiche")
                 return Reponse("question", depuis_la_fiche)
+
+        if proposition.get("intention") == "annulation":
+            return self._commencer_l_annulation(transcription)
 
         sortie = decider(proposition, self.etat, self.agenda)
         if sortie.genre == "proposition":
@@ -303,6 +315,116 @@ class Appel:
         self.journal.noter(transcription=transcription, genre="correction", phrase=phrase,
                            reference=self._reference_ecrite)
         return Reponse("correction", phrase)
+
+    # --- annuler (le deuxieme motif d'appel d'un salon) ---------------------
+
+    def _commencer_l_annulation(self, transcription: str) -> Reponse:
+        connu = self.etat.connu.get("telephone")
+        if connu:
+            return self._retrouver_a_annuler(connu, transcription)
+        self._annulation = "numero"
+        phrase = "Je peux annuler. À quel numéro le rendez-vous a-t-il été pris ?"
+        self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
+        return Reponse("question", phrase)
+
+    def _poursuivre_l_annulation(self, transcription: str) -> Reponse:
+        if self._annulation == "relecture":
+            if est_un_oui(transcription):
+                return self._annuler_pour_de_bon(transcription)
+            # Un « non » n'annule rien, et ne laisse pas l'appelant en plan.
+            self._annulation = None
+            self._a_annuler = None
+            phrase = ("Je n'annule rien, alors. Voulez-vous que je vous passe "
+                      "quelqu'un du salon ?")
+            self.journal.noter(transcription=transcription, genre="question",
+                               phrase=phrase)
+            return Reponse("question", phrase)
+
+        lecture = lire_numero(transcription)
+        if lecture.issue != "accepte":
+            self._echecs_numero += 1
+            if self._echecs_numero == 1 and self.basculer_clavier is not None:
+                self.basculer_clavier()
+                phrase = ("Je n'ai pas saisi le numéro. Composez-le sur le clavier, "
+                          "puis faites dièse.")
+            else:
+                self._annulation = None
+                phrase = ("Je n'arrive pas à retrouver votre rendez-vous. "
+                          "Je vous passe quelqu'un du salon.")
+                self.journal.noter(transcription=transcription, genre="transfert",
+                                   phrase=phrase)
+                return Reponse("transfert", phrase)
+            self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
+            return Reponse("question", phrase)
+
+        return self._retrouver_a_annuler(lecture.numero, transcription)
+
+    def _retrouver_a_annuler(self, telephone: str, transcription: str) -> Reponse:
+        chercher = getattr(self.base, "chercher", None)
+        trouves = []
+        if callable(chercher):
+            try:
+                trouves = chercher(telephone=telephone,
+                                   a_partir_de=self.agenda.aujourd_hui.isoformat())
+            except Exception as erreur:
+                self.journal.noter(transcription=transcription, genre="panne",
+                                   phrase="", erreur=str(erreur))
+
+        if not trouves:
+            self._annulation = None
+            phrase = ("Je ne trouve aucun rendez-vous à ce numéro. "
+                      "Voulez-vous que je vous passe quelqu'un du salon ?")
+            self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
+            return Reponse("question", phrase)
+
+        # Le plus proche d'abord : c'est celui qu'on annule neuf fois sur dix,
+        # et le relire evite d'annuler le mauvais quand il y en a plusieurs.
+        self._a_annuler = trouves[0]
+        self.etat.connu["telephone"] = telephone
+        self._annulation = "relecture"
+        quand = (f"{enoncer_date(self._a_annuler['date'])} à "
+                 f"{enoncer_heure(self._a_annuler['heure'])}")
+        reste = (f" Vous en avez {len(trouves)} : je commence par celui-là."
+                 if len(trouves) > 1 else "")
+        phrase = f"J'ai votre rendez-vous du {quand}.{reste} Je l'annule ?"
+        self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
+        return Reponse("question", phrase)
+
+    def _annuler_pour_de_bon(self, transcription: str) -> Reponse:
+        """Annule, **relit**, et ne confirme que sur une relecture reussie.
+
+        Meme regle que pour l'ecriture : dire « c'est annule » sans l'avoir
+        verifie serait la faute symetrique de la confirmation orpheline.
+        """
+        a_annuler, self._a_annuler = self._a_annuler, None
+        self._annulation = None
+        annuler = getattr(self.base, "annuler", None)
+        reference = (a_annuler or {}).get("reference")
+        if not callable(annuler) or not reference:
+            phrase = ("Je n'arrive pas à annuler moi-même. "
+                      "Je vous passe quelqu'un du salon.")
+            self.journal.noter(transcription=transcription, genre="transfert", phrase=phrase)
+            return Reponse("transfert", phrase)
+
+        try:
+            annule = annuler(reference)
+            reste = self.base.relire(reference) if annule else a_annuler
+        except Exception as erreur:
+            self.journal.noter(transcription=transcription, genre="incertain",
+                               phrase="", erreur=str(erreur))
+            annule, reste = False, a_annuler
+
+        if not annule or reste is not None:
+            phrase = ("Je n'arrive pas à vérifier que votre rendez-vous est bien "
+                      "annulé. Le salon vous rappellera pour le confirmer.")
+            self.journal.noter(transcription=transcription, genre="incertain", phrase=phrase)
+            return Reponse("incertain", phrase)
+
+        quand = f"{enoncer_date(a_annuler['date'])} à {enoncer_heure(a_annuler['heure'])}"
+        phrase = f"C'est annulé : votre rendez-vous du {quand} n'est plus dans l'agenda."
+        self.journal.noter(transcription=transcription, genre="annulation",
+                           phrase=phrase, reference=reference)
+        return Reponse("annulation", phrase)
 
     # --- la prise de message (question D4) ----------------------------------
 
@@ -504,6 +626,18 @@ class Appel:
         vrai qu'un numero dicte, il est seulement mieux transmis.
         """
         lecture = lire_numero(numero)
+        if self._annulation is not None:
+            # Le clavier mene au meme endroit que la voix : sinon l'annulation
+            # reste une impasse pour l'appelant sur deux dont le numero se perd.
+            if lecture.issue != "accepte":
+                self._annulation = None
+                phrase = ("Ce numéro ne convient pas. "
+                          "Je vous passe quelqu'un du salon.")
+                self.journal.noter(transcription=f"[clavier] {numero}",
+                                   genre="transfert", phrase=phrase)
+                return Reponse("transfert", phrase)
+            return self._retrouver_a_annuler(lecture.numero, f"[clavier] {numero}")
+
         if lecture.issue == "accepte" and self._message_en_cours is not None:
             self.etat.connu["telephone"] = lecture.numero
             return self._deposer_le_message()

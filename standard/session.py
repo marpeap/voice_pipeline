@@ -314,7 +314,10 @@ class SessionTelephonique:
     @property
     def duree_s(self) -> float:
         """Depuis le decrochage. Elle valait zero pour tous les appels."""
-        return round(time.monotonic() - self.debut, 1)
+        # Deux decimales : un appel transfere au premier mot dure quelques
+        # centiemes, et un arrondi au dixieme le ramenait a zero — c'est-a-dire
+        # a la valeur ecrite en dur qu'on vient de corriger.
+        return round(time.monotonic() - self.debut, 2)
 
     def _fin_de_tour(self) -> list[bytes]:
         """L'appelant a fini de parler : on transcrit, on repond, on rejoue."""
