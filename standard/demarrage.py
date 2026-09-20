@@ -271,10 +271,20 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
     def creneaux_pris() -> dict[str, set[str]]:
         """Ce que la base sait deja, a chaque appel : un agenda qui ne lit pas
         les rendez-vous existants n'est pas un agenda."""
+        from standard.decision import creneaux_couverts
+
+        grille = sorted(config.creneaux)
         occupes: dict[str, set[str]] = {}
         for ligne in depot.lister(config.tenant):
-            if ligne.get("date") and ligne.get("heure"):
-                occupes.setdefault(ligne["date"], set()).add(ligne["heure"])
+            if not (ligne.get("date") and ligne.get("heure")):
+                continue
+            # Une coloration de deux heures occupe ce qu'elle dure : sans cela,
+            # le creneau suivant restait reservable et deux clients arrivaient
+            # ensemble.
+            for creneau in creneaux_couverts(ligne["heure"],
+                                             ligne.get("duree_minutes"), grille):
+                if creneau:
+                    occupes.setdefault(ligne["date"], set()).add(creneau)
         return occupes
 
     base_des_rendez_vous = _base_des_rendez_vous(env, depot, config)

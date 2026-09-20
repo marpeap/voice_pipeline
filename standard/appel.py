@@ -795,6 +795,11 @@ class Appel:
 
         donnees = dict(self._en_attente)
         donnees.setdefault("prestation", self.etat.connu.get("prestation"))
+        # La duree va SUR LA LIGNE : sans elle, l'agenda du lendemain ne sait
+        # plus ce que ce rendez-vous occupe.
+        duree = self.agenda.duree_de(donnees.get("prestation"))
+        if duree:
+            donnees.setdefault("duree_minutes", duree)
         if self.etat.connu.get("nom"):
             donnees.setdefault("nom", self.etat.connu["nom"])
         telephone = donnees.get("telephone") or self.etat.connu.get("telephone")

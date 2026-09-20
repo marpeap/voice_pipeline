@@ -124,6 +124,34 @@ class Memoire:
         return list(self.frontmatter.get("vocabulaire", []))
 
 
+def _durees(pack: dict, reponses: dict) -> dict[str, int]:
+    """Combien de temps prend chaque prestation retenue.
+
+    Les packs le declarent depuis le debut, dans les champs de chaque option, et
+    personne ne l'a jamais lu : une coloration de deux heures occupait un
+    creneau de quarante-cinq minutes. Une correction du commercant
+    (`reponses["durees"]`) l'emporte sur le defaut du pack — c'est lui qui sait
+    combien de temps prend une couleur chez lui.
+    """
+    durees: dict[str, int] = {}
+    for question in questions_du_pack(pack):
+        for option in question.get("options", []):
+            for champ in option.get("champs", []):
+                if champ.get("id") != "duree" or champ.get("defaut") is None:
+                    continue
+                retenues = reponses.get(question["id"], _defaut_de_question(question))
+                if isinstance(retenues, str):
+                    retenues = [retenues]
+                if option["valeur"] in (retenues or []):
+                    durees[option["valeur"]] = int(champ["defaut"])
+    for prestation, minutes in (reponses.get("durees") or {}).items():
+        try:
+            durees[prestation] = int(minutes)
+        except (TypeError, ValueError):
+            continue
+    return durees
+
+
 def composer_memoire(pack: dict, reponses: dict, corps: str) -> str:
     """Regenere le frontmatter a partir des reponses, et **recolle le corps tel quel**.
 
@@ -148,6 +176,9 @@ def composer_memoire(pack: dict, reponses: dict, corps: str) -> str:
     interdits += [regle["regle"] for regle in pack.get("interdits_cables", [])]
     if interdits:
         donnees["interdits"] = interdits
+    durees = _durees(pack, reponses)
+    if durees:
+        donnees["durees"] = durees
     vocabulaire = _vocabulaire(pack, reponses)
     if vocabulaire:
         donnees["vocabulaire"] = vocabulaire

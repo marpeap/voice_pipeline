@@ -319,7 +319,9 @@ class Service:
                       creneaux=self._creneaux_ouverts(),
                       creneaux_du_jour=self._creneaux_ouverts,
                       pris=self.creneaux_pris(),
-                      libres_du_jour=self.libres_du_jour)
+                      libres_du_jour=self.libres_du_jour,
+                      durees=dict(self._memoire[1].frontmatter.get("durees") or {})
+                      if self._memoire else {})
 
     def _annonce(self) -> str:
         """La formulation choisie par le salon, jamais son existence."""

@@ -45,6 +45,10 @@ class Agenda:
     # Une correction peut fermer un creneau pour UN jour de la semaine : la
     # liste ouverte se recalcule donc par jour, pas une fois pour toutes.
     creneaux_du_jour: Any = None
+    # Combien de temps prend chaque prestation. Les packs le declarent depuis
+    # le debut ; personne ne s'en servait, et une coloration de deux heures
+    # laissait le creneau suivant reservable.
+    durees: dict = field(default_factory=dict)
 
     def statut(self, jour_iso: str) -> str:
         """hors horizon · ferme · ouvert — trois reponses, jamais une seule.
@@ -69,7 +73,33 @@ class Agenda:
             return set(self.creneaux_du_jour(jour_iso))
         return self.creneaux
 
-    def libres(self, jour_iso: str) -> list[str]:
+    def duree_de(self, prestation: str | None) -> int | None:
+        """La duree declaree pour cette prestation, ou `None` si on ne sait pas.
+
+        Ne pas savoir n'est pas zero : sans duree, on occupe un creneau, comme
+        avant — mais on ne fait pas semblant que la prestation est courte.
+        """
+        if not prestation:
+            return None
+        valeur = self.durees.get(prestation)
+        try:
+            return int(valeur) if valeur else None
+        except (TypeError, ValueError):
+            return None
+
+    def libres(self, jour_iso: str, duree_minutes: int | None = None) -> list[str]:
+        disponibles = self._libres_sans_duree(jour_iso)
+        if not duree_minutes:
+            return disponibles
+        # Un creneau n'est libre que si TOUT ce que la prestation occupe l'est
+        # aussi, et tient dans la journee.
+        grille = sorted(self._ouverts(jour_iso))
+        libres = set(disponibles)
+        return [heure for heure in disponibles
+                if all(c is not None and c in libres
+                       for c in creneaux_couverts(heure, duree_minutes, grille))]
+
+    def _libres_sans_duree(self, jour_iso: str) -> list[str]:
         if self.libres_du_jour is not None:
             # On garde l'intersection : l'hote peut proposer un creneau que le
             # salon a ferme dans sa fiche, et c'est la fiche qui commande.
@@ -110,6 +140,50 @@ def enoncer_date(jour_iso: str) -> str:
     """
     jour = date.fromisoformat(jour_iso)
     return f"{JOURS[jour.weekday()]} {jour.day} {MOIS[jour.month - 1]}"
+
+
+def creneaux_couverts(heure: str, duree_minutes: int | None, grille) -> list:
+    """Les creneaux qu'une prestation occupe, sur la grille du salon.
+
+    Les packs portent une duree par prestation (coupe 30 min, coloration 120) et
+    **rien ne s'en servait** : un rendez-vous occupait un creneau, un seul. Une
+    coloration de deux heures a 17 h laissait donc 17 h 30 reservable, et le
+    salon se double-bookait tout seul.
+
+    Ce qui deborde de la journee est rendu comme `None` : la liste dit ce qui
+    manque au lieu de faire semblant que cela rentre.
+    """
+    ordonnes = sorted(grille)
+    if heure not in ordonnes:
+        return [heure]
+    depart = ordonnes.index(heure)
+    if not duree_minutes:
+        return [heure]
+
+    couverts: list = []
+    couvert_min = 0
+    rang = depart
+    while couvert_min < int(duree_minutes):
+        creneau = ordonnes[rang] if rang < len(ordonnes) else None
+        couverts.append(creneau)
+        couvert_min += _pas(ordonnes, min(rang, len(ordonnes) - 1))
+        rang += 1
+    return couverts
+
+
+def _en_minutes(heure: str) -> int:
+    h, m = heure.split(":")
+    return int(h) * 60 + int(m)
+
+
+def _pas(ordonnes: list, rang: int) -> int:
+    """L'ecart jusqu'au creneau suivant — la grille du salon n'est pas
+    forcement reguliere, et supposer qu'elle l'est ferait mentir le calcul."""
+    if rang + 1 < len(ordonnes):
+        return _en_minutes(ordonnes[rang + 1]) - _en_minutes(ordonnes[rang])
+    if rang > 0:
+        return _en_minutes(ordonnes[rang]) - _en_minutes(ordonnes[rang - 1])
+    return 60
 
 
 def enoncer_heure(heure: str) -> str:
@@ -244,7 +318,8 @@ def decider(proposition: dict, etat: Etat, agenda: Agenda) -> Sortie:
         return _repondre("question",
                          "Je n'ai pas compris la date, pouvez-vous me la redonner ?", etat)
 
-    libres = agenda.libres(jour)
+    duree = agenda.duree_de(retenu.get("prestation"))
+    libres = agenda.libres(jour, duree)
     if not libres:
         # Trouve en utilisant la console d'essai : l'agent disait « il me reste
         # . », une phrase vide suivie d'une question sans reponse possible. Un
@@ -260,6 +335,13 @@ def decider(proposition: dict, etat: Etat, agenda: Agenda) -> Sortie:
                          etat)
 
     if heure not in libres:
+        # Peut-etre libre, mais trop court pour CETTE prestation : le dire
+        # autrement qu'un creneau pris, sinon l'appelant ne comprend pas.
+        if duree and heure in agenda.libres(jour):
+            return _refuser(
+                f"Il me faut {duree} minutes pour cette prestation, et "
+                f"{enoncer_heure(heure)} ne les laisse pas. "
+                "Voulez-vous un autre horaire ?", "heure", etat, agenda, jour)
         return _refuser(None, "heure", etat, agenda, jour)
 
     etat.refus_consecutifs = 0
