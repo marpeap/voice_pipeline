@@ -198,6 +198,18 @@ SCENARIOS = {
                               '"A7": "12 rue des Lilas au Mans", '
                               '"C2": "oui", "C3": {"coupe": 28}}'},
     ),
+    # Vérifier son rendez-vous : l'appel le plus court d'un salon, et celui que
+    # le SMS de rappel provoque.
+    "verification": (
+        ["bonjour j'ai bien rendez-vous jeudi",
+         "zéro six douze trente-quatre cinquante-six soixante-dix-huit",
+         CLAVIER + "0612345678#",
+         "non merci au revoir"],
+        {"date": "2026-09-17", "heure": "15:30"},
+        None,
+        (0, {"date": "2026-09-17", "heure": "15:30", "nom": "Dupont",
+             "telephone": "0612345678"}),
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],

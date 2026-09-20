@@ -262,6 +262,11 @@ class Appel:
                                    source="fiche")
                 return Reponse("question", depuis_la_fiche)
 
+        if proposition.get("intention") == "verification":
+            # Verifier n'ecrit rien et n'efface rien : c'est le seul chemin du
+            # produit qui ne touche pas la base.
+            return self._commencer_l_annulation(transcription, but="verifier")
+
         if proposition.get("intention") == "annulation":
             return self._commencer_l_annulation(transcription)
 
@@ -417,7 +422,8 @@ class Appel:
         if connu:
             return self._retrouver_a_annuler(connu, transcription)
         self._annulation = "numero"
-        verbe = "annuler" if but == "annuler" else "le déplacer"
+        verbe = {"annuler": "annuler", "deplacer": "le déplacer",
+                 "verifier": "vérifier"}.get(but, "annuler")
         phrase = f"Je peux {verbe}. À quel numéro le rendez-vous a-t-il été pris ?"
         self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
         return Reponse("question", phrase)
@@ -478,12 +484,31 @@ class Appel:
 
         if not trouves:
             self._annulation = None
-            phrase = ("Je ne trouve aucun rendez-vous à ce numéro. "
-                      "Voulez-vous que je vous passe quelqu'un du salon ?")
+            if self._but_de_la_recherche == "verifier":
+                # Le client croyait avoir un rendez-vous : lui en proposer un
+                # vaut mieux que de le renvoyer au salon.
+                phrase = ("Je ne trouve aucun rendez-vous à ce numéro. "
+                          "Souhaitez-vous que je vous en prenne un ?")
+            else:
+                phrase = ("Je ne trouve aucun rendez-vous à ce numéro. "
+                          "Voulez-vous que je vous passe quelqu'un du salon ?")
             self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
             return Reponse("question", phrase)
 
         self.etat.connu["telephone"] = telephone
+        if self._but_de_la_recherche == "verifier":
+            self._annulation = None
+            quand = " et ".join(
+                f"{enoncer_date(t['date'])} à {enoncer_heure(t['heure'])}"
+                for t in trouves[:2])
+            reste = (f" Vous en avez {len(trouves)} en tout."
+                     if len(trouves) > 2 else "")
+            phrase = (f"Oui : vous avez rendez-vous {quand}.{reste} "
+                      "Voulez-vous le modifier ?")
+            self.journal.noter(transcription=transcription, genre="verification",
+                               phrase=phrase)
+            return Reponse("verification", phrase)
+
         if self._but_de_la_recherche == "deplacer":
             # On a retrouve le rendez-vous : la suite est une prise normale, et
             # c'est la confirmation qui liberera l'ancien.

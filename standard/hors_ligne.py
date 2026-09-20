@@ -31,6 +31,15 @@ JOURS = tuple(sans_accents(jour) for jour in JOURS_ACCENTUES)
 MOIS = tuple(sans_accents(mois) for mois in MOIS_ACCENTUES)
 
 VERBES_ANNULATION = ("annuler", "annule", "supprimer", "je ne pourrai pas", "empechement")
+VERBES_VERIFICATION = (
+    "j ai bien rendez vous", "j ai bien un rendez vous", "verifier mon rendez vous",
+    "confirmer mon rendez vous", "c est bien", "je voulais verifier",
+    "c est quand mon rendez vous", "a quelle heure mon rendez vous",
+)
+"""« J'ai bien rendez-vous jeudi ? » — l'appel le plus court d'un salon, et
+celui que le SMS de rappel provoque. Il partait dans l'analyse generale,
+ressortait en prise de rendez-vous, et le client s'entendait proposer un SECOND
+creneau."""
 VERBES_REPORT = ("decaler", "deplacer", "reporter", "avancer", "changer")
 VERBES_RDV = ("rendez vous", "reserver", "prendre", "creneau", "disponible", "place")
 VERBES_QUESTION = ("combien", "quel prix", "ouvert", "ouverts", "horaire", "adresse", "ou etes")
@@ -233,6 +242,10 @@ class ModeleHorsLigne:
 
     def _lire_intention(self, mots: list[str], jour, heure) -> str:
         texte = " ".join(mots)
+        # La verification passe AVANT le report : « c'est bien jeudi que j'ai
+        # rendez-vous ? » n'est pas une demande de changement.
+        if any(verbe in texte for verbe in VERBES_VERIFICATION):
+            return "verification"
         if any(verbe in texte for verbe in VERBES_ANNULATION):
             return "annulation"
         if any(verbe in texte for verbe in VERBES_REPORT):

@@ -21,7 +21,8 @@ from typing import Any, Protocol
 
 CHAMPS = ("intention", "date", "heure", "prestation", "confiance", "manque")
 LONGUEUR_PRESTATION = 40        # « balayage avec Sophie » tient ; une phrase, non
-INTENTIONS = ("rdv", "report", "annulation", "question", "humain", "inconnu")
+INTENTIONS = ("rdv", "report", "annulation", "verification", "question", "humain",
+              "inconnu")
 
 # Detecte sur la transcription, jamais interprete : « passez-moi quelqu'un » n'a
 # pas a etre compris, il a a etre execute (mesure 17).
