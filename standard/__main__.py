@@ -103,6 +103,10 @@ def _executer(arguments: list[str]) -> int:
         # Qui a pose quelle correction, et un debit borne : les deux existaient
         # sans etre branches, ce qu'une revue independante a releve.
         console = Console(journal=journal, tenant=config.tenant,
+                          # Sans le pack, l'ecran de reglages n'existe pas en
+                          # production : le commercant ne peut pas configurer son
+                          # agent, et le produit ne se vend pas seul (docs/05).
+                          pack=config.pack,
                           depot=depot,          # sans lui, les messages pris
                           audit=PisteDAudit(depot),
                           acteur=os.environ.get("STANDARD_ACTEUR", "console"))

@@ -204,7 +204,8 @@ class Service:
                  libres_du_jour: Callable[[str], list[str]] | None = None,
                  envoyeur_sms: Any = None,
                  corrections: Any = None,
-                 secours: Any = None):
+                 secours: Any = None,
+                 reponses_du_depot: Any = None):
         self.configuration = configuration
         self.client_modele = client_modele
         self.base = base
@@ -219,16 +220,32 @@ class Service:
         # Toujours local, meme en mode greffon : c'est le filet qui garde la
         # trace d'un rendez-vous que l'hote n'a pas confirme.
         self.secours = secours
+        # Le questionnaire du commercant (docs/05) vit en base : la console
+        # ecrit, le standard lit. Sans cela, le formulaire ne sert a rien.
+        self.reponses_du_depot = reponses_du_depot
         self.metriques = Supervision()
         self._memoire = None
         self._demarre = False
 
     # --- demarrage ----------------------------------------------------------
 
+    def _reponses_enregistrees(self) -> dict:
+        """Ce que le commercant a repondu depuis la console, s'il y a une base."""
+        if self.reponses_du_depot is None:
+            return {}
+        try:
+            return dict(self.reponses_du_depot.reponses(self.configuration.tenant))
+        except Exception:
+            # Une base qui ne repond pas ne doit pas empecher de decrocher : on
+            # garde ce que la configuration porte deja.
+            return {}
+
     def questions_manquantes(self) -> list[str]:
         """Les questions critiques encore vides. Dire ce qui manque vaut mieux
         qu'echouer sechement : le commercant peut agir."""
-        return paliers_manquants(self.configuration.pack, self.configuration.reponses)
+        return paliers_manquants(self.configuration.pack,
+                                 {**self.configuration.reponses,
+                                  **self._reponses_enregistrees()})
 
     def demarrer(self) -> None:
         manquantes = self.questions_manquantes()
@@ -236,7 +253,7 @@ class Service:
             raise RuntimeError(
                 "l'agent ne peut pas etre active, ces questions critiques sont sans "
                 f"reponse : {', '.join(manquantes)}")
-        reponses = dict(self.configuration.reponses)
+        reponses = {**self.configuration.reponses, **self._reponses_enregistrees()}
         corps = self.configuration.corps
         self.regles_serveur: list = []
         if self.corrections is not None:
@@ -252,6 +269,7 @@ class Service:
         # pas, et il n'a rien a relire non plus.
         empreinte = getattr(self.corrections, "empreinte", None)
         self._empreinte_des_corrections = empreinte() if callable(empreinte) else ""
+        self._empreinte_des_reponses = repr(sorted(reponses.items()))
 
         # Mesure 4 : 2 040 ms pour une connexion neuve, 378 ms pour une gardee.
         # On chauffe donc la connexion QUI SERT — celle du modele — au lieu de
@@ -323,6 +341,19 @@ class Service:
         dernier devant rester a zero."""
         return self.metriques.etat()
 
+    def _relire_le_questionnaire(self) -> None:
+        """Une reponse changee dans la console vaut pour le prochain appel.
+
+        Meme raison que pour les corrections : la console tourne dans un autre
+        processus, et son « c'est enregistre » doit etre vrai sans redemarrage.
+        """
+        if self.reponses_du_depot is None:
+            return
+        attendues = repr(sorted({**self.configuration.reponses,
+                                 **self._reponses_enregistrees()}.items()))
+        if attendues != getattr(self, "_empreinte_des_reponses", None):
+            self.demarrer()
+
     def _relire_les_corrections(self) -> None:
         """Une fois par appel, jamais par tour.
 
@@ -344,6 +375,7 @@ class Service:
         if not self._demarre:
             raise RuntimeError("le service doit etre demarre avant de prendre un appel")
         self._relire_les_corrections()
+        self._relire_le_questionnaire()
         texte, _ = self._memoire
         _, memoire_lue = self._memoire
         nom_salon = (memoire_lue.frontmatter.get("salon", {}).get("nom")

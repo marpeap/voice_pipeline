@@ -288,7 +288,10 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
                       envoyeur_sms=_envoyeur_sms(env, config),
                       corrections=RegistreDeCorrections(depot=depot,
                                                         tenant=config.tenant),
-                      secours=depot.pour(config.tenant))
+                      secours=depot.pour(config.tenant),
+                      # Le questionnaire rempli dans la console : sans ce
+                      # branchement, le commercant configure dans le vide.
+                      reponses_du_depot=depot)
     service.demarrer()
 
     journal = JournalDAppels(depot)

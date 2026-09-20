@@ -23,6 +23,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from standard.echecs import libelle as libelle_d_echec
+from standard.locataire import paliers_manquants
+from standard.regles import JOURS
 from standard.grammaire import ecrire_numero
 from standard.correction import FAUTES, Correction, RegistreDeCorrections
 
@@ -106,6 +108,7 @@ class Console:
     registre: RegistreDeCorrections = field(default_factory=RegistreDeCorrections)
     audit: Any = None
     depot: Any = None               # pour lire les messages pris pendant un appel
+    pack: Any = None                # le questionnaire : sans lui, pas de réglages
     acteur: str = "console"
     _message: str | None = None
 
@@ -116,6 +119,10 @@ class Console:
             return 200, {"Content-Type": "text/html; charset=utf-8"}, self._fil()
         if methode == "GET" and chemin.startswith("/appel/"):
             return self._detail(chemin.removeprefix("/appel/"))
+        if methode == "GET" and chemin.rstrip("/") == "/reglages":
+            return self._reglages()
+        if methode == "POST" and chemin.rstrip("/") == "/reglages":
+            return self._enregistrer_reglages(corps or {})
         if methode == "POST" and chemin == "/correction":
             return self._poser_correction(corps or {})
         return 404, {"Content-Type": "text/html; charset=utf-8"}, _page(
@@ -162,6 +169,7 @@ class Console:
             corps = ("<div class=vide><strong>Aucun appel pour le moment.</strong><br>"
                      "Dès que votre numéro sera branché, les appels apparaîtront ici, "
                      "avec ce que l'agent a compris et ce qu'il a répondu.</div>")
+            corps = self._bandeau_de_reglages() + corps
             return _page("Vos appels", entete + bloc_messages + corps)
 
         lignes = "".join(
@@ -171,7 +179,7 @@ class Console:
             f"<span class=heure>{int(a.get('duree_s', 0))} s</span></a></li>"
             for a in appels[:50])
         return _page("Vos appels",
-                     entete + bloc_incidents + bloc_messages
+                     entete + self._bandeau_de_reglages() + bloc_incidents + bloc_messages
                      + f"<h2>Fil des appels</h2><ul class=fil>{lignes}</ul>")
 
     def _bloc_messages(self) -> str:
@@ -277,6 +285,148 @@ class Console:
         return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
             "Appel", f"<h1>Appel de {html.escape(appel['debut'][11:16])}</h1>"
                      f"{contexte}{bandeau}{tours}{formulaire}")
+
+    def _bandeau_de_reglages(self) -> str:
+        """Tant qu'une question critique est vide, l'agent ne décroche pas.
+
+        C'est la seule chose qui compte sur ce fil-là (B7, B6 : une emphase, et
+        elle n'est pas décorative). Une fois le questionnaire complet, le lien
+        reste discret en bas de page — le fil des appels reprend la vedette.
+        """
+        if self.pack is None or self.depot is None:
+            return ""
+        manquantes = paliers_manquants(self.pack, self._reponses())
+        if not manquantes:
+            return ""
+        return ("<div class=vide><strong>Votre agent ne peut pas encore "
+                f"décrocher.</strong><br>Il manque {len(manquantes)} réponse"
+                f"{'s' if len(manquantes) > 1 else ''} au questionnaire — "
+                "<a class=numero href='/reglages'>y répondre</a>.</div>")
+
+    # --- les réglages (docs/05) ---------------------------------------------
+
+    def _reponses(self) -> dict:
+        return self.depot.reponses(self.tenant) if self.depot is not None else {}
+
+    def _champ(self, question: dict, valeur) -> str:
+        """Le bon contrôle pour le bon type — jamais une zone de texte libre là
+        où le pack propose une liste (B8 : le produit absorbe la complexité)."""
+        identifiant = html.escape(question["id"])
+        type_de_question = question.get("type", "texte")
+
+        if type_de_question in ("choix_unique", "choix_multiple"):
+            options = []
+            for option in question.get("options", []):
+                coche = ""
+                if type_de_question == "choix_multiple":
+                    coche = " checked" if option["valeur"] in (valeur or []) else ""
+                elif valeur == option["valeur"] or (valeur is None and option.get("defaut")):
+                    coche = " checked"
+                genre = "checkbox" if type_de_question == "choix_multiple" else "radio"
+                recommande = " <span class=legende>(recommandé)</span>" \
+                    if option.get("defaut") else ""
+                options.append(
+                    f"<label class=faute><input type={genre} name={identifiant} "
+                    f"value='{html.escape(str(option['valeur']))}'{coche}>"
+                    f"{_texte(option['libelle'])}{recommande}</label>")
+            return "".join(options)
+
+        if type_de_question == "texte_long":
+            return (f"<textarea id={identifiant} name={identifiant} rows=4>"
+                    f"{_texte(str(valeur or ''))}</textarea>")
+
+        if type_de_question == "horaires_semaine":
+            # Une grille d'horaires ne se tape pas à la main dans un texte : on
+            # montre ce que le pack propose par défaut, et on laisse corriger
+            # jour par jour, en toutes lettres — « 09:00-19:00 ».
+            defaut = valeur if isinstance(valeur, dict) else (question.get("defaut") or {})
+            lignes = []
+            for jour in JOURS:
+                plages = defaut.get(jour) or []
+                lignes.append(
+                    f"<label for={identifiant}_{jour}>{jour.capitalize()}</label>"
+                    f"<input id={identifiant}_{jour} name={identifiant}.{jour} "
+                    f"type=text placeholder='fermé' "
+                    f"value='{html.escape(', '.join(plages))}'>")
+            return "".join(lignes)
+
+        return (f"<input id={identifiant} name={identifiant} type=text "
+                f"value='{html.escape(str(valeur or ''))}'>")
+
+    def _reglages(self):
+        if self.pack is None:
+            return 404, {"Content-Type": "text/html; charset=utf-8"}, _page(
+                "Réglages", "<h1>Aucun questionnaire</h1>"
+                "<p class=legende>Ce déploiement n'a pas de pack.</p>")
+
+        reponses = self._reponses()
+        manquantes = paliers_manquants(self.pack, reponses)
+
+        # B7 : ce qui décide de tout est en position 1. Tant qu'une question
+        # critique est vide, l'agent NE DÉCROCHE PAS — le dire d'abord.
+        if manquantes:
+            pluriel = len(manquantes) > 1
+            etat = ("<div class=vide><strong>Votre agent ne peut pas encore "
+                    f"décrocher.</strong><br>Il manque {len(manquantes)} réponse"
+                    f"{'s' if pluriel else ''} : sans "
+                    f"{'elles' if pluriel else 'elle'}, il dirait au client "
+                    "quelque chose de faux.</div>")
+        else:
+            etat = ("<div class=vide><strong>Votre agent peut décrocher.</strong>"
+                    "<br>Vous pouvez encore affiner ce qui suit, il répondra "
+                    "pendant ce temps.</div>")
+
+        blocs = ""
+        for bloc in self.pack.get("blocs", []):
+            champs = ""
+            for question in bloc.get("questions", []):
+                valeur = reponses.get(question["id"])
+                critique = " <span class=legende>(indispensable)</span>" \
+                    if question.get("critique") else ""
+                aide = f"<p class=legende>{_texte(question.get('aide', ''))}</p>" \
+                    if question.get("aide") else ""
+                champs += (f"<fieldset><legend>{_texte(question['libelle'])}{critique}"
+                           f"</legend>{aide}{self._champ(question, valeur)}</fieldset>")
+            blocs += f"<h2>{_texte(bloc.get('titre', bloc['id']))}</h2>{champs}"
+
+        return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
+            "Réglages",
+            "<h1>Votre agent</h1>"
+            "<p class=legende>Répondez dans vos mots. Il n'y a rien d'autre à "
+            "écrire : ces réponses deviennent ce que l'agent sait.</p>"
+            f"{etat}<form method=post action='/reglages'>{blocs}"
+            "<button type=submit>Enregistrer</button></form>"
+            "<p class=legende><a href='/'>Revenir au fil des appels</a></p>")
+
+    def _enregistrer_reglages(self, corps: dict):
+        """N'écrit que ce que le pack déclare : le formulaire vient du navigateur."""
+        connues = {q["id"]: q for bloc in (self.pack or {}).get("blocs", [])
+                   for q in bloc.get("questions", [])}
+        reponses: dict = {}
+        for cle, valeur in corps.items():
+            racine, _, jour = cle.partition(".")
+            if racine not in connues:
+                continue
+            question = connues[racine]
+            if question.get("type") == "horaires_semaine" and jour:
+                # « 09:00-19:00, 14:00-18:00 » : on garde ce qui est écrit, on
+                # ne devine pas un horaire à la place du commerçant.
+                plages = [p.strip() for p in str(valeur).split(",") if p.strip()]
+                if plages:
+                    reponses.setdefault(racine, {})[jour] = plages
+            elif valeur:
+                reponses[racine] = valeur
+
+        if reponses and self.depot is not None:
+            self.depot.pour(self.tenant).enregistrer_reponses(reponses)
+            if self.audit is not None:
+                self.audit.noter(self.tenant, acteur=self.acteur,
+                                 action="reglages.modifies", cible="questionnaire",
+                                 detail={"questions": sorted(reponses)})
+        # B10 : la fin promet la suite. On revient au fil, jamais sur un écran mort.
+        self._message = ("C'est enregistré. Votre agent en tient compte au "
+                         "prochain appel.")
+        return 303, {"Location": "/"}, ""
 
     # --- la correction ------------------------------------------------------
 

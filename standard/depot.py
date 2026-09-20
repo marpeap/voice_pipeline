@@ -62,6 +62,15 @@ CREATE TABLE IF NOT EXISTS messages (
     donnees    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS messages_locataire ON messages (tenant_id, recu_le);
+
+-- Les reponses du commercant au questionnaire (docs/05). Une ligne par
+-- locataire : la mise a jour est une FUSION, jamais un remplacement, sans quoi
+-- un ecran qui ne porte qu'une question effacerait les autres.
+CREATE TABLE IF NOT EXISTS reponses (
+    tenant_id  TEXT PRIMARY KEY,
+    donnees    TEXT NOT NULL,
+    modifie_le TEXT NOT NULL
+);
 """
 
 
@@ -79,6 +88,9 @@ class AccesLocataire:
 
     def enregistrer_message(self, donnees: dict) -> str:
         return self._depot._enregistrer_message(self._tenant, donnees)
+
+    def enregistrer_reponses(self, reponses: dict) -> dict:
+        return self._depot._enregistrer_reponses(self._tenant, reponses)
 
     def relire(self, reference: str) -> dict | None:
         return self._depot._relire(self._tenant, reference)
@@ -190,6 +202,33 @@ class Depot:
                             ensure_ascii=False)))
             self._connexion.commit()
         return reference
+
+    def _enregistrer_reponses(self, tenant: str, reponses: dict) -> dict:
+        """Fusionne : un ecran qui ne porte qu'une question ne doit pas effacer
+        les reponses des autres blocs."""
+        from datetime import datetime, timezone
+
+        with self._verrou:
+            ligne = self._connexion.execute(
+                "SELECT donnees FROM reponses WHERE tenant_id = ?", (tenant,)).fetchone()
+            fusion = {**(json.loads(ligne["donnees"]) if ligne else {}), **reponses}
+            self._connexion.execute(
+                "INSERT INTO reponses (tenant_id, donnees, modifie_le) VALUES (?, ?, ?) "
+                "ON CONFLICT(tenant_id) DO UPDATE SET donnees = excluded.donnees, "
+                "modifie_le = excluded.modifie_le",
+                (tenant, json.dumps(fusion, ensure_ascii=False),
+                 datetime.now(timezone.utc).isoformat(timespec="seconds")))
+            self._connexion.commit()
+        return fusion
+
+    def reponses(self, tenant: str | None) -> dict[str, Any]:
+        """Les reponses d'un locataire. **Sans locataire, elle refuse.**"""
+        if not tenant:
+            raise ValueError("reponses sans locataire : refuse, pour ne pas tout rendre")
+        with self._verrou:
+            ligne = self._connexion.execute(
+                "SELECT donnees FROM reponses WHERE tenant_id = ?", (tenant,)).fetchone()
+        return json.loads(ligne["donnees"]) if ligne else {}
 
     def messages(self, tenant: str | None) -> list[dict[str, Any]]:
         """Les messages d'un locataire, du plus recent au plus ancien."""
