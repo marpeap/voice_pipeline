@@ -366,6 +366,17 @@ def decider(proposition: dict, etat: Etat, agenda: Agenda) -> Sortie:
                 f"Il me faut {duree} minutes pour cette prestation, et "
                 f"{enoncer_heure(heure)} ne les laisse pas. "
                 "Voulez-vous un autre horaire ?", "heure", etat, agenda, jour)
+        # « Pas libre » et « nous n'en prenons pas a cette heure-la » ne sont
+        # pas la meme chose : confondre les deux fait mentir la machine, et
+        # c'est invérifiable par le client (meme regle que la mesure 15 pour
+        # les jours).
+        if heure not in agenda._ouverts(jour):
+            restants = espacer(libres, 2)
+            dites = " ou ".join(enoncer_heure(h) for h in restants)
+            suite = f" Il me reste {dites}." if restants else ""
+            return _refuser(f"Nous ne prenons pas de rendez-vous à "
+                            f"{enoncer_heure(heure)}.{suite}",
+                            "heure", etat, agenda, jour)
         return _refuser(None, "heure", etat, agenda, jour)
 
     etat.refus_consecutifs = 0

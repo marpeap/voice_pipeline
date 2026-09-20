@@ -196,3 +196,33 @@ def test_une_heure_refusee_sans_alternative_ne_promet_pas_une_liste_vide():
                      Etat(), agenda_sans_creneau())
     assert "Il me reste ." not in sortie.phrase
     assert "plus rien" in sortie.phrase or "complet" in sortie.phrase
+
+
+# --- « pas libre » et « n'existe pas » ne sont pas la même chose ------------
+# Mesure 15 : confondre « absent de l'agenda » et « fermé » fait mentir la
+# machine, et c'est invérifiable par le client. La même règle vaut pour l'heure.
+
+def agenda_avec(pris=None):
+    from standard.decision import Agenda
+    return Agenda(aujourd_hui=MARDI, horizon_jours=14, jours_fermes=(6, 0),
+                  creneaux={"09:00", "10:30", "15:30"}, pris=pris or {})
+
+
+def test_une_heure_hors_grille_ne_se_dit_pas_occupee():
+    from standard.decision import Etat, decider
+
+    sortie = decider({"intention": "rdv", "date": "2026-09-17", "heure": "10:00",
+                      "confiance": {"intention": 0.9, "date": 0.9, "heure": 0.9},
+                      "manque": []}, Etat(), agenda_avec())
+    assert "pas libre" not in sortie.phrase, sortie.phrase
+    assert "10 h 30" in sortie.phrase
+
+
+def test_une_heure_de_la_grille_deja_prise_se_dit_occupee():
+    from standard.decision import Etat, decider
+
+    sortie = decider({"intention": "rdv", "date": "2026-09-17", "heure": "15:30",
+                      "confiance": {"intention": 0.9, "date": 0.9, "heure": 0.9},
+                      "manque": []}, Etat(),
+                     agenda_avec({"2026-09-17": {"15:30"}}))
+    assert "pas libre" in sortie.phrase, sortie.phrase
