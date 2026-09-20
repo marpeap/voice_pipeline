@@ -212,6 +212,60 @@ class ConnecteurHttp:
                                entetes=entetes, delai=self._delai)
 
 
+class ConnecteurCrenolo(ConnecteurHttp):
+    """Crenolo, tel qu'il sert vraiment — pas tel qu'on l'imaginait.
+
+    Le connecteur generique appelle `/disponibilites?jour=`. Crenolo sert
+    `GET /public/{slug}/slots?date=…&service_id=…` : branche tel quel, chaque
+    lecture prenait un 404. La forme du corps, elle, etait deja bonne —
+    `{"slots": ["09:00", …]}`.
+
+    Deux choses n'existent pas encore chez l'hote, et ce n'est pas a ce fichier
+    de faire semblant :
+      - aucune route d'ecriture authentifiee (c'est `/connecteur/v1`, en
+        attente d'une decision) ;
+      - aucune relecture d'une reservation : le seul GET qui en rende une exige
+        un jeton d'annulation genere cote serveur, qu'on ne peut pas calculer.
+
+    Un salon est identifie par son `slug`, une prestation par son `service_id` :
+    Crenolo applique alors lui-meme `slot_duration`, les horaires,
+    `blocked_slots`, `min_booking_hours` et `max_booking_days`. On ne redevine
+    rien de tout cela.
+
+    Attention aux DEUX sens de 429 sur cette API : plafond de reservations
+    actives d'un cote, limite de debit de la lecture publique (120/min par IP)
+    de l'autre. En lecture, c'est toujours le second.
+    """
+
+    def __init__(self, transport: Callable[..., tuple[int, dict]], base: str,
+                 slug: str, service_id: str, cle_api: str = "",
+                 delai_s: float = DELAI_PAR_DEFAUT_S):
+        super().__init__(transport, base=base, cle_api=cle_api, delai_s=delai_s)
+        self.slug = slug
+        self.service_id = service_id
+
+    def disponibilites(self, jour: str) -> list[str]:
+        statut, corps = self._appeler(
+            "GET", f"/public/{self.slug}/slots"
+                   f"?date={jour}&service_id={self.service_id}")
+        if statut != 200:
+            raise Indisponible(f"disponibilités Crenolo : HTTP {statut}")
+        # Une liste VIDE est une reponse, pas une panne : le salon est ferme ce
+        # jour-la. Les confondre ferait dire « je n'ai pas pu verifier » a un
+        # agent qui sait tres bien quoi repondre.
+        return list(corps.get("slots", []))
+
+    def reserver(self, cle: str, donnees: dict, reessais: int = 0) -> str:
+        raise Indisponible(
+            "écriture impossible : Crenolo n'expose pas encore de route "
+            "d'écriture authentifiée par salon (/connecteur/v1)")
+
+    def relire(self, reference: str) -> dict | None:
+        # Dire « je ne sais pas » plutot que d'inventer : l'ecriture se declare
+        # alors « incertaine », et l'agent ne promet rien.
+        return None
+
+
 class BaseViaConnecteur:
     """L'hôte, vu comme une base de rendez-vous — c'est ce qui branche le greffon.
 

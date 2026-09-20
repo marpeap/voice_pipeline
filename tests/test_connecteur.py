@@ -214,3 +214,99 @@ def test_la_relecture_suit_l_ecriture():
 def test_une_relecture_vide_ne_ment_pas():
     connecteur, _ = connecteur_http([(404, {})])
     assert connecteur.relire("rdv-inexistant") is None
+
+
+# --- Crenolo : la vraie forme de ses routes ---------------------------------
+
+def test_le_connecteur_crenolo_construit_la_route_que_crenolo_sert():
+    """Crenolo ne sert PAS `/disponibilites?jour=`.
+
+    Il sert `GET /public/{slug}/slots?date=…&service_id=…`. Branché tel quel, le
+    connecteur générique prenait un 404 à chaque lecture. Les valeurs ci-dessous
+    sont celles de la vraie API, relevées le 20/09 contre
+    `https://rdv-api.marpeap.com`.
+    """
+    from standard.connecteur import ConnecteurCrenolo
+
+    transport = TransportFactice([(200, {"slots": ["09:00", "09:30", "13:00"]})])
+    connecteur = ConnecteurCrenolo(
+        transport, base="https://rdv-api.marpeap.com", slug="nail-beaute-nguyen",
+        service_id="0766f0fe-8015-4064-9937-4331b42d13b4")
+
+    assert connecteur.disponibilites("2026-09-22") == ["09:00", "09:30", "13:00"]
+    url = transport.requetes[0]["chemin"]
+    assert url == ("https://rdv-api.marpeap.com/public/nail-beaute-nguyen/slots"
+                   "?date=2026-09-22&service_id=0766f0fe-8015-4064-9937-4331b42d13b4")
+
+
+def test_un_jour_de_fermeture_rend_une_liste_vide_et_non_une_panne():
+    """Dimanche, le salon est fermé : `{"slots": []}`. Le confondre avec une
+    indisponibilité ferait dire à l'agent qu'il n'a pas pu vérifier, alors qu'il
+    sait très bien quoi répondre."""
+    from standard.connecteur import ConnecteurCrenolo
+
+    transport = TransportFactice([(200, {"slots": []})])
+    connecteur = ConnecteurCrenolo(transport, base="https://rdv-api.marpeap.com",
+                                   slug="nail-beaute-nguyen", service_id="s-1")
+    assert connecteur.disponibilites("2026-09-27") == []
+
+
+def test_ecrire_chez_crenolo_echoue_franchement_tant_que_la_route_n_existe_pas():
+    """Aucune route d'écriture authentifiée n'existe chez Crenolo aujourd'hui.
+
+    Rendre un succès, ou échouer obscurément, ferait promettre un rendez-vous
+    que personne n'a pris. On refuse en le disant, et l'agent passe la main.
+    """
+    from standard.connecteur import ConnecteurCrenolo
+
+    connecteur = ConnecteurCrenolo(TransportFactice([]), base="https://x",
+                                   slug="s", service_id="i")
+    with pytest.raises(Indisponible) as panne:
+        connecteur.reserver("cle-1", RDV)
+    assert "écriture" in str(panne.value)
+
+
+def test_relire_chez_crenolo_ne_ment_pas():
+    """`GET /reservations/{ref}` n'existe pas non plus : le seul GET qui rende
+    une réservation exige un jeton d'annulation généré côté serveur. Rendre
+    `None` est la vérité — et l'écriture se déclare alors « incertaine »."""
+    from standard.connecteur import ConnecteurCrenolo
+
+    connecteur = ConnecteurCrenolo(TransportFactice([]), base="https://x",
+                                   slug="s", service_id="i")
+    assert connecteur.relire("rdv-1") is None
+
+
+def test_la_configuration_choisit_crenolo_des_qu_un_slug_est_donne():
+    """`STANDARD_HOTE_SLUG` suffit à basculer sur les routes de Crenolo : sans
+    lui, le service parlait à Crenolo dans une langue qu'il ne sert pas."""
+    from standard.connecteur import ConnecteurCrenolo
+    from standard.demarrage import _base_des_rendez_vous
+    from standard.depot import Depot
+
+    class Config:
+        tenant = "salon-1"
+
+    base = _base_des_rendez_vous({
+        "STANDARD_HOTE_BASE": "https://rdv-api.marpeap.com",
+        "STANDARD_HOTE_SLUG": "nail-beaute-nguyen",
+        "STANDARD_HOTE_SERVICE": "0766f0fe-8015-4064-9937-4331b42d13b4",
+    }, Depot(":memory:"), Config())
+
+    assert isinstance(base._connecteur, ConnecteurCrenolo)
+    assert base._connecteur.slug == "nail-beaute-nguyen"
+    assert base._connecteur.service_id == "0766f0fe-8015-4064-9937-4331b42d13b4"
+
+
+def test_sans_slug_l_hote_generique_reste_le_defaut():
+    """Un autre logiciel de rendez-vous ne sert pas les routes de Crenolo."""
+    from standard.connecteur import ConnecteurCrenolo
+    from standard.demarrage import _base_des_rendez_vous
+    from standard.depot import Depot
+
+    class Config:
+        tenant = "salon-1"
+
+    base = _base_des_rendez_vous({"STANDARD_HOTE_BASE": "https://autre.fr"},
+                                 Depot(":memory:"), Config())
+    assert not isinstance(base._connecteur, ConnecteurCrenolo)

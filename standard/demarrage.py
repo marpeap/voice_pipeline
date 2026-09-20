@@ -260,6 +260,18 @@ def _base_des_rendez_vous(env, depot, config):
             brut = refus.read()
             return refus.code, (_json.loads(brut) if brut else {})
 
+    slug = env.get("STANDARD_HOTE_SLUG")
+    if slug:
+        # Crenolo ne sert pas les memes routes que l'hote generique : il
+        # identifie un salon par son `slug` et une prestation par son
+        # `service_id`. Sans ce branchement, chaque lecture prenait un 404.
+        from standard.connecteur import ConnecteurCrenolo
+
+        return BaseViaConnecteur(ConnecteurCrenolo(
+            transport, base=hote, slug=slug,
+            service_id=env.get("STANDARD_HOTE_SERVICE", ""),
+            cle_api=env.get("STANDARD_HOTE_CLE", "")))
+
     return BaseViaConnecteur(ConnecteurHttp(transport, base=hote,
                                             cle_api=env.get("STANDARD_HOTE_CLE", "")))
 
