@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import socket
 import threading
+import uuid
 from pathlib import Path
 
 from standard.session import SessionTelephonique
@@ -153,6 +154,20 @@ class ServeurDeToile:
                 return None
         return tampon.split(b"\r\n\r\n", 1)[0]
 
+    def identifiant_d_appel(self) -> str:
+        """Unique pour de bon — il nourrit la CLE D'IDEMPOTENCE des ecritures.
+
+        C'etait `toile-{compteur du processus}`. Le service redemarre a chaque
+        deploiement, le compteur repartait a 1, et deux appels differents
+        portaient la meme cle : l'ecriture du second etait dedupliquee sur la
+        ligne du premier. Le deuxieme appelant s'entendait confirmer le
+        rendez-vous d'un autre, et le sien n'existait nulle part. Un doublon se
+        voit ; ceci ne se voit pas.
+
+        Au telephone, l'identifiant vient d'Asterisk : c'est deja un UUID.
+        """
+        return f"toile-{uuid.uuid4()}"
+
     def _servir_la_page(self, connexion: socket.socket, chemin: str = "/") -> None:
         if chemin == "/config.js":
             # La page publiee sur un hebergeur statique lit son adresse d'agent
@@ -188,7 +203,7 @@ class ServeurDeToile:
             synthetiser=self.synthetiser,
             **({"seuil_bruite_db": self.seuil_bruite_db}
                if self.seuil_bruite_db is not None else {}))
-        session.identifiant = f"toile-{self.appels_total}"
+        session.identifiant = self.identifiant_d_appel()
         fini = threading.Event()
         emetteur = threading.Thread(
             target=self._emettre, args=(connexion, session, fini), daemon=True)

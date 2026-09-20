@@ -280,6 +280,31 @@ def test_le_front_end_sait_ou_joindre_l_agent_sans_redeployer():
     assert "CONFIGURATION" in page
 
 
+def test_deux_services_successifs_ne_reutilisent_jamais_un_identifiant(tmp_path):
+    """L'identifiant d'appel nourrit la CLÉ D'IDEMPOTENCE des écritures.
+
+    Il valait `toile-{compteur du processus}` : après un redémarrage — et le
+    service redémarre à chaque déploiement — le compteur repartait à 1. Deux
+    appels différents portaient alors la même clé, et l'écriture du second était
+    dédupliquée sur la ligne du premier : le deuxième appelant s'entendait
+    confirmer « votre rendez-vous au nom de Dupont », et SON rendez-vous
+    n'existait nulle part. Un doublon se voit ; ceci ne se voit pas.
+
+    Au téléphone le risque n'existe pas : l'identifiant vient d'Asterisk, c'est
+    un UUID. C'est le transport web qui le fabriquait lui-même.
+    """
+    vus = set()
+    for _ in range(3):                        # trois « démarrages » successifs
+        serveur = ServeurDeToile(
+            fabrique_agent=lambda: None, transcrire=lambda a, f: "",
+            synthetiser=lambda t: iter([b""]), nom_du_salon="Salon Marpeap",
+            hote="127.0.0.1", port=0)
+        vus.update(serveur.identifiant_d_appel() for _ in range(5))
+    assert len(vus) == 15, "un identifiant est réutilisé d'un démarrage à l'autre"
+    assert not any(marque in vus for marque in ("toile-1", "toile-2")), (
+        "identifiant dérivé d'un compteur de processus")
+
+
 def test_le_standard_sert_aussi_le_config_js_que_la_page_demande(serveur):
     """La page cherche `config.js` — l'adresse de l'agent, écrite au déploiement
     sur l'hébergeur statique. Servie par le standard, elle le demandait aussi et
