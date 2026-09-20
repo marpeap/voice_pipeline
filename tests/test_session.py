@@ -499,3 +499,26 @@ def test_un_bruit_trop_bref_ne_declenche_pas_de_relance():
     for _ in range(int(s.silence_de_fin_ms / 20) + 2):
         s.recevoir(encoder(TYPE_AUDIO_8K, bytes(320)))
     assert s.reste_a_emettre == 0
+
+
+def test_un_appelant_qui_tape_son_numero_sans_qu_on_lui_demande_est_entendu():
+    """Banc du 20/09 : l'agent avait demandé le numéro à voix haute, l'appelant
+    l'a composé au clavier sans attendre la bascule, et les touches sont
+    tombées dans le vide. Un client qui tape son numéro le tape une fois."""
+    from standard.audiosocket import TYPE_DTMF
+
+    class AgentQuiAttendUnNumero(AgentFactice):
+        attend_un_numero = True
+
+        def numero_au_clavier(self, numero):
+            from standard.appel import Reponse
+            self.recu = numero
+            return Reponse("confirmation", "C'est noté.")
+
+    agent = AgentQuiAttendUnNumero()
+    s = session(agent)
+    s.ouvrir()
+    vider_l_annonce(s)
+    for touche in "0612345678":
+        s.recevoir(encoder(TYPE_DTMF, touche.encode()))
+    assert getattr(agent, "recu", None) == "0612345678"

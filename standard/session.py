@@ -413,7 +413,15 @@ class SessionTelephonique:
 
     def _chiffre(self, touche: str) -> list[bytes]:
         if not self._attend_un_numero:
-            return []                                # un appui hors saisie ne pollue rien
+            # L'agent a demande un numero a voix haute : un appelant qui le
+            # compose sans attendre qu'on l'y invite doit etre entendu. Banc du
+            # 20/09 : ses touches tombaient dans le vide, et il ne les retape pas.
+            if touche.isdigit() and getattr(self.agent, "attend_un_numero", False):
+                self._attend_un_numero = True
+                self._chiffres.clear()
+                self.saisie_terminee = False
+            else:
+                return []                            # un appui hors saisie ne pollue rien
         if touche == EFFACER_LA_SAISIE:
             self._chiffres.clear()
             return []

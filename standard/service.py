@@ -112,6 +112,13 @@ class AppelSuivi:
         return self._appel.fin_demandee
 
     @property
+    def attend_un_numero(self) -> bool:
+        """La session le demande a chaque touche : sans cette delegation, un
+        appelant qui compose spontanement n'est pas entendu."""
+        return bool(self._appel._attend_un_numero
+                    or self._appel._annulation is not None)
+
+    @property
     def interdits(self) -> list:
         """Ce que le serveur empeche de dire, quelle que soit la phrase."""
         return self._appel.interdits
