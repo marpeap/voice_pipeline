@@ -43,9 +43,13 @@ def test_sans_horaires_dans_la_fiche_l_agent_ne_les_invente_pas():
 
 
 def test_un_prix_non_saisi_ne_s_invente_jamais():
-    """Interdit du pack : ne jamais annoncer un prix que le salon n'a pas saisi."""
+    """Interdit du pack : ne jamais annoncer un prix que le salon n'a pas saisi.
+
+    Sans réponse à la question C2, le salon est réputé ne pas vouloir que
+    l'agent annonce les prix : il oriente, et ne cite aucun montant."""
     dit = repondre("c'est combien coûte une coupe", FICHE)
-    assert "au hasard" in dit and "€" not in dit
+    assert "quelqu'un du salon" in dit
+    assert not any(caractere.isdigit() for caractere in dit)
 
 
 def test_une_demande_de_rendez_vous_n_est_pas_une_question_de_fiche():

@@ -31,6 +31,18 @@ MOTS_HUMAIN = (
     "une personne reelle", "un conseiller",
 )
 
+MOTS_DE_RECLAMATION = (
+    "reclamation", "pas content", "pas contente", "mecontent", "inadmissible",
+    "scandaleux", "rate", "ratee", "abime", "abimee", "me plaindre", "plainte",
+    "rembourser", "remboursement", "inacceptable", "honteux",
+)
+"""Un client mecontent ne se negocie pas non plus.
+
+Le faire repeter est la pire reponse possible : il veut un humain, et chaque
+tour de machine aggrave le motif de sa colere. Meme regle que « passez-moi
+quelqu'un » (mesure 17) : detecte sur la transcription, avant tout appel au
+modele, et sans discuter."""
+
 
 class ErreurFournisseur(RuntimeError):
     """L'erreur du fournisseur, remontee telle quelle.
@@ -49,7 +61,7 @@ from standard.texte import aplatir as _sans_accents
 
 def demande_un_humain(transcription: str) -> bool:
     plat = _sans_accents(transcription)
-    return any(motif in plat for motif in MOTS_HUMAIN)
+    return any(motif in plat for motif in MOTS_HUMAIN + MOTS_DE_RECLAMATION)
 
 
 def ordonner_le_prompt(consignes_communes: str, memoire: str, calendrier: dict,

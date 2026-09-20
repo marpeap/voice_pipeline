@@ -99,3 +99,11 @@ def test_le_plan_de_numerotation_livre_demande_bien_l_issue():
     assert "Dial(${POSTE_DU_SALON}" in plan
     # Le défaut penche du bon côté : inconnu → le poste du salon sonne.
     assert plan.index('"${ISSUE}" = "demarchage"') < plan.index("Dial(${POSTE_DU_SALON}")
+
+
+def test_un_au_revoir_poli_n_est_pas_compte_comme_un_demarchage(serveur):
+    """Les deux rendent la ligne : seul le motif diffère, et c'est lui que la
+    console affiche au commerçant (« 1 démarchage filtré, non facturé »)."""
+    uuid_texte = jouer(serveur, "merci au revoir")
+    assert issue(serveur, uuid_texte) == "fin"
+    assert serveur.demarchages_filtres == 0

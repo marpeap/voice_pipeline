@@ -20,7 +20,13 @@ from standard.texte import aplatir
 MOTS_HORAIRES = ("horaire", "horaires", "ouvert", "ouverte", "ouverts", "ouverture",
                  "fermez", "fermeture", "fermes", "ouvrez", "ouvre")
 MOTS_PRIX = ("prix", "tarif", "tarifs", "combien coute", "combien ca coute",
-             "combien coutent")
+             "combien coutent", "c est combien", "ca coute combien")
+
+MOTS_ADRESSE = ("adresse", "ou etes vous", "vous etes ou", "ou vous etes",
+                "vous etes situes", "comment on vient", "comment venir",
+                "ou se trouve", "vous trouver", "y aller")
+"""L'adresse est la question la plus posee apres les horaires — et le produit
+n'y repondait pas, faute d'un champ pour l'ecrire."""
 
 
 def _plat(texte: str) -> str:
@@ -88,10 +94,40 @@ def repondre(transcription: str, frontmatter: dict) -> str | None:
         return ("Je n'ai pas les horaires sous les yeux. "
                 "Souhaitez-vous que je vous passe quelqu'un du salon ?")
 
-    if any(mot in plat for mot in MOTS_PRIX):
-        # Le pack interdit d'annoncer un prix non saisi ; aucun pack ne porte
-        # encore de tarif, donc la seule reponse honnete est de passer la main.
-        return ("Je préfère ne pas vous donner un prix au hasard. "
+    if any(mot in plat for mot in MOTS_ADRESSE):
+        adresse = ((frontmatter.get("salon") or {}).get("adresse")
+                   or (frontmatter.get("etablissement") or {}).get("adresse"))
+        if adresse:
+            return f"Nous sommes au {adresse}. Souhaitez-vous un rendez-vous ?"
+        return ("Je n'ai pas l'adresse sous les yeux. "
                 "Souhaitez-vous que je vous passe quelqu'un du salon ?")
 
+    if any(mot in plat for mot in MOTS_PRIX):
+        return _repondre_sur_le_prix(plat, frontmatter)
+
     return None
+
+
+def _repondre_sur_le_prix(plat: str, frontmatter: dict) -> str:
+    """Le tarif saisi par le salon, ou rien — jamais une fourchette.
+
+    Le pack decide d'abord si l'agent annonce les prix (question C2) : quand le
+    salon a repondu « non, il oriente vers moi », aucun tarif ne sort, meme
+    saisi. Et un prix qui n'a pas ete saisi ne s'invente pas : c'est le premier
+    interdit ecrit dans les trois packs.
+    """
+    prix = frontmatter.get("prix") or {}
+    if str(prix.get("annonce", "non")) != "oui":
+        return ("Je préfère vous passer quelqu'un du salon pour les tarifs. "
+                "Souhaitez-vous un rendez-vous en attendant ?")
+
+    tarifs = prix.get("tarifs") or {}
+    for prestation, montant in tarifs.items():
+        if _plat(prestation) in plat:
+            # « Comptez X euros pour Y » evite l'article : « le tarif pour
+            # coupe » s'entend mal, et « une coloration » / « un brushing » ne
+            # se devinent pas depuis le catalogue.
+            return (f"Comptez {montant} euros pour {prestation}. "
+                    "Souhaitez-vous un rendez-vous ?")
+    return ("Je préfère ne pas vous donner un prix au hasard. "
+            "Souhaitez-vous que je vous passe quelqu'un du salon ?")

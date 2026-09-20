@@ -188,6 +188,16 @@ SCENARIOS = {
         {"STANDARD_REPONSES": '{"A1": "Salon Elegance", '
                               '"A6": "du 2026-09-16 au 2026-09-20"}'},
     ),
+    # Un appel qui ne veut aucun rendez-vous : adresse, puis tarif.
+    "renseignements": (
+        ["bonjour vous êtes situés où exactement",
+         "et c'est combien une coupe",
+         "merci au revoir"],
+        None,
+        {"STANDARD_REPONSES": '{"A1": "Salon Elegance", '
+                              '"A7": "12 rue des Lilas au Mans", '
+                              '"C2": "oui", "C3": {"coupe": 28}}'},
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],

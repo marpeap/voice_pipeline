@@ -186,3 +186,30 @@ def test_les_defauts_du_pack_sont_deja_dans_le_formulaire():
     quand même des horaires justes."""
     _, contenu = page(console())
     assert "09:00-19:00" in contenu
+
+
+# --- les tarifs (question C3) -----------------------------------------------
+
+def test_les_tarifs_se_saisissent_une_ligne_par_prestation():
+    c = console({"C1": ["coupe", "coloration"]})
+    _, contenu = page(c)
+    assert "Vos tarifs" in contenu
+    assert "coupe" in contenu
+
+
+def test_un_tarif_saisi_devient_un_montant_et_pas_du_texte():
+    c = console()
+    page(c, "/reglages", "POST", {"C3": "coupe 28\ncoloration 65"})
+    assert c.depot.reponses("salon-1")["C3"] == {"coupe": 28, "coloration": 65}
+
+
+def test_une_ligne_de_tarif_illisible_n_emporte_pas_les_autres():
+    c = console()
+    page(c, "/reglages", "POST", {"C3": "coupe 28\nn'importe quoi\ncoloration 65"})
+    assert c.depot.reponses("salon-1")["C3"] == {"coupe": 28, "coloration": 65}
+
+
+def test_un_tarif_avec_des_centimes_et_un_euro_se_lit():
+    c = console()
+    page(c, "/reglages", "POST", {"C3": "coupe 28,50 €"})
+    assert c.depot.reponses("salon-1")["C3"] == {"coupe": 28.5}

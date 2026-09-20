@@ -108,7 +108,8 @@ class SessionTelephonique:
     mesures: list = field(default_factory=list)
     debut: float = field(default_factory=time.monotonic)
     annonce_delivree: bool = False
-    fin_demandee: bool = False      # l'agent a rendu la ligne (demarchage filtre)
+    fin_demandee: bool = False      # l'agent a rendu la ligne
+    raison_de_fin: str = ""         # « demarchage » ou « fin » : ce n'est pas pareil
     pannes: int = 0
     transfert_demande: bool = False
     preuve_d_annonce: dict | None = None
@@ -383,8 +384,11 @@ class SessionTelephonique:
         morceaux = self._jouer(reponse.phrase)
         if getattr(self.agent, "fin_demandee", False):
             # La phrase se dit en ENTIER avant que la ligne ne se ferme : c'est
-            # le serveur qui raccroche, une fois la file vidée.
+            # le serveur qui raccroche, une fois la file vidée. Le motif compte :
+            # un au revoir poli n'est pas un démarchage filtré, et c'est ce mot
+            # que la console montre au commerçant.
             self.fin_demandee = True
+            self.raison_de_fin = getattr(reponse, "genre", "") or "fin"
         if getattr(reponse, "genre", "") == "transfert":
             # Le bord telephonique doit VRAIMENT passer la main : une phrase sans
             # signal, c'est raccrocher au nez de l'appelant en musique.

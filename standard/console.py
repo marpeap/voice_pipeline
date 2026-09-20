@@ -19,6 +19,7 @@ transcription.
 from __future__ import annotations
 
 import html
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -80,6 +81,24 @@ button:focus-visible {{ outline:3px solid {ENCRE}; outline-offset:2px; }}
 .succes {{ border:1px solid {ELECTRIQUE}; padding:12px; margin-bottom:24px; }}
 @media (prefers-reduced-motion: reduce) {{ * {{ transition:none !important; }} }}
 """
+
+
+def _lire_des_tarifs(texte: str) -> dict:
+    """« coupe 28 », « coloration 65,50 € » — une ligne par prestation.
+
+    Une ligne illisible n'emporte pas les autres : le gerant en ecrit plusieurs
+    et ne les relit pas. Un montant sans prestation, ou l'inverse, est ignore —
+    on ne devine pas un tarif.
+    """
+    tarifs: dict = {}
+    for ligne in (texte or "").splitlines():
+        trouve = re.match(r"^\s*(.+?)\s+(\d+(?:[.,]\d{1,2})?)\s*€?\s*$", ligne)
+        if not trouve:
+            continue
+        montant = float(trouve.group(2).replace(",", "."))
+        tarifs[trouve.group(1).strip().lower()] = (
+            int(montant) if montant == int(montant) else montant)
+    return tarifs
 
 
 def _texte(valeur: str) -> str:
@@ -350,6 +369,20 @@ class Console:
                     f"{_texte(option['libelle'])}{recommande}</label>")
             return "".join(options)
 
+        if type_de_question == "tarifs":
+            # Une ligne par prestation, dans l'ordre de ce que le salon a coché :
+            # le gérant lit sa propre liste, pas un formulaire vide (B8).
+            lignes = []
+            deja = valeur if isinstance(valeur, dict) else {}
+            for prestation in (self._reponses().get("C1") or []):
+                montant = deja.get(prestation, "")
+                lignes.append(f"{prestation} {montant}".strip())
+            for prestation, montant in deja.items():
+                if prestation not in (self._reponses().get("C1") or []):
+                    lignes.append(f"{prestation} {montant}")
+            return (f"<textarea id={identifiant} name={identifiant} rows=4 "
+                    f"placeholder='coupe 28'>{_texte(chr(10).join(lignes))}</textarea>")
+
         if type_de_question == "texte_long":
             return (f"<textarea id={identifiant} name={identifiant} rows=4>"
                     f"{_texte(str(valeur or ''))}</textarea>")
@@ -428,7 +461,11 @@ class Console:
             if racine not in connues:
                 continue
             question = connues[racine]
-            if question.get("type") == "horaires_semaine" and jour:
+            if question.get("type") == "tarifs":
+                tarifs = _lire_des_tarifs(str(valeur))
+                if tarifs:
+                    reponses[racine] = tarifs
+            elif question.get("type") == "horaires_semaine" and jour:
                 # « 09:00-19:00, 14:00-18:00 » : on garde ce qui est écrit, on
                 # ne devine pas un horaire à la place du commerçant.
                 plages = [p.strip() for p in str(valeur).split(",") if p.strip()]

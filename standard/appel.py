@@ -25,7 +25,7 @@ from standard.decision import (
     enoncer_heure,
     espacer,
 )
-from standard.assentiment import est_un_refus, est_un_oui
+from standard.assentiment import est_un_au_revoir, est_un_refus, est_un_oui
 from standard.fiche import repondre as repondre_depuis_la_fiche
 from standard.grammaire import enoncer_numero, lire_numero
 from standard.identite import lire_correction_de_nom, lire_nom, lire_nom_seul
@@ -160,6 +160,15 @@ class Appel:
         self.numero_de_tour += 1
         self._relances_muettes = 0        # on l'a entendu : le compteur repart
 
+        # L'appelant prend conge : on lui repond, et on rend la ligne. Le
+        # relancer apres « merci au revoir » fait raccrocher en pensant que la
+        # machine n'ecoute pas.
+        if est_un_au_revoir(transcription) and self._rien_en_cours():
+            phrase = "Je vous en prie. Bonne journée !"
+            self.journal.noter(transcription=transcription, genre="fin", phrase=phrase)
+            self.fin_demandee = True
+            return Reponse("fin", phrase)
+
         # Un appel de prospection ne se negocie pas non plus : on refuse en une
         # phrase et on rend la ligne. Seulement dans les premiers tours — ensuite
         # une phrase commerciale peut venir d'un client qui explique son metier.
@@ -240,8 +249,12 @@ class Appel:
                                     "Je vous passe quelqu'un du salon.")
 
         # Une question de fait se repond avant toute logique d'agenda : elle ne
-        # demande ni creneau, ni confirmation, ni ecriture.
-        if proposition.get("intention") == "question":
+        # demande ni creneau, ni confirmation, ni ecriture. On l'essaie aussi
+        # quand l'intention est « inconnu » : la fiche ne repond qu'a ce qu'elle
+        # reconnait, et « vous etes situes ou exactement » valait mieux qu'un
+        # « je n'ai pas bien saisi » alors que l'adresse etait ecrite (banc du
+        # 20/09).
+        if proposition.get("intention") in ("question", "inconnu"):
             depuis_la_fiche = repondre_depuis_la_fiche(transcription, self.fiche)
             if depuis_la_fiche:
                 self.journal.noter(transcription=transcription, genre="question",
@@ -341,6 +354,16 @@ class Appel:
         self.journal.noter(transcription=transcription, genre="correction", phrase=phrase,
                            reference=self._reference_ecrite)
         return Reponse("correction", phrase)
+
+    def _rien_en_cours(self) -> bool:
+        """Vrai quand aucune question de l'agent n'attend de reponse.
+
+        Un « c'est tout, merci » au milieu d'une prise de numero n'est pas un
+        au revoir : c'est une reponse a autre chose.
+        """
+        return not (self._demande_le_nom or self._attend_un_numero
+                    or self._annulation is not None
+                    or self._message_en_cours is not None)
 
     def _rendez_vous_a_deplacer(self) -> dict | None:
         """Le rendez-vous existant de cet appelant, s'il en a un.

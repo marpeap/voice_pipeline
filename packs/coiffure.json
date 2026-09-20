@@ -145,6 +145,17 @@
             "cible": "frontmatter",
             "chemin": "horaires.fermetures"
           }
+        },
+        {
+          "id": "A7",
+          "type": "texte",
+          "critique": false,
+          "libelle": "Votre adresse",
+          "aide": "C'est la deuxième question la plus posée après les horaires. L'agent la dira telle que vous l'écrivez.",
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "salon.adresse"
+          }
         }
       ]
     },
@@ -242,6 +253,17 @@
           "ecrit": {
             "cible": "frontmatter",
             "chemin": "prix.annonce"
+          }
+        },
+        {
+          "id": "C3",
+          "type": "tarifs",
+          "critique": false,
+          "libelle": "Vos tarifs, si l'agent doit les annoncer",
+          "aide": "Une ligne par prestation : « coupe 28 ». L'agent ne dira que ce que vous écrivez ici — jamais une fourchette, jamais un prix deviné.",
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "prix.tarifs"
           }
         }
       ]

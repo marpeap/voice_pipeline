@@ -167,7 +167,8 @@ class ServeurAudioSocket:
                 # Verifie AVANT la lecture : un demarcheur qui se tait n'envoie
                 # plus rien, et la ligne serait restee ouverte a l'attendre.
                 if session.fin_demandee and not session.en_train_de_parler:
-                    self.demarchages_filtres += 1
+                    if session.raison_de_fin == "demarchage":
+                        self.demarchages_filtres += 1
                     break
                 try:
                     morceau = connexion.recv(TAILLE_LECTURE)
@@ -220,7 +221,7 @@ class ServeurAudioSocket:
             return
         if session.transfert_demande:
             issue = "transfert"
-        elif getattr(session, "fin_demandee", False):
+        elif getattr(session, "raison_de_fin", "") == "demarchage":
             issue = "demarchage"
         else:
             issue = "fin"

@@ -60,3 +60,33 @@ def est_un_oui(transcription: str) -> bool:
     if not any(_plat(marque) in plat for marque in OUI):
         return False
     return not any(f" {negation} " in f" {plat} " for negation in NEGATIONS)
+
+
+AU_REVOIR = (
+    "au revoir", "bonne journee", "bonne journée", "bonne soiree", "bonne soirée",
+    "c'est tout", "ce sera tout", "a bientot", "à bientôt", "je vous laisse",
+    "bonne continuation",
+)
+"""Ce qui dit qu'un appel est fini.
+
+Banc du 20/09 : « merci au revoir » recevait « Je vais faire autrement :
+dites-moi le jour qui vous arrange ». L'appelant venait de dire qu'il avait
+termine, et l'agent le relancait — c'est le genre de tour qui fait raccrocher
+en pensant que la machine n'ecoute pas.
+
+« Merci » tout seul n'y est pas : il se dit au milieu d'une phrase (« merci,
+et je voudrais aussi… ») aussi souvent qu'a la fin.
+"""
+
+
+def est_un_au_revoir(transcription: str) -> bool:
+    """Vrai si l'appelant prend conge — et qu'il ne demande rien d'autre."""
+    plat = _plat(transcription)
+    if not plat:
+        return False
+    if not any(_plat(marque) in plat for marque in AU_REVOIR):
+        return False
+    # « merci, et je voudrais aussi un rendez-vous » : il reste une demande.
+    from standard.hors_ligne import VERBES_RDV
+
+    return not any(verbe in plat for verbe in VERBES_RDV)

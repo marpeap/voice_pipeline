@@ -178,6 +178,17 @@
             "cible": "frontmatter",
             "chemin": "horaires.fermetures"
           }
+        },
+        {
+          "id": "A7",
+          "type": "texte",
+          "critique": false,
+          "libelle": "Votre adresse",
+          "aide": "C'est la deuxième question la plus posée après les horaires. L'agent la dira telle que vous l'écrivez.",
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "salon.adresse"
+          }
         }
       ]
     },
