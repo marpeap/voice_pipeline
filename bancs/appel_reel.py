@@ -146,7 +146,8 @@ SCENARIOS = {
         ["bonjour je voudrais annuler mon rendez-vous",
          "zéro six douze trente-quatre cinquante-six soixante-dix-huit",
          CLAVIER + "0612345678#",       # si la voix se perd, le clavier prend
-         "oui c'est bien ça"],
+         "oui c'est bien ça",
+         "oui"],                        # si le « oui » se perd, l'agent redemande
         {"annule": True},
         None,
         (0, {"date": "2026-09-17", "heure": "15:30", "nom": "Dupont",

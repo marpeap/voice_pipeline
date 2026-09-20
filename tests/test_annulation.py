@@ -124,3 +124,31 @@ def test_le_numero_compose_au_clavier_retrouve_aussi_le_rendez_vous(tmp_path):
     assert depot.lister("salon-1"), "rien n'est annulé avant l'accord"
     assert appel.tour("oui").genre == "annulation"
     assert depot.lister("salon-1") == []
+
+
+def test_une_reponse_incomprise_a_la_relecture_se_redemande_une_fois(tmp_path):
+    """Banc du 20/09 : « oui c'est bien ça » est revenu « JE N'A N » du moteur.
+    Abandonner là oblige l'appelant à tout recommencer ; insister sans fin
+    l'épuise. Une fois, puis on passe la main."""
+    depot = base_avec_rendez_vous(tmp_path)
+    appel = conversation(depot)
+    appel.tour("je voudrais annuler mon rendez-vous")
+    appel.tour("zéro six douze trente-quatre cinquante-six soixante-dix-huit")
+
+    redemande = appel.tour("je n'a n")
+    assert "oui ou non" in redemande.phrase.lower()
+    assert depot.lister("salon-1"), "rien ne doit être annulé sur un doute"
+
+    assert appel.tour("oui").genre == "annulation"
+    assert depot.lister("salon-1") == []
+
+
+def test_un_deuxieme_doute_passe_la_main(tmp_path):
+    depot = base_avec_rendez_vous(tmp_path)
+    appel = conversation(depot)
+    appel.tour("je voudrais annuler mon rendez-vous")
+    appel.tour("zéro six douze trente-quatre cinquante-six soixante-dix-huit")
+    appel.tour("je n'a n")
+    reponse = appel.tour("bruit incompréhensible")
+    assert reponse.genre in ("question", "transfert")
+    assert depot.lister("salon-1"), "un doute répété n'annule rien non plus"

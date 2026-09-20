@@ -132,6 +132,7 @@ class Appel:
         self._a_annuler: dict | None = None
         self._deplace: dict | None = None
         self._but_de_la_recherche = "annuler"
+        self._doute_sur_l_annulation = False
         self._reference_ecrite: str | None = None
         self._corrige_le_nom = False
         self._tours_depuis_ecriture = 0
@@ -393,6 +394,17 @@ class Appel:
         if self._annulation == "relecture":
             if est_un_oui(transcription):
                 return self._annuler_pour_de_bon(transcription)
+            if not est_un_refus(transcription) and not self._doute_sur_l_annulation:
+                # Banc du 20/09 : « oui c'est bien ça » est revenu « JE N'A N ».
+                # Abandonner la oblige l'appelant a tout recommencer ; insister
+                # sans fin l'epuise. Une fois, puis on passe la main.
+                self._doute_sur_l_annulation = True
+                quand = (f"{enoncer_date(self._a_annuler['date'])} à "
+                         f"{enoncer_heure(self._a_annuler['heure'])}")
+                phrase = f"Je n'ai pas compris. Le {quand} : je l'annule, oui ou non ?"
+                self.journal.noter(transcription=transcription, genre="question",
+                                   phrase=phrase)
+                return Reponse("question", phrase)
             # Un « non » n'annule rien, et ne laisse pas l'appelant en plan.
             self._annulation = None
             self._a_annuler = None
