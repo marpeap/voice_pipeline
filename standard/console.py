@@ -109,6 +109,8 @@ class Console:
     audit: Any = None
     depot: Any = None               # pour lire les messages pris pendant un appel
     pack: Any = None                # le questionnaire : sans lui, pas de réglages
+    creneaux: tuple = ()            # pour l'essai : ce que le salon propose
+    _essai: Any = None              # la conversation d'essai en cours
     acteur: str = "console"
     _message: str | None = None
 
@@ -119,6 +121,10 @@ class Console:
             return 200, {"Content-Type": "text/html; charset=utf-8"}, self._fil()
         if methode == "GET" and chemin.startswith("/appel/"):
             return self._detail(chemin.removeprefix("/appel/"))
+        if methode == "GET" and chemin.rstrip("/") == "/essayer":
+            return self._ecran_d_essai()
+        if methode == "POST" and chemin.rstrip("/") == "/essayer":
+            return self._essayer(corps or {})
         if methode == "GET" and chemin.rstrip("/") == "/reglages":
             return self._reglages()
         if methode == "POST" and chemin.rstrip("/") == "/reglages":
@@ -127,7 +133,8 @@ class Console:
             return self._poser_correction(corps or {})
         return 404, {"Content-Type": "text/html; charset=utf-8"}, _page(
             "Introuvable", "<h1>Cette page n'existe pas</h1>"
-            "<p class=legende><a href='/'>Revenir au fil des appels</a></p>")
+            "<p class=legende><a href='/'>Revenir au fil des appels</a> · "
+            "<a href='/essayer'>Essayer votre agent</a></p>")
 
     # --- le fil -------------------------------------------------------------
 
@@ -170,7 +177,8 @@ class Console:
                      "Dès que votre numéro sera branché, les appels apparaîtront ici, "
                      "avec ce que l'agent a compris et ce qu'il a répondu.</div>")
             corps = self._bandeau_de_reglages() + corps
-            return _page("Vos appels", entete + bloc_messages + corps)
+            return _page("Vos appels",
+                         entete + bloc_messages + corps + self._pied_de_page())
 
         lignes = "".join(
             f"<li><a class=appel href='/appel/{html.escape(a['uuid'])}'>"
@@ -180,7 +188,8 @@ class Console:
             for a in appels[:50])
         return _page("Vos appels",
                      entete + self._bandeau_de_reglages() + bloc_incidents + bloc_messages
-                     + f"<h2>Fil des appels</h2><ul class=fil>{lignes}</ul>")
+                     + f"<h2>Fil des appels</h2><ul class=fil>{lignes}</ul>"
+                     + self._pied_de_page())
 
     def _bloc_messages(self) -> str:
         """Les messages pris quand le salon a choisi « rappeler » (question D4).
@@ -303,6 +312,13 @@ class Console:
                 f"{'s' if len(manquantes) > 1 else ''} au questionnaire — "
                 "<a class=numero href='/reglages'>y répondre</a>.</div>")
 
+    def _pied_de_page(self) -> str:
+        """La suite utile, sur chaque écran : B10, aucune fin en cul-de-sac."""
+        if self.pack is None:
+            return ""
+        return ("<p class=legende><a href='/reglages'>Les réponses de votre "
+                "agent</a> · <a href='/essayer'>L'essayer</a></p>")
+
     # --- les réglages (docs/05) ---------------------------------------------
 
     def _reponses(self) -> dict:
@@ -396,7 +412,8 @@ class Console:
             "écrire : ces réponses deviennent ce que l'agent sait.</p>"
             f"{etat}<form method=post action='/reglages'>{blocs}"
             "<button type=submit>Enregistrer</button></form>"
-            "<p class=legende><a href='/'>Revenir au fil des appels</a></p>")
+            "<p class=legende><a href='/'>Revenir au fil des appels</a> · "
+            "<a href='/essayer'>Essayer votre agent</a></p>")
 
     def _enregistrer_reglages(self, corps: dict):
         """N'écrit que ce que le pack déclare : le formulaire vient du navigateur."""
@@ -427,6 +444,103 @@ class Console:
         self._message = ("C'est enregistré. Votre agent en tient compte au "
                          "prochain appel.")
         return 303, {"Location": "/"}, ""
+
+    # --- essayer son agent (confrontation du 20/09) -------------------------
+
+    PHRASES_D_ESSAI = (
+        "Bonjour, je voudrais un rendez-vous jeudi à quinze heures trente.",
+        "Vous êtes ouverts samedi ?",
+        "Je voudrais parler à quelqu'un du salon.",
+        "Je vous appelle pour vous proposer notre solution de référencement.",
+    )
+
+    def _agent_d_essai(self):
+        """Un agent monté sur la configuration du commerçant, et sur une base
+        jetable : l'essai n'écrit jamais dans l'agenda réel, c'est ce qui permet
+        de tout tenter."""
+        from datetime import date
+
+        from standard.depot import Depot as DepotJetable
+        from standard.hors_ligne import ModeleHorsLigne
+        from standard.service import Configuration, Service
+
+        aujourd_hui = date.today()
+        config = Configuration(tenant=self.tenant, pack=self.pack,
+                               reponses=self._reponses(), aujourd_hui=aujourd_hui,
+                               creneaux=tuple(self.creneaux))
+        service = Service(config, client_modele=ModeleHorsLigne(aujourd_hui=aujourd_hui),
+                          base=DepotJetable(":memory:").pour(self.tenant))
+        service.demarrer()
+        return service.nouvel_appel("essai")
+
+    def _ecran_d_essai(self):
+        if self.pack is None or self.depot is None:
+            return 404, {"Content-Type": "text/html; charset=utf-8"}, _page(
+                "Essai", "<h1>Rien à essayer</h1>")
+
+        echanges = (self._essai or {}).get("echanges", [])
+        # La toute première phrase est celle que le client entendra en
+        # décrochant : c'est ce que le gérant veut entendre en premier, et elle
+        # porte l'annonce obligatoire.
+        ouverture = ""
+        if echanges:
+            ouverture = (f"<blockquote><strong>L'agent décroche :</strong> "
+                         f"{_texte((self._essai or {}).get('salutation', ''))}"
+                         f"</blockquote>")
+        conversation = ouverture + "".join(
+            f"<blockquote><strong>Vous :</strong> {_texte(dit)}"
+            f"<br><strong>L'agent :</strong> {_texte(repondu)}</blockquote>"
+            for dit, repondu in echanges)
+        if not echanges:
+            # B9 : un état vide dit quoi faire.
+            conversation = ("<div class=vide><strong>Dites-lui quelque chose.</strong>"
+                            "<br>Rien de ce qui se passe ici n'atteint votre "
+                            "agenda : vous pouvez tout essayer.</div>")
+
+        suggestions = "".join(
+            f"<button type=submit name=dire value='{html.escape(phrase)}'>"
+            f"{_texte(phrase)}</button>" for phrase in self.PHRASES_D_ESSAI)
+
+        return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
+            "Essayer",
+            "<h1>Essayer votre agent</h1>"
+            "<p class=legende>Ce qu'il répondra à vos clients, avec vos réponses "
+            "à vous. Rien n'est écrit dans votre agenda.</p>"
+            f"{conversation}"
+            "<form method=post action='/essayer'>"
+            "<label for=dire>Ce que dirait le client</label>"
+            "<input id=dire name=dire type=text>"
+            "<button type=submit>Envoyer</button>"
+            f"<fieldset><legend>Ou essayez ceci</legend>{suggestions}</fieldset>"
+            "</form>"
+            "<form method=post action='/essayer'>"
+            "<input type=hidden name=recommencer value='1'>"
+            "<button type=submit>Recommencer</button></form>"
+            "<p class=legende><a href='/'>Revenir au fil des appels</a> · "
+            "<a href='/reglages'>Changer une réponse</a></p>")
+
+    def _essayer(self, corps: dict):
+        if corps.get("recommencer"):
+            self._essai = None
+            return 303, {"Location": "/essayer"}, ""
+
+        dit = (corps.get("dire") or "").strip()
+        if not dit:
+            return 303, {"Location": "/essayer"}, ""
+
+        if self._essai is None:
+            agent = self._agent_d_essai()
+            self._essai = {"agent": agent, "echanges": [],
+                           "salutation": agent.salutation()}
+        try:
+            reponse = self._essai["agent"].tour(dit)
+            phrase = reponse.phrase
+        except Exception as erreur:
+            # Un essai qui tombe ne doit pas ressembler à une panne du produit :
+            # on montre ce qui s'est passé plutôt qu'une page blanche.
+            phrase = f"[l'essai n'a pas abouti : {erreur}]"
+        self._essai["echanges"].append((dit, phrase))
+        return 303, {"Location": "/essayer"}, ""
 
     # --- la correction ------------------------------------------------------
 
