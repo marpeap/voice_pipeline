@@ -152,6 +152,19 @@ SCENARIOS = {
         (0, {"date": "2026-09-17", "heure": "15:30", "nom": "Dupont",
              "telephone": "0612345678"}),
     ),
+    # Déplacer : l'agent doit écrire le nouveau ET annuler l'ancien. Le
+    # rendez-vous de la veille est semé avant l'appel.
+    "report": (
+        ["bonjour je voudrais décaler mon rendez-vous",
+         "zéro six douze trente-quatre cinquante-six soixante-dix-huit",
+         CLAVIER + "0612345678#",
+         "à dix-sept heures jeudi",
+         "oui c'est parfait"],
+        {"date": "2026-09-17", "heure": "17:00", "nom": "Dupont"},
+        None,
+        (0, {"date": "2026-09-17", "heure": "15:30", "nom": "Dupont",
+             "telephone": "0612345678"}),
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],

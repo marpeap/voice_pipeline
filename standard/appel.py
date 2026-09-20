@@ -130,6 +130,8 @@ class Appel:
         # client se presente et la place a ete donnee a un autre.
         self._annulation: str | None = None
         self._a_annuler: dict | None = None
+        self._deplace: dict | None = None
+        self._but_de_la_recherche = "annuler"
         self._reference_ecrite: str | None = None
         self._corrige_le_nom = False
         self._tours_depuis_ecriture = 0
@@ -242,6 +244,20 @@ class Appel:
         if proposition.get("intention") == "annulation":
             return self._commencer_l_annulation(transcription)
 
+        if proposition.get("intention") == "report" and self._deplace is None:
+            # « report » etait traite comme une prise : l'agent ecrivait un
+            # second rendez-vous et laissait le premier. Le salon se retrouvait
+            # avec deux creneaux pour un client, et un trou invendable.
+            self._deplace = self._rendez_vous_a_deplacer()
+            if self._deplace and self._deplace.get("nom"):
+                # Le rendez-vous deplace porte deja le nom : le redemander fait
+                # repeter l'appelant pour rien.
+                self.etat.connu.setdefault("nom", self._deplace["nom"])
+            if self._deplace is None and not self.etat.connu.get("telephone"):
+                # Sans numero, on ne peut RIEN retrouver : on le demande, comme
+                # pour une annulation, au lieu de prendre un second creneau.
+                return self._commencer_l_annulation(transcription, but="deplacer")
+
         sortie = decider(proposition, self.etat, self.agenda)
         if sortie.genre == "proposition":
             # L'appelant est passe a autre chose : la fenetre de correction du
@@ -316,14 +332,60 @@ class Appel:
                            reference=self._reference_ecrite)
         return Reponse("correction", phrase)
 
+    def _rendez_vous_a_deplacer(self) -> dict | None:
+        """Le rendez-vous existant de cet appelant, s'il en a un.
+
+        Sans numero connu, on ne cherche pas : deviner le rendez-vous d'un
+        appelant sur son seul nom annulerait celui d'un homonyme.
+        """
+        telephone = self.etat.connu.get("telephone")
+        chercher = getattr(self.base, "chercher", None)
+        if not telephone or not callable(chercher):
+            return None
+        try:
+            trouves = chercher(telephone=telephone,
+                               a_partir_de=self.agenda.aujourd_hui.isoformat())
+        except Exception:
+            return None
+        return trouves[0] if trouves else None
+
+    def _liberer_l_ancien(self) -> str:
+        """Annule le rendez-vous deplace, et dit ce qui reste a faire s'il tient.
+
+        L'ordre compte : on a ecrit le nouveau d'abord. Si l'annulation echoue,
+        le client a deux rendez-vous — il doit l'apprendre de l'agent, pas du
+        salon le jour venu.
+        """
+        ancien, self._deplace = self._deplace, None
+        if not ancien or not ancien.get("reference"):
+            return ""
+        annuler = getattr(self.base, "annuler", None)
+        if not callable(annuler):
+            return ""
+        try:
+            libere = annuler(ancien["reference"])
+        except Exception as erreur:
+            self.journal.noter(transcription="[report]", genre="incertain",
+                               phrase="", erreur=str(erreur))
+            libere = False
+        quand = f"{enoncer_date(ancien['date'])} à {enoncer_heure(ancien['heure'])}"
+        if libere:
+            self.journal.noter(transcription="[report]", genre="annulation",
+                               phrase="", reference=ancien["reference"])
+            return f" Votre rendez-vous du {quand} est annulé, à la place."
+        return (f" Attention : je n'ai pas pu annuler votre ancien rendez-vous "
+                f"du {quand}. Le salon s'en occupe.")
+
     # --- annuler (le deuxieme motif d'appel d'un salon) ---------------------
 
-    def _commencer_l_annulation(self, transcription: str) -> Reponse:
+    def _commencer_l_annulation(self, transcription: str, but: str = "annuler") -> Reponse:
+        self._but_de_la_recherche = but
         connu = self.etat.connu.get("telephone")
         if connu:
             return self._retrouver_a_annuler(connu, transcription)
         self._annulation = "numero"
-        phrase = "Je peux annuler. À quel numéro le rendez-vous a-t-il été pris ?"
+        verbe = "annuler" if but == "annuler" else "le déplacer"
+        phrase = f"Je peux {verbe}. À quel numéro le rendez-vous a-t-il été pris ?"
         self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
         return Reponse("question", phrase)
 
@@ -377,10 +439,25 @@ class Appel:
             self.journal.noter(transcription=transcription, genre="question", phrase=phrase)
             return Reponse("question", phrase)
 
+        self.etat.connu["telephone"] = telephone
+        if self._but_de_la_recherche == "deplacer":
+            # On a retrouve le rendez-vous : la suite est une prise normale, et
+            # c'est la confirmation qui liberera l'ancien.
+            self._deplace = trouves[0]
+            if self._deplace.get("nom"):
+                self.etat.connu.setdefault("nom", self._deplace["nom"])
+            self._annulation = None
+            quand = (f"{enoncer_date(self._deplace['date'])} à "
+                     f"{enoncer_heure(self._deplace['heure'])}")
+            phrase = (f"J'ai votre rendez-vous du {quand}. "
+                      "Pour quand voulez-vous le déplacer ?")
+            self.journal.noter(transcription=transcription, genre="question",
+                               phrase=phrase)
+            return Reponse("question", phrase)
+
         # Le plus proche d'abord : c'est celui qu'on annule neuf fois sur dix,
         # et le relire evite d'annuler le mauvais quand il y en a plusieurs.
         self._a_annuler = trouves[0]
-        self.etat.connu["telephone"] = telephone
         self._annulation = "relecture"
         quand = (f"{enoncer_date(self._a_annuler['date'])} à "
                  f"{enoncer_heure(self._a_annuler['heure'])}")
@@ -755,6 +832,8 @@ class Appel:
         if genre == "confirmation":
             self._reference_ecrite = ecriture.reference
             self._tours_depuis_ecriture = 0
+            # Le nouveau est ecrit ET relu : on peut liberer l'ancien.
+            ecriture.phrase += self._liberer_l_ancien()
             self._en_attente = None
             self._demande_le_numero = False
             # Le SMS suit l'ecriture relue, jamais la proposition : promettre un
