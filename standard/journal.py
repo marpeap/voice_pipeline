@@ -109,6 +109,61 @@ class JournalDAppels:
                                             for a in appels),
         }
 
+    def indicateurs(self, tenant: str) -> dict[str, Any]:
+        """Les six indicateurs de `docs/06`, calcules sur ce qui est journalise.
+
+        Trois manquaient — taux d'impasse, transferts par motif, silence percu —
+        alors que leurs donnees existent depuis que chaque tour porte ses
+        latences (T6) et chaque appel son motif d'echec. Personne ne les
+        additionnait : un indicateur promis et jamais calcule est un indicateur
+        faux.
+        """
+        import statistics
+
+        appels = self.lister(tenant)
+        resume = self.resume(tenant)
+        if not appels:
+            return {**resume, "taux_d_impasse_pct": 0.0, "transferts_par_motif": {},
+                    "silence_p50_ms": None, "silence_p95_ms": None,
+                    "rdv_sans_intervention": 0}
+
+        # Impasse : ni rendez-vous, ni message, ni passage a l'humain. Le client
+        # a raccroche avec rien — c'est le seul chiffre qui dit que l'agent a
+        # fait perdre du temps.
+        abouti = ("rendez-vous", "transfert", "message", "annulation",
+                  "verification", "demarchage")
+        impasses = sum(1 for a in appels if a.get("issue") not in abouti)
+
+        motifs: dict[str, int] = {}
+        for a in appels:
+            if a.get("issue") == "transfert":
+                motif = a.get("echec") or "inconnu"
+                motifs[motif] = motifs.get(motif, 0) + 1
+
+        # Silence percu : ce que l'appelant attend vraiment, c'est-a-dire la
+        # detection de fin de parole PLUS le temps que met l'agent a sortir son
+        # premier son. Mesurer l'un sans l'autre flatte le produit.
+        silences = sorted(m.get("total_ms", 0) + m.get("fin_de_parole_ms", 0)
+                          for a in appels for m in (a.get("mesures") or []))
+        p50 = round(statistics.median(silences)) if silences else None
+        # Rang le plus proche (« nearest-rank ») : avec trois valeurs, le p95
+        # est la plus grande. La troncature rendait la mediane, ce qui flattait
+        # exactement l'indicateur qu'on regarde pour detecter les mauvais jours.
+        import math
+
+        p95 = (round(silences[math.ceil(0.95 * len(silences)) - 1])
+               if silences else None)
+
+        sans_intervention = sum(1 for a in appels
+                                if a.get("issue") == "rendez-vous"
+                                and a.get("echec") != "demande_humain")
+
+        return {**resume,
+                "taux_d_impasse_pct": round(100 * impasses / len(appels), 1),
+                "transferts_par_motif": motifs,
+                "silence_p50_ms": p50, "silence_p95_ms": p95,
+                "rdv_sans_intervention": sans_intervention}
+
     # --- conservation -------------------------------------------------------
 
     def purger(self, conservation_jours: int = CONSERVATION_PAR_DEFAUT_JOURS,

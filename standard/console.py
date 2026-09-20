@@ -176,7 +176,7 @@ class Console:
 
     def _fil(self) -> str:
         appels = self.journal.lister(self.tenant)
-        resume = self.journal.resume(self.tenant)
+        resume = self.journal.indicateurs(self.tenant)
         incidents = self.journal.incidents(self.tenant)
 
         # Miller (4±1) : quatre chiffres au plus dans cette ligne, et le
@@ -190,7 +190,8 @@ class Console:
                             f"filtré{'s' if filtres > 1 else ''}, non facturé"
                             f"{'s' if filtres > 1 else ''}")
         entete = ("<h1>Vos appels</h1>"
-                  f"<p class=legende>{' · '.join(chiffres)}</p>")
+                  f"<p class=legende>{' · '.join(chiffres)}</p>"
+                  f"{self._bloc_d_indicateurs(resume)}")
         if self._message:
             entete += f"<p class=succes>{_texte(self._message)}</p>"
             self._message = None
@@ -330,6 +331,29 @@ class Console:
         return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
             "Appel", f"<h1>Appel de {html.escape(appel['debut'][11:16])}</h1>"
                      f"{contexte}{bandeau}{tours}{formulaire}")
+
+    def _bloc_d_indicateurs(self, resume: dict) -> str:
+        """Les six indicateurs de `docs/06`, et pas d'autres.
+
+        Miller, 4±1 : ils sont groupes en une ligne de faits courts, sans
+        graphique — un gerant lit ca entre deux clients, et un graphique
+        demanderait qu'il s'arrete.
+        """
+        if not resume.get("appels"):
+            return ""
+        faits = [f"{resume['rdv_sans_intervention']} rendez-vous sans intervention",
+                 f"{resume['taux_d_impasse_pct']} % d'impasse"]
+        if resume.get("silence_p50_ms"):
+            faits.append(f"{resume['silence_p50_ms'] / 1000:.1f} s de silence "
+                         f"perçu (p50), {resume['silence_p95_ms'] / 1000:.1f} s (p95)")
+        motifs = resume.get("transferts_par_motif") or {}
+        if motifs:
+            from standard.echecs import libelle as libelle_d_echec
+
+            detail = ", ".join(f"{nombre} × {libelle_d_echec(motif) or motif}"
+                               for motif, nombre in sorted(motifs.items()))
+            faits.append(f"passages à l'humain : {detail}")
+        return f"<p class=legende>{' · '.join(faits)}</p>"
 
     def _bandeau_de_reglages(self) -> str:
         """Tant qu'une question critique est vide, l'agent ne décroche pas.
