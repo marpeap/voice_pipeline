@@ -32,6 +32,7 @@ from standard.identite import lire_correction_de_nom, lire_nom, lire_nom_seul
 from standard.locataire import lire_memoire
 from standard.demarchage import est_un_demarchage
 from standard.texte import aplatir
+from standard.sms import PROMESSE_DE_CONFIRMATION
 from standard.regles import (
     RELANCES_MUETTES_AVANT_TRANSFERT,
     TOURS_FENETRE_CORRECTION_NOM,
@@ -793,7 +794,7 @@ class Appel:
             trace = {"transcription": "[numéro]", "genre": "confirmation",
                      "phrase": phrase, "sms": "envoyé" if envoi.envoye else "échec"}
             if envoi.envoye:
-                phrase = "C'est noté. Vous recevrez un SMS de confirmation."
+                phrase = f"C'est noté.{PROMESSE_DE_CONFIRMATION}"
                 trace["phrase"] = phrase
             if envoi.reserve:
                 trace["sms_reserve"] = envoi.reserve
@@ -951,11 +952,14 @@ class Appel:
         if self.etat.connu.get("nom"):
             donnees.setdefault("nom", self.etat.connu["nom"])
         telephone = donnees.get("telephone") or self.etat.connu.get("telephone")
-        promet_sms = (self.envoyeur_sms is not None and bool(telephone)
-                      and getattr(self.envoyeur_sms, "peut_promettre", True))
+        peut_envoyer = (self.envoyeur_sms is not None and bool(telephone)
+                        and getattr(self.envoyeur_sms, "peut_promettre", True))
         cle = cle_idempotence(self.tenant, self.identifiant, self.numero_de_tour)
+        # La phrase se construit sans promesse de SMS : celle-ci ne s'annonce
+        # qu'APRES un envoi reussi. La promettre d'abord, c'etait mentir a
+        # chaque passerelle qui tousse.
         ecriture: Ecriture = ecrire_rendez_vous(self.base, cle, donnees,
-                                                self.journal.ecriture, promet_sms)
+                                                self.journal.ecriture)
 
         if ecriture.statut == "occupe":
             # Quelqu'un a pris la place pendant la conversation. On ne laisse pas
@@ -991,14 +995,17 @@ class Appel:
             self._demande_le_numero = False
             # Le SMS suit l'ecriture relue, jamais la proposition : promettre un
             # message pour un rendez-vous qui n'existe pas serait doubler la faute.
-            if promet_sms:
+            if peut_envoyer:
                 envoi = self.envoyeur_sms.confirmer(telephone, {**donnees,
                                                                 "salon": self.nom_salon})
                 trace["sms"] = "envoyé" if envoi.envoye else "échec"
+                if envoi.envoye:
+                    ecriture.phrase += PROMESSE_DE_CONFIRMATION
                 if envoi.reserve:
-                    # L'agent a deja dit « vous recevrez un SMS » : un echec muet
-                    # transforme cette phrase en mensonge.
+                    # Un echec muet transformerait la phrase en mensonge : on
+                    # garde le motif, et on ne dit rien de plus a l'appelant.
                     trace["sms_reserve"] = envoi.reserve
+                trace["phrase"] = ecriture.phrase
 
         if genre == "incertain":
             self._laisser_a_rattraper(donnees)

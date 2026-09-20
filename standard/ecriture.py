@@ -66,7 +66,7 @@ class Ecriture:
     reference: str | None = None
 
 
-def _phrase_de_confirmation(donnees: dict, promet_sms: bool = False) -> str:
+def _phrase_de_confirmation(donnees: dict) -> str:
     """La seule phrase du produit qui affirme qu'un rendez-vous existe.
 
     Elle porte le jour de la semaine en plus du quantieme (regle E1, mesure 19) :
@@ -83,11 +83,10 @@ def _phrase_de_confirmation(donnees: dict, promet_sms: bool = False) -> str:
     # Le verbe vient de la source unique : c'est la seule phrase du produit
     # autorisee a le porter, et elle ne peut pas diverger de la liste que les
     # tests interdisent partout ailleurs.
-    # On ne promet un SMS que si un SMS peut reellement partir. Annoncer par la
-    # voix quelque chose qui n'aura pas lieu est exactement la faute que ce
-    # module existe pour empecher — la commettre ici serait la doubler.
-    suite = " Vous recevrez un SMS de confirmation." if promet_sms else ""
-    return f"{VERBES_DE_CONFIRMATION[1].capitalize()} : {quoi}, {quand}.{suite}"
+    # Aucune promesse de SMS ici : elle ne se dit qu'APRES un envoi reussi, et
+    # c'est `appel` qui l'ajoute. Le parametre qui la posait d'avance a ete
+    # retire — un chemin mort se remprunte.
+    return f"{VERBES_DE_CONFIRMATION[1].capitalize()} : {quoi}, {quand}."
 
 
 def _phrase_de_creneau_pris(donnees: dict) -> str:
@@ -107,8 +106,7 @@ def _phrase_d_incertitude() -> str:
 
 
 def ecrire_rendez_vous(base: BaseRendezVous, cle: str, donnees: dict,
-                       journal: JournalEcriture | None = None,
-                       promet_sms: bool = False) -> Ecriture:
+                       journal: JournalEcriture | None = None) -> Ecriture:
     """Ecrit, **relit**, et ne confirme que sur une relecture reussie.
 
     Trois issues, et une seule autorise la phrase de confirmation :
@@ -137,4 +135,4 @@ def ecrire_rendez_vous(base: BaseRendezVous, cle: str, donnees: dict,
         return Ecriture("incertain", _phrase_d_incertitude(), reference)
 
     journal.ecritures += 1
-    return Ecriture("confirme", _phrase_de_confirmation(relu, promet_sms), reference)
+    return Ecriture("confirme", _phrase_de_confirmation(relu), reference)

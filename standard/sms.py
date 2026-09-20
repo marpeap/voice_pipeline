@@ -115,6 +115,15 @@ def _tenir_en_un_segment(essentiel: str, facultatif: str, fin: str) -> str:
     return f"{essentiel}.".strip()
 
 
+PROMESSE_DE_CONFIRMATION = " Vous recevrez un SMS de confirmation."
+"""La seule phrase du produit qui annonce un SMS.
+
+Elle ne se dit **qu'apres un envoi reussi**. Ecrite en trois exemplaires, elle
+se serait promise par erreur a trois endroits — et un SMS promis qui ne part
+pas est la meme faute qu'un rendez-vous confirme qui n'existe pas, sur un autre
+objet."""
+
+
 def composer_rappel(rendez_vous: dict) -> str:
     """Le rappel de la veille. Meme forme que la confirmation, autre verbe.
 
