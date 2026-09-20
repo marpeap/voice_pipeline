@@ -91,8 +91,28 @@ def composer_confirmation(rendez_vous: dict) -> str:
     heure = rendez_vous["heure"].replace(":", "h")
     prestation = rendez_vous.get("prestation")
     quoi = f" ({prestation})" if prestation else ""
-    return (f"{rendez_vous['salon']} : rendez-vous confirmé {quand} à {heure}{quoi}. "
-            f"Pour annuler, rappelez-nous.")
+    return _tenir_en_un_segment(
+        f"{rendez_vous['salon']} : rendez-vous confirmé {quand} à {heure}",
+        quoi, " Pour annuler, rappelez-nous.")
+
+
+def _tenir_en_un_segment(essentiel: str, facultatif: str, fin: str) -> str:
+    """Un seul segment, c'est un seul SMS facture au salon.
+
+    Ce qui saute en premier est le libelle de la prestation : on peut s'en
+    passer, jamais du jour ni de l'heure, qui sont la raison d'etre du message.
+    Un seul caractere hors alphabet GSM fait tomber la capacite de 160 a 70 —
+    d'ou le comptage plutot qu'un `len()`.
+    """
+    complet = f"{essentiel}{facultatif}.{fin}"
+    if compter_segments(complet) <= 1:
+        return complet
+    sans_prestation = f"{essentiel}.{fin}"
+    if compter_segments(sans_prestation) <= 1:
+        return sans_prestation
+    # Meme sans elle, c'est trop long : le nom du salon est le seul reste
+    # compressible, et le client sait qui l'appelle.
+    return f"{essentiel}.".strip()
 
 
 def composer_rappel(rendez_vous: dict) -> str:
@@ -113,8 +133,9 @@ def composer_rappel(rendez_vous: dict) -> str:
     heure = rendez_vous["heure"].replace(":", "h")
     prestation = rendez_vous.get("prestation")
     quoi = f" ({prestation})" if prestation else ""
-    return (f"{rendez_vous['salon']} : rappel de votre rendez-vous {quand} "
-            f"à {heure}{quoi}. Pour annuler, rappelez-nous.")
+    return _tenir_en_un_segment(
+        f"{rendez_vous['salon']} : rappel de votre rendez-vous {quand} à {heure}",
+        quoi, " Pour annuler, rappelez-nous.")
 
 
 def verifier_message(message: str, exiger_conformite: bool = False) -> Verdict:

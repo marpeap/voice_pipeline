@@ -245,3 +245,31 @@ def test_une_passerelle_reelle_autorise_la_promesse():
                                          cle="k"),
                         expediteur="Elegance", nom_commercial="Elegance")
     assert envoyeur.peut_promettre is True
+
+
+# --- ce qu'un message trop long coûte ---------------------------------------
+# Deux segments, c'est deux SMS facturés au salon, pour chaque rendez-vous.
+
+def test_un_nom_de_salon_long_ne_double_pas_la_facture():
+    from standard.sms import composer_confirmation, composer_rappel, compter_segments
+
+    rendez_vous = {"date": "2026-09-17", "heure": "15:30",
+                   "salon": "Institut de Beauté Marie-Christine et Filles",
+                   "prestation": "coloration végétale complète"}
+    for composer in (composer_confirmation, composer_rappel):
+        message = composer(rendez_vous)
+        assert compter_segments(message) == 1, f"{len(message)} caractères : {message}"
+
+
+def test_ce_qui_saute_en_premier_est_la_prestation_pas_la_date():
+    """On peut se passer du libellé de la prestation ; jamais du jour ni de
+    l'heure, qui sont la raison d'être du message."""
+    from standard.sms import composer_confirmation, compter_segments
+
+    message = composer_confirmation({
+        "date": "2026-09-17", "heure": "15:30",
+        "salon": "Institut de Beauté Marie-Christine et Filles de Villeneuve",
+        "prestation": "coloration végétale complète avec soin profond"})
+    assert compter_segments(message) == 1
+    assert "17 septembre" in message and "15h30" in message
+    assert "coloration végétale complète" not in message

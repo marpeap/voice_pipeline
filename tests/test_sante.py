@@ -76,3 +76,34 @@ def test_une_page_inconnue_rend_404(serveur):
     with pytest.raises(urllib.error.HTTPError) as refus:
         lire(serveur, "/autre")
     assert refus.value.code == 404
+
+
+def test_un_port_d_etat_deja_pris_n_empeche_pas_de_decrocher(tmp_path):
+    """Trouvé en s'y cognant : deux salons sur une machine, ou une mesure qui
+    tourne encore, et le service refusait de démarrer. Un port de diagnostic
+    occupé ne doit jamais empêcher de répondre au téléphone."""
+    import socket as s
+
+    from standard.demarrage import construire_serveur
+
+    squatteur = s.socket()
+    squatteur.setsockopt(s.SOL_SOCKET, s.SO_REUSEADDR, 1)
+    squatteur.bind(("127.0.0.1", 0))
+    squatteur.listen(1)
+    port_pris = squatteur.getsockname()[1]
+
+    serveur = construire_serveur({
+        "STANDARD_TENANT": "salon-1",
+        "STANDARD_PACK": os.path.join(RACINE, "packs", "coiffure.json"),
+        "STANDARD_REPONSES": '{"A1": "Salon Elegance"}',
+        "STANDARD_PORT": "0", "STANDARD_PORT_SANTE": str(port_pris),
+        "STANDARD_BASE": str(tmp_path / "essai.sqlite3"),
+        "STANDARD_STT": "muet", "STANDARD_TTS": "muet",
+    })
+    try:
+        serveur.demarrer()                 # ne doit pas lever
+        assert serveur.port > 0, "le standard n'écoute pas"
+        assert serveur.sante.erreur, "l'incident doit être visible"
+    finally:
+        serveur.arreter()
+        squatteur.close()

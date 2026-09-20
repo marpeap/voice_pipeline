@@ -19,6 +19,10 @@ EnvironmentFile=/etc/standard/commun
 EnvironmentFile=/etc/standard/%i
 Environment=STANDARD_TENANT=%i
 Environment=STANDARD_BASE=/var/lib/standard/%i.sqlite3
+; Les ports sont PROPRES A CHAQUE SALON : `STANDARD_PORT` (AudioSocket) et
+; `STANDARD_PORT_SANTE` se posent dans /etc/standard/%i. Un port d'état déjà
+; pris n'empêche pas de décrocher — le service le dit et continue —, mais deux
+; salons sur le même port ne se verraient plus l'un l'autre.
 ExecStartPre=/opt/standard/.venv/bin/python -m standard verifier
 ExecStart=/opt/standard/.venv/bin/python -m standard servir
 Restart=always

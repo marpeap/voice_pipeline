@@ -57,6 +57,11 @@ class ServeurDeSante:
         self.port = port
         self._serveur: ThreadingHTTPServer | None = None
         self._fil: threading.Thread | None = None
+        # Ce qui a empeche le point d'etat de s'ouvrir, s'il y a lieu. Il n'y a
+        # pas de raison de refuser de decrocher parce qu'un port de diagnostic
+        # est pris — deux salons sur une machine, une mesure qui tourne encore,
+        # et le standard entier serait reste muet.
+        self.erreur: str | None = None
 
     def demarrer(self) -> None:
         if self._serveur is not None:
@@ -105,7 +110,13 @@ class ServeurDeSante:
             def log_message(self, *_):
                 pass                      # le journal d'appels suffit
 
-        self._serveur = ThreadingHTTPServer((self.hote, self.port), Poignee)
+        try:
+            self._serveur = ThreadingHTTPServer((self.hote, self.port), Poignee)
+        except OSError as erreur:
+            self.erreur = f"point d'état indisponible sur {self.hote}:{self.port} — {erreur}"
+            print(self.erreur, flush=True)
+            self._serveur = None
+            return
         self.port = self._serveur.server_address[1]
         self._fil = threading.Thread(target=self._serveur.serve_forever,
                                      name="sante", daemon=True)
