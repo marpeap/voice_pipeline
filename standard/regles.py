@@ -96,6 +96,16 @@ DE MARTIN » pour « non c'est au nom de Martin »), et l'appelant redit alors l
 nom seul au tour suivant. Un seul tour de fenetre ratait ce rattrapage ; deux le
 couvrent. La fenetre se ferme des qu'une nouvelle demande est comprise."""
 
+RAPPEL_LA_VEILLE = True
+"""Un SMS envoye 24 h avant reduit les absences de 30 a 35 % (recherche du
+20/09, sources metier concordantes). C'est le premier benefice mesurable qu'un
+salon attend d'un logiciel de rendez-vous."""
+
+FENETRE_DE_RAPPEL = (10, 12)
+"""Fin de matinee la veille : la charte AF2M place les SMS entre 8 h et 21 h 30,
+et le metier recommande ce creneau — assez tot pour que le client reorganise sa
+journee, assez tard pour ne pas le reveiller."""
+
 CONSERVATION_JOURS = 90
 """Duree de conservation des appels et de leurs transcriptions.
 

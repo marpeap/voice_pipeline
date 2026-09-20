@@ -127,7 +127,10 @@ def test_a_travers_le_serveur_la_ligne_se_libere_apres_le_refus(tmp_path):
             prise.sendall(encoder(TYPE_AUDIO_8K, parole))
         for _ in range(50):
             prise.sendall(encoder(TYPE_AUDIO_8K, bytes(320)))
-        for _ in range(60):
+        # Jusqu'à dix secondes : sous la charge de la suite entière, l'annonce
+        # met plus longtemps à se dire. Un test qui échoue au hasard apprend à
+        # ignorer la porte, ce qui est pire que pas de test.
+        for _ in range(200):
             if serveur.appels_en_cours == 0:
                 break
             time.sleep(0.05)

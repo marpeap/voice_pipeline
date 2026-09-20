@@ -95,6 +95,28 @@ def composer_confirmation(rendez_vous: dict) -> str:
             f"Pour annuler, rappelez-nous.")
 
 
+def composer_rappel(rendez_vous: dict) -> str:
+    """Le rappel de la veille. Meme forme que la confirmation, autre verbe.
+
+    Recherche du 20/09 : un SMS envoye 24 h avant reduit les absences de 30 a
+    35 %. Il reste **transactionnel** — un seul mot promotionnel le ferait
+    basculer en prospection commerciale, a 750 € le message (CPCE), et
+    obligerait un STOP que ce message n'a pas.
+
+    Il rappelle comment annuler : un client qui peut annuler le fait, et un
+    creneau rendu vaut mieux qu'une chaise vide.
+    """
+    from datetime import date
+
+    jour = date.fromisoformat(rendez_vous["date"])
+    quand = f"{JOURS[jour.weekday()]} {jour.day} {MOIS[jour.month - 1]}"
+    heure = rendez_vous["heure"].replace(":", "h")
+    prestation = rendez_vous.get("prestation")
+    quoi = f" ({prestation})" if prestation else ""
+    return (f"{rendez_vous['salon']} : rappel de votre rendez-vous {quand} "
+            f"à {heure}{quoi}. Pour annuler, rappelez-nous.")
+
+
 def verifier_message(message: str, exiger_conformite: bool = False) -> Verdict:
     """Dit si le message est transactionnel, et ce que cela impose.
 

@@ -30,6 +30,7 @@ from standard.correction import RegistreDeCorrections
 from standard.echecs import detecter_l_echec
 from standard.entretien import Entretien
 from standard.journal import JournalDAppels
+from standard.rappels import Rappels
 from standard.sante import ServeurDeSante
 from standard.hors_ligne import ModeleHorsLigne
 from standard.parole import FileDeSynthese
@@ -373,7 +374,10 @@ def construire_serveur(environnement: Mapping[str, str] | None = None) -> Serveu
     serveur.journal = journal
     # La duree de conservation annoncee au registre n'est vraie que si quelqu'un
     # purge : c'est ce fil-la, demarre et arrete avec le serveur.
-    serveur.entretien = Entretien(journal)
+    envoyeur = _envoyeur_sms(env, config)
+    serveur.entretien = Entretien(journal, rappels=Rappels(
+        depot=depot, tenant=config.tenant, envoyeur=envoyeur,
+        nom_du_salon=(config.reponses.get("A1") or config.tenant)))
     # Sans point d'etat, l'exploitant apprend la panne par un commercant qui
     # telephone. Sur la boucle locale par defaut : ce qui doit sortir de la
     # machine passe par un proxy, pas par ce port.

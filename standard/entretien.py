@@ -18,16 +18,25 @@ import threading
 
 from standard.regles import CONSERVATION_JOURS
 
-INTERVALLE_PAR_DEFAUT_S = 24 * 3600
-"""Une fois par jour suffit : la durée se compte en jours, pas en minutes."""
+INTERVALLE_PAR_DEFAUT_S = 3600
+"""Une heure. La purge, elle, se compte en jours — la repasser chaque heure ne
+coute rien et ne fait rien de plus. Mais les rappels de la veille ont une
+fenetre horaire (`regles.FENETRE_DE_RAPPEL`) : un passage quotidien la
+manquerait une fois sur deux."""
 
 
 class Entretien:
     """Purge periodique, demarree avec le service et arretee avec lui."""
 
     def __init__(self, journal, conservation_jours: int = CONSERVATION_JOURS,
-                 intervalle_s: float = INTERVALLE_PAR_DEFAUT_S):
+                 intervalle_s: float = INTERVALLE_PAR_DEFAUT_S,
+                 rappels=None):
         self.journal = journal
+        # Les rappels de la veille vivent ici : c'est le seul fil qui tourne
+        # deja avec le service, et un cron pose a la main sur un VPS recree est
+        # la facon habituelle dont ces choses-la cessent de tourner.
+        self.rappels = rappels
+        self.rappels_envoyes = 0
         self.conservation_jours = conservation_jours
         self.intervalle_s = intervalle_s
         self.passages = 0
@@ -50,6 +59,14 @@ class Entretien:
             return 0
         self.passages += 1
         self.effaces += efface
+
+        if self.rappels is not None:
+            try:
+                self.rappels_envoyes += self.rappels.passer()
+            except Exception:
+                # Un rappel qui tombe ne doit pas emporter le menage, ni le
+                # standard : on compte et on repassera dans une heure.
+                self.pannes += 1
         return efface
 
     # --- le fil -------------------------------------------------------------
@@ -80,4 +97,5 @@ class Entretien:
 
     def etat(self) -> dict:
         return {"passages": self.passages, "lignes_effacees": self.effaces,
+                "rappels_envoyes": self.rappels_envoyes,
                 "pannes": self.pannes, "conservation_jours": self.conservation_jours}

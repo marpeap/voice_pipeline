@@ -317,6 +317,11 @@ class Depot:
         if not tenant:
             raise ValueError("lister sans locataire : refuse, pour ne pas tout rendre")
         with self._verrou:
-            return [json.loads(ligne["donnees"]) for ligne in self._connexion.execute(
-                "SELECT donnees FROM rendez_vous WHERE tenant_id = ? AND annule = 0 "
-                "ORDER BY date, heure", (tenant,))]
+            # La reference vient de la colonne : sans elle, on peut lire un
+            # rendez-vous sans pouvoir le corriger ni l'annuler — c'est ce qui
+            # empechait de marquer un rappel comme envoye.
+            return [{**json.loads(ligne["donnees"]), "reference": ligne["reference"]}
+                    for ligne in self._connexion.execute(
+                        "SELECT reference, donnees FROM rendez_vous "
+                        "WHERE tenant_id = ? AND annule = 0 ORDER BY date, heure",
+                        (tenant,))]
