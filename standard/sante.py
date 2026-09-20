@@ -46,7 +46,47 @@ def etat_du_serveur(serveur) -> dict:
         etat.update(service.supervision())
     if entretien is not None:
         etat["entretien"] = {**entretien.etat(), "vivant": entretien.vivant}
+
+    # Un mot, pas quinze chiffres : personne n'ecrit une sonde qui compare
+    # quinze nombres, et personne ne les relit a trois heures du matin. Les
+    # chiffres restent pour comprendre, le mot sert a alerter.
+    etat["raisons"] = _ce_qui_ne_va_pas(etat, serveur)
+    etat["etat"] = _resumer(etat)
     return etat
+
+
+def _ce_qui_ne_va_pas(etat: dict, serveur) -> list:
+    """Les raisons, en francais, dans l'ordre de gravite."""
+    raisons = []
+    if not etat.get("port_audiosocket"):
+        raisons.append("le standard n'écoute aucun port : aucun appel ne peut arriver")
+    if etat.get("confirmations_orphelines"):
+        # Cible zero : toute occurrence est un incident, pas une statistique.
+        raisons.append(f"{etat['confirmations_orphelines']} confirmation(s) "
+                       "orpheline(s) — un client s'organise sur un rendez-vous "
+                       "qui n'existe pas")
+    entretien = etat.get("entretien") or {}
+    if entretien and not entretien.get("vivant"):
+        raisons.append("le ménage est arrêté : la durée de conservation annoncée "
+                       "au registre devient fausse")
+    if etat.get("pannes_pendant_appel"):
+        raisons.append(f"{etat['pannes_pendant_appel']} panne(s) pendant un appel")
+    if etat.get("archivages_perdus"):
+        raisons.append(f"{etat['archivages_perdus']} appel(s) que le journal n'a "
+                       "pas voulu : la trace est perdue")
+    if etat.get("paroles_perdues"):
+        raisons.append(f"{etat['paroles_perdues']} phrase(s) fabriquée(s) que "
+                       "l'appelant n'a pas entendue(s)")
+    if getattr(getattr(serveur, "sante", None), "erreur", None):
+        raisons.append(getattr(serveur.sante, "erreur"))
+    return raisons
+
+
+def _resumer(etat: dict) -> str:
+    """`ok`, `dégradé`, `en panne` — et rien d'autre : trois mots se surveillent."""
+    if not etat.get("port_audiosocket"):
+        return "en panne"
+    return "dégradé" if etat.get("raisons") else "ok"
 
 
 class ServeurDeSante:
