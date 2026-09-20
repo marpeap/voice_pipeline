@@ -167,6 +167,17 @@
             "cible": "frontmatter",
             "chemin": "urgences.nuit_week_end"
           }
+        },
+        {
+          "id": "A6",
+          "type": "texte_long",
+          "critique": false,
+          "libelle": "Vos fermetures exceptionnelles (congés, jours de fermeture)",
+          "aide": "Une par ligne : « 25/12/2026 », ou « du 1er au 15 août 2026 ». L'agent ne proposera aucun créneau ces jours-là.",
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "horaires.fermetures"
+          }
         }
       ]
     },

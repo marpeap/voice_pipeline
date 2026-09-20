@@ -319,6 +319,19 @@ class Service:
             ouverts.discard(regle["heure"])
         return ouverts
 
+    def _fermetures(self) -> tuple:
+        """Les conges ecrits par le commercant, lus comme il les a ecrits."""
+        from standard.fermetures import lire_les_fermetures
+
+        horaires = (self._memoire[1].frontmatter.get("horaires") or {}
+                    ) if self._memoire else {}
+        return tuple(lire_les_fermetures(str(horaires.get("fermetures") or "")))
+
+    def _ferme_les_feries(self) -> bool:
+        horaires = (self._memoire[1].frontmatter.get("horaires") or {}
+                    ) if self._memoire else {}
+        return str(horaires.get("feries", "oui")) != "non"
+
     def _agenda(self) -> Agenda:
         return Agenda(aujourd_hui=self.configuration.aujourd_hui,
                       horizon_jours=self.configuration.horizon_jours,
@@ -328,7 +341,9 @@ class Service:
                       pris=self.creneaux_pris(),
                       libres_du_jour=self.libres_du_jour,
                       durees=dict(self._memoire[1].frontmatter.get("durees") or {})
-                      if self._memoire else {})
+                      if self._memoire else {},
+                      fermetures=self._fermetures(),
+                      ferme_les_feries=self._ferme_les_feries())
 
     def _annonce(self) -> str:
         """La formulation choisie par le salon, jamais son existence."""

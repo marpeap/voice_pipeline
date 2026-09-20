@@ -178,6 +178,16 @@ SCENARIOS = {
         {"STANDARD_REPONSES": '{"A1": "Salon Elegance", '
                               '"C1": ["coupe", "brushing", "coloration"]}'},
     ),
+    # Congés : l'agent refuse le jour ET dit quand le salon rouvre.
+    "conges": (
+        ["bonjour je voudrais un rendez-vous jeudi à quinze heures trente",
+         "alors mardi prochain à quinze heures trente",
+         "oui c'est parfait",
+         "au nom de Dupont"],
+        {"date": "2026-09-22", "heure": "15:30"},
+        {"STANDARD_REPONSES": '{"A1": "Salon Elegance", '
+                              '"A6": "du 2026-09-16 au 2026-09-20"}'},
+    ),
     "question-horaires": (
         ["bonjour je voulais juste connaître vos horaires d'ouverture",
          "non merci au revoir"],

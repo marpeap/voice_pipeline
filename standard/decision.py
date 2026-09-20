@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
 
+from standard.fermetures import est_ferme
 from standard.regles import (
     JOURS,
     MOIS,          # une seule source pour les seuils
@@ -49,6 +50,10 @@ class Agenda:
     # le debut ; personne ne s'en servait, et une coloration de deux heures
     # laissait le creneau suivant reservable.
     durees: dict = field(default_factory=dict)
+    # Les jours ou le salon est ferme pour une autre raison que son planning :
+    # feries et conges. Sans eux, l'agent prenait des rendez-vous le 25 decembre.
+    fermetures: tuple = ()
+    ferme_les_feries: bool = True
 
     def statut(self, jour_iso: str) -> str:
         """hors horizon · ferme · ouvert — trois reponses, jamais une seule.
@@ -65,6 +70,8 @@ class Agenda:
         if jour > self.aujourd_hui + timedelta(days=self.horizon_jours):
             return "hors horizon"
         if jour.weekday() in self.jours_fermes:
+            return "ferme"
+        if est_ferme(jour, self.fermetures, self.ferme_les_feries):
             return "ferme"
         return "ouvert"
 
@@ -86,6 +93,21 @@ class Agenda:
             return int(valeur) if valeur else None
         except (TypeError, ValueError):
             return None
+
+    def reouverture(self, jour: date):
+        """Le premier jour ouvert apres celui-ci, dans l'horizon — ou `None`.
+
+        Sans cette date, l'appelant essaie des jours au hasard, et chaque essai
+        est un tour de conversation paye par le salon. Au-dela de l'horizon on
+        ne sait pas : on prefere ne rien dire a inventer une reouverture.
+        """
+        limite = self.aujourd_hui + timedelta(days=self.horizon_jours)
+        candidat = jour + timedelta(days=1)
+        while candidat <= limite:
+            if self.statut(candidat.isoformat()) == "ouvert":
+                return candidat
+            candidat += timedelta(days=1)
+        return None
 
     def libres(self, jour_iso: str, duree_minutes: int | None = None) -> list[str]:
         disponibles = self._libres_sans_duree(jour_iso)
@@ -312,8 +334,10 @@ def decider(proposition: dict, etat: Etat, agenda: Agenda) -> Sortie:
                          "Je ne prends pas encore les rendez-vous aussi loin. "
                          "Rappelez-nous quelques semaines avant.", etat)
     if statut == "ferme":
-        return _refuser("Nous sommes fermés ce jour-là, souhaitez-vous un autre jour ?",
-                        "date", etat, agenda, jour)
+        reprise = agenda.reouverture(date.fromisoformat(jour))
+        quand = f" Nous rouvrons le {enoncer_date(reprise.isoformat())}." if reprise else ""
+        return _refuser(f"Nous sommes fermés ce jour-là.{quand} "
+                        "Souhaitez-vous un autre jour ?", "date", etat, agenda, jour)
     if statut in ("inconnu", "passe"):
         return _repondre("question",
                          "Je n'ai pas compris la date, pouvez-vous me la redonner ?", etat)

@@ -112,6 +112,39 @@
             "cible": "frontmatter",
             "chemin": "agenda.horizon_jours"
           }
+        },
+        {
+          "id": "A5",
+          "type": "choix_unique",
+          "critique": false,
+          "libelle": "Fermez-vous les jours fériés ?",
+          "aide": "Un rendez-vous pris le 25 décembre fait déplacer un client devant un rideau baissé. Beaucoup de commerces ouvrent le 14 juillet : c'est vous qui décidez.",
+          "options": [
+            {
+              "valeur": "oui",
+              "libelle": "Oui, fermé les jours fériés",
+              "defaut": true
+            },
+            {
+              "valeur": "non",
+              "libelle": "Non, j'ouvre les jours fériés"
+            }
+          ],
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "horaires.feries"
+          }
+        },
+        {
+          "id": "A6",
+          "type": "texte_long",
+          "critique": false,
+          "libelle": "Vos fermetures exceptionnelles (congés, jours de fermeture)",
+          "aide": "Une par ligne : « 25/12/2026 », ou « du 1er au 15 août 2026 ». L'agent ne proposera aucun créneau ces jours-là.",
+          "ecrit": {
+            "cible": "frontmatter",
+            "chemin": "horaires.fermetures"
+          }
         }
       ]
     },
