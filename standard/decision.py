@@ -123,8 +123,19 @@ class Agenda:
             candidat += timedelta(days=1)
         return None
 
-    def libres(self, jour_iso: str, duree_minutes: int | None = None) -> list[str]:
-        disponibles = self._libres_sans_duree(jour_iso)
+    def libres(self, jour_iso: str, duree_minutes: int | None = None,
+               sans_l_hote: bool = False) -> list[str]:
+        """Les creneaux libres. `sans_l_hote` s'en tient a ce que la machine
+        sait d'elle-meme : la fiche du salon.
+
+        Decrire le calendrier au modele n'exige pas d'interroger l'agenda tiers
+        quinze fois — une par jour d'horizon, pour UNE phrase. L'hote limite la
+        lecture a 120 requetes par minute et par IP : a ce rythme, le produit ne
+        portait qu'un a deux appels simultanes. L'hote reste consulte pour le
+        jour REELLEMENT envisage, par la couche de decision, qui est celle qui
+        tranche ce qu'on propose.
+        """
+        disponibles = self._libres_sans_duree(jour_iso, sans_l_hote=sans_l_hote)
         if not duree_minutes:
             return disponibles
         # Un creneau n'est libre que si TOUT ce que la prestation occupe l'est
@@ -135,8 +146,8 @@ class Agenda:
                 if all(c is not None and c in libres
                        for c in creneaux_couverts(heure, duree_minutes, grille))]
 
-    def _libres_sans_duree(self, jour_iso: str) -> list[str]:
-        if self.libres_du_jour is not None:
+    def _libres_sans_duree(self, jour_iso: str, sans_l_hote: bool = False) -> list[str]:
+        if self.libres_du_jour is not None and not sans_l_hote:
             import time
 
             garde = self._memoire_hote.get(jour_iso)

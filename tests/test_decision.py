@@ -302,3 +302,61 @@ def test_l_hote_n_est_pas_relu_quinze_fois_par_tour_de_parole():
 
     agenda.libres("2026-09-18")
     assert len(appels) == 2, "un autre jour est une autre question"
+
+
+def test_un_tour_de_parole_ne_lit_l_hote_que_pour_les_jours_envisages():
+    """Treize lectures pour une phrase saturaient le quota de l'hôte.
+
+    `LECTURE_PUBLIQUE` vaut 120 requêtes/minute par IP chez Crenolo. À treize
+    lectures par tour, un échange parlé de 8 à 15 s consomme 52 à 156
+    lectures/minute : le produit ne portait qu'un à deux appels simultanés.
+
+    La description du calendrier donnée au modèle n'a pas besoin de l'hôte :
+    elle dit quels jours le salon ouvre, ce que la machine sait d'elle-même.
+    L'hôte, lui, reste consulté pour le jour réellement envisagé — c'est la
+    couche de décision qui le fait, et c'est elle qui décide ce qu'on propose.
+    Calcul de la session qui tient marpeap/crenolo, vérifié ici.
+    """
+    import os
+
+    from standard.demarrage import construire_serveur
+
+    racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    serveur = construire_serveur({
+        "STANDARD_TENANT": "salon-1",
+        "STANDARD_PACK": os.path.join(racine, "packs", "coiffure.json"),
+        "STANDARD_REPONSES": '{"A1": "Salon Elegance"}',
+        "STANDARD_CRENEAUX": "09:00,10:30,14:00,15:30",
+        "STANDARD_AUJOURDHUI": "2026-09-15",
+        "STANDARD_PORT": "0", "STANDARD_PORT_SANTE": "0", "STANDARD_PORT_TOILE": "0",
+        "STANDARD_BASE": ":memory:", "STANDARD_STT": "muet", "STANDARD_TTS": "muet",
+    })
+    suivi = serveur.fabrique_agent()
+    lectures = []
+    suivi._appel.agenda.libres_du_jour = (
+        lambda jour: (lectures.append(jour) or ["09:00", "10:30", "14:00", "15:30"]))
+
+    reponse = suivi.tour("je voudrais un rendez-vous jeudi à quinze heures trente")
+
+    assert reponse.phrase, "l'agent doit répondre"
+    assert len(lectures) <= 3, (
+        f"{len(lectures)} lectures de l'hôte pour un tour — le quota de l'hôte "
+        "ne le supporte pas")
+    assert len(set(lectures)) <= 2, "un tour n'envisage pas dix jours"
+
+
+def test_le_calendrier_donne_au_modele_ne_touche_jamais_l_hote():
+    """La description des jours ouverts est une connaissance locale."""
+    from datetime import date
+
+    from standard.decision import Agenda
+
+    lectures = []
+    agenda = Agenda(aujourd_hui=date(2026, 9, 15), creneaux={"09:00", "15:30"},
+                    jours_fermes=(6, 0),
+                    libres_du_jour=lambda jour: (lectures.append(jour) or ["09:00"]))
+
+    assert agenda.libres("2026-09-17", sans_l_hote=True) == ["09:00", "15:30"]
+    assert lectures == [], "le calendrier local a interrogé l'hôte"
+    assert agenda.libres("2026-09-17") == ["09:00"], "l'hôte reste la vérité"
+    assert lectures == ["2026-09-17"]

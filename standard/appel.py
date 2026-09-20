@@ -153,7 +153,10 @@ class Appel:
         for delta in range(self.agenda.horizon_jours + 1):
             jour = (self.agenda.aujourd_hui + timedelta(days=delta)).isoformat()
             if self.agenda.statut(jour) == "ouvert":
-                calendrier[jour] = self.agenda.libres(jour)
+                # SANS l'hote : decrire les jours ouverts est une connaissance
+                # locale. L'interroger ici, c'etait quinze requetes pour une
+                # phrase, et un quota d'hote sature au deuxieme appel.
+                calendrier[jour] = self.agenda.libres(jour, sans_l_hote=True)
         return calendrier
 
     def tour(self, transcription: str, bruite: bool = False) -> Reponse:
