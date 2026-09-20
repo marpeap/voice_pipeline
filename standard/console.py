@@ -123,8 +123,11 @@ class Console:
             return self._detail(chemin.removeprefix("/appel/"))
         if methode == "GET" and chemin.rstrip("/") == "/essayer":
             return self._ecran_d_essai()
-        if methode == "POST" and chemin.rstrip("/") == "/essayer":
-            return self._essayer(corps or {})
+        if methode == "POST" and chemin.split("?")[0].rstrip("/") == "/essayer":
+            corps = dict(corps or {})
+            if "nouveau=1" in chemin:
+                corps["nouveau"] = "1"
+            return self._essayer(corps)
         if methode == "GET" and chemin.rstrip("/") == "/reglages":
             return self._reglages()
         if methode == "POST" and chemin.rstrip("/") == "/reglages":
@@ -497,9 +500,13 @@ class Console:
                             "<br>Rien de ce qui se passe ici n'atteint votre "
                             "agenda : vous pouvez tout essayer.</div>")
 
+        # Ces quatre phrases sont des DEBUTS d'appel : les envoyer au milieu
+        # d'une conversation aboutie montrerait l'agent sous un faux jour — le
+        # demarchage, par exemple, n'est filtre que dans les premiers tours.
         suggestions = "".join(
-            f"<button type=submit name=dire value='{html.escape(phrase)}'>"
-            f"{_texte(phrase)}</button>" for phrase in self.PHRASES_D_ESSAI)
+            f"<button type=submit name=dire value='{html.escape(phrase)}' "
+            f"formaction='/essayer?nouveau=1'>{_texte(phrase)}</button>"
+            for phrase in self.PHRASES_D_ESSAI)
 
         return 200, {"Content-Type": "text/html; charset=utf-8"}, _page(
             "Essayer",
@@ -527,6 +534,8 @@ class Console:
         dit = (corps.get("dire") or "").strip()
         if not dit:
             return 303, {"Location": "/essayer"}, ""
+        if corps.get("nouveau"):
+            self._essai = None
 
         if self._essai is None:
             agent = self._agent_d_essai()

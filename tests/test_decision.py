@@ -164,3 +164,35 @@ def test_jamais_la_meme_phrase_deux_fois_de_suite():
         vues.add(sortie.phrase)
         if sortie.genre == "transfert":
             break
+
+
+# --- quand il ne reste rien -------------------------------------------------
+# Trouvé en utilisant la console d'essai le 20/09 : l'agent disait « Le jeudi
+# 24 septembre, il me reste . Qu'est-ce qui vous va ? » — une phrase vide, et
+# une question sans réponse possible.
+
+def agenda_sans_creneau():
+    from standard.decision import Agenda
+    return Agenda(aujourd_hui=MARDI, horizon_jours=14, jours_fermes=(6, 0),
+                  creneaux=set())
+
+
+def test_un_jour_sans_creneau_se_dit_au_lieu_d_une_liste_vide():
+    from standard.decision import Etat, decider
+
+    sortie = decider({"intention": "rdv", "date": "2026-09-17", "heure": None,
+                      "confiance": {"intention": 0.9, "date": 0.9}, "manque": []},
+                     Etat(), agenda_sans_creneau())
+    assert "il me reste ." not in sortie.phrase
+    assert "plus rien" in sortie.phrase or "complet" in sortie.phrase
+
+
+def test_une_heure_refusee_sans_alternative_ne_promet_pas_une_liste_vide():
+    from standard.decision import Etat, decider
+
+    sortie = decider({"intention": "rdv", "date": "2026-09-17", "heure": "15:30",
+                      "confiance": {"intention": 0.9, "date": 0.9, "heure": 0.9},
+                      "manque": []},
+                     Etat(), agenda_sans_creneau())
+    assert "Il me reste ." not in sortie.phrase
+    assert "plus rien" in sortie.phrase or "complet" in sortie.phrase

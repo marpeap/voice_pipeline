@@ -245,6 +245,13 @@ def decider(proposition: dict, etat: Etat, agenda: Agenda) -> Sortie:
                          "Je n'ai pas compris la date, pouvez-vous me la redonner ?", etat)
 
     libres = agenda.libres(jour)
+    if not libres:
+        # Trouve en utilisant la console d'essai : l'agent disait « il me reste
+        # . », une phrase vide suivie d'une question sans reponse possible. Un
+        # jour complet se dit, il ne se laisse pas deviner.
+        return _refuser(f"Le {enoncer_date(jour)}, je n'ai plus rien. "
+                        "Voulez-vous un autre jour ?", "date", etat, agenda, jour)
+
     if not heure:
         propositions = espacer(libres)
         dites = " ou ".join(enoncer_heure(h) for h in propositions)
@@ -278,6 +285,10 @@ def _refuser(phrase: str | None, entite: str, etat: Etat, agenda: Agenda, jour: 
         etat.oubliees.add(entite)
         etat.connu[entite] = None
         libres = espacer(agenda.libres(jour), 3)
+        if not libres:
+            return _repondre("question",
+                             f"Le {enoncer_date(jour)}, je n'ai plus rien. "
+                             "Quel autre jour vous conviendrait ?", etat)
         dites = ", ".join(enoncer_heure(h) for h in libres)
         return _repondre("question",
                          f"Je n'ai pas ce créneau. Parmi {dites}, lequel vous conviendrait ?",
@@ -285,6 +296,10 @@ def _refuser(phrase: str | None, entite: str, etat: Etat, agenda: Agenda, jour: 
 
     if phrase is None:
         libres = espacer(agenda.libres(jour), 2)
-        dites = " ou ".join(enoncer_heure(h) for h in libres)
-        phrase = f"Ce créneau n'est pas libre. Il me reste {dites}."
+        if libres:
+            dites = " ou ".join(enoncer_heure(h) for h in libres)
+            phrase = f"Ce créneau n'est pas libre. Il me reste {dites}."
+        else:
+            phrase = (f"Le {enoncer_date(jour)}, je n'ai plus rien. "
+                      "Voulez-vous un autre jour ?")
     return _repondre("refus", phrase, etat)

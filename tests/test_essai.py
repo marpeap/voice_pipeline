@@ -86,3 +86,30 @@ def test_chaque_ecran_mene_a_l_essai_et_aux_reglages():
         _, contenu = page(c, chemin)
         assert "/essayer" in contenu, chemin
         assert "/reglages" in contenu, chemin
+
+
+def test_la_console_lancee_en_ligne_de_commande_recoit_les_creneaux():
+    """Sans eux, l'essai montre un agenda vide et le gérant croit son agent
+    cassé — c'est exactement ce qui est arrivé le 20/09 en l'essayant."""
+    import inspect
+
+    from standard import __main__ as principal
+
+    assert "creneaux=config.creneaux" in inspect.getsource(principal)
+
+
+def test_une_phrase_toute_faite_recommence_un_appel_neuf():
+    """Les quatre phrases proposées sont des DÉBUTS d'appel. Les envoyer au
+    milieu d'une conversation déjà aboutie montrait l'agent sous un faux jour —
+    le démarchage, par exemple, n'est filtré que dans les premiers tours."""
+    c = console()
+    for phrase in ("je voudrais un rendez-vous jeudi à quinze heures trente",
+                   "oui c'est parfait", "au nom de Dupont"):
+        page(c, "/essayer", "POST", {"dire": phrase})
+
+    page(c, "/essayer", "POST",
+         {"dire": "Je vous appelle pour vous proposer notre solution de référencement.",
+          "nouveau": "1"})
+    _, contenu = page(c)
+    assert "démarchages" in contenu.lower()
+    assert "Dupont" not in contenu, "l'appel précédent traîne encore à l'écran"

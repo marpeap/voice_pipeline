@@ -107,6 +107,9 @@ def _executer(arguments: list[str]) -> int:
                           # production : le commercant ne peut pas configurer son
                           # agent, et le produit ne se vend pas seul (docs/05).
                           pack=config.pack,
+                          # Les creneaux du salon : sans eux, l'essai montre un
+                          # agenda vide et le gerant croit son agent casse.
+                          creneaux=config.creneaux,
                           depot=depot,          # sans lui, les messages pris
                           audit=PisteDAudit(depot),
                           acteur=os.environ.get("STANDARD_ACTEUR", "console"))
